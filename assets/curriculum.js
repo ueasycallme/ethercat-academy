@@ -4,7 +4,7 @@
  */
 window.ACADEMY_CURRICULUM = {
   title: 'EtherCAT 学院',
-  version: '1.0.3',
+  version: '1.1.0',
   layers: ['planner', 'rt-loop', 'cia402-m', 'master-stack', 'nic', 'cable',
            'esc', 'slave-stack', 'cia402-s', 'motor-ctrl', 'power-stage', 'motor'],
   units: [
@@ -32,10 +32,12 @@ window.ACADEMY_CURRICULUM = {
         highlight: ['master-stack', 'esc'], prereq: ['u2-l1'] }
     ]},
     { id: 'u3', no: 'U3', title: '协议与状态机', lessons: [
+      { id: 'u3-l0', title: 'CoE 与对象字典：从站的参数表与数据模型', hours: 1.5,
+        highlight: ['master-stack', 'slave-stack', 'cia402-s'], prereq: ['u2-l1'] },
       { id: 'u3-l1', title: 'ESM 状态机：INIT 到 OP', hours: 1.5,
-        highlight: ['master-stack', 'esc', 'slave-stack'], prereq: ['u2-l1', 'u2-l2'] },
-      { id: 'u3-l2', title: '邮箱与 CoE SDO', hours: 1.5,
-        highlight: ['master-stack', 'esc', 'slave-stack'], prereq: ['u2-l2', 'u3-l1'] },
+        highlight: ['master-stack', 'esc', 'slave-stack'], prereq: ['u2-l1', 'u2-l2', 'u3-l0'] },
+      { id: 'u3-l2', title: '邮箱协议族与 CoE SDO', hours: 1.5,
+        highlight: ['master-stack', 'esc', 'slave-stack'], prereq: ['u2-l2', 'u3-l0', 'u3-l1'] },
       { id: 'u3-l3', title: 'PDO 映射与过程映像', hours: 1.5,
         highlight: ['master-stack', 'esc', 'slave-stack'], prereq: ['u2-l3', 'u3-l2'] }
     ]},

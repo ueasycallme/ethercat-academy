@@ -115,7 +115,13 @@
 <tr data-cat="缩写"><td><code>FoE</code></td><td>File access over EtherCAT</td><td>经邮箱传文件，常用于 BOOT 下固件升级。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
 <tr data-cat="缩写"><td><code>CoE</code></td><td>CANopen over EtherCAT</td><td>在邮箱里承载 CANopen 的 SDO 与对象字典。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
 <tr data-cat="缩写"><td><code>SDO</code></td><td>Service Data Object</td><td>一问一答访问对象字典的服务，走邮箱。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
-<tr data-cat="缩写"><td><code>OD</code></td><td>Object Dictionary</td><td>对象字典：用 16 位索引 + 8 位子索引组织的全部参数与过程变量。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>OD</code></td><td>Object Dictionary</td><td>对象字典：用 16 位索引 + 8 位子索引组织的全部参数与过程变量。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+<tr data-cat="概念"><td><code>索引 / 子索引</code></td><td>Index / Subindex</td><td>对象字典的编号：16 位索引选对象，8 位子索引选对象内的条目；IgH 命令行里索引写十六进制、子索引写十进制。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+<tr data-cat="概念"><td><code>VAR</code></td><td>Variable，对象码 7</td><td>只含一个值的对象，只有子索引 0，如 0x6041 状态字。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+<tr data-cat="概念"><td><code>ARRAY</code></td><td>Array，对象码 8</td><td>同一数据类型的多个条目；子索引 0 是最高子索引号（即条目数），如 0x1C12。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+<tr data-cat="概念"><td><code>RECORD</code></td><td>Record，对象码 9</td><td>数据类型可以各不相同的多个条目组成的结构；子索引 0 是最高子索引号，如 0x1018。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+<tr data-cat="缩写"><td><code>SDO Info</code></td><td>SDO Information Service</td><td>CoE 服务，主站在线读取从站的对象列表、对象描述和条目描述；<code>ethercat sdos</code> 用的就是它。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+<tr data-cat="概念"><td><code>Complete Access</code></td><td>完全访问</td><td>CoE 的 SDO 扩展，一次上传或下载一个对象的全部子索引，而不是逐个子索引访问。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
 <tr data-cat="概念"><td><code>快速传输</code></td><td>Expedited SDO</td><td>数据 ≤4 字节时直接放进 SDO 命令帧，一问一答完成。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
 <tr data-cat="概念"><td><code>分段传输</code></td><td>Segmented SDO</td><td>数据大于 4 字节时分多段传送。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
 <tr data-cat="概念"><td><code>Abort code</code></td><td>SDO 中止码</td><td>32 位错误码，说明 SDO 为何失败，如 0x06020000 对象不存在。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
@@ -159,7 +165,7 @@
 <tr data-cat="概念"><td><code>插补</code></td><td>Interpolation</td><td>在两个总线周期的指令点之间生成更细的控制周期指令。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
 <tr data-cat="概念"><td><code>跟随误差</code></td><td>Following Error</td><td>指令位置与实际位置之差；超出 6065 持续 6066 即报错。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
 <tr data-cat="概念"><td><code>Wireshark ecat</code></td><td>Wireshark EtherCAT 解析器</td><td>抓包工具的 EtherCAT 协议解析，过滤器 ecat、ecat.cmd、ecat.cnt 等。</td><td><a href="u7-l1.html">u7-l1</a></td></tr>
-<tr data-cat="对象"><td><code>0x1018</code></td><td>Identity Object</td><td>身份对象：厂商号、产品号、修订号、序列号。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x1018</code></td><td>Identity Object</td><td>身份对象：厂商号、产品号、修订号、序列号。</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
 <tr data-cat="对象"><td><code>0x1600</code></td><td>RxPDO Mapping</td><td>第一个接收 PDO 的映射表，每个子索引一个映射项。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
 <tr data-cat="对象"><td><code>0x1A00</code></td><td>TxPDO Mapping</td><td>第一个发送 PDO 的映射表。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
 <tr data-cat="对象"><td><code>0x1C12</code></td><td>RxPDO Assign（SM2）</td><td>列出分配给输出 SM2 的 RxPDO。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
@@ -214,6 +220,15 @@
 <tr data-cat="代码"><td><code>0x06020000</code></td><td>SDO Abort: Object does not exist</td><td>SDO 中止码：对象字典中没有该对象。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
 <tr data-cat="代码"><td><code>0x05040000</code></td><td>SDO Abort: SDO protocol timed out</td><td>SDO 中止码：协议超时。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
 <tr data-cat="代码"><td><code>0x08000022</code></td><td>SDO Abort: device state</td><td>SDO 中止码：因当前设备状态无法传送或保存数据。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="代码"><td><code>EC_READ_* / EC_WRITE_*</code></td><td>IgH 过程数据宏</td><td>按域内偏移读写过程数据，并处理小端字节序，如 EC_READ_U16。</td><td><a href="u6-l1.html">u6-l1</a></td></tr>
+<tr data-cat="对象"><td><code>0x6091</code></td><td>Gear Ratio</td><td>齿轮比：电机转数与轴转数之比，参与位置单位换算。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x6092</code></td><td>Feed Constant</td><td>进给常数：轴每转对应的位置单位数，参与位置单位换算。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="概念"><td><code>位置单位</code></td><td>Position Unit</td><td>607A、6064、6065 等对象的计量单位，经 6091/6092 换算成电机增量；未配置时常为编码器增量，因厂商而异。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>EMCY</code></td><td>Emergency</td><td>CoE 紧急报文：从站出错时主动发出的 8 字节报文，含错误码、错误寄存器和厂商数据。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="概念"><td><code>SDO Abort Code</code></td><td>SDO 中止码</td><td>SDO 访问失败时从站回的 4 字节错误码，如 0x06020000 对象不存在。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x1001</code></td><td>Error Register</td><td>错误寄存器：按类别置位的 1 字节错误汇总，也出现在 Emergency 报文里。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x1003</code></td><td>Pre-defined Error Field</td><td>预定义错误域：历史错误码列表，子索引 0 为条数。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="概念"><td><code>功率级</code></td><td>Power Stage</td><td>驱动器里把直流母线按 PWM 开关成三相电压的逆变器部分。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
       </table>
     </div>
     <p class="gl-empty" id="gl-empty" hidden>没有匹配的条目。</p>

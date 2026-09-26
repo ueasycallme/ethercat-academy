@@ -53,6 +53,13 @@
         </ol>
         <h3>前置课</h3>
         <ul class="prereq" data-auto></ul>
+        <h3>先知道这些</h3>
+        <dl class="pre-terms">
+          <dt>PWM 与功率级</dt>
+          <dd>电流环输出 PWM 占空比，驱动逆变桥给电机绕组供电。<a class="lid-chip" href="u6-l3.html">u6-l3</a></dd>
+          <dt>Emergency</dt>
+          <dd>从站经邮箱主动上报的 8 字节故障报文，错误码同 603F。<a class="lid-chip" href="u3-l2.html">u3-l2</a></dd>
+        </dl>
       </div>
     </div>
   </section>
@@ -284,7 +291,7 @@ ethercat upload -p0 0x60FE 1 --type uint32   # 数字输出（标准 bit0 为 se
       <li><strong>误区：</strong>605A 或 605E = 0 也会减速停车。<br><strong>实际上：</strong>0 表示直接关闭驱动功能，电机自由停转；垂直轴只剩抱闸兜底。</li>
       <li><strong>误区：</strong>6040 的 Quick stop 就是急停安全功能。<br><strong>实际上：</strong>Quick stop 是经过总线的普通命令，依赖通信和状态机；安全转矩关断（STO）等安全功能走硬接线或安全通信，不经过 CiA402 状态机，本课不展开。</li>
     </ul>
-    <p>关联：状态与转换编号见 u5-l1；跟随误差 6065 与三环见 u6-l3；把 603F 放进整体诊断流程见 u7-l2。</p>
+    <p>关联：状态与转换编号见 u5-l1；跟随误差 6065 与三环见 u6-l3；把 603F 放进整体诊断流程见 u7-l2。故障发生时驱动器还会通过 CoE Emergency 报文主动上报同一错误码（与 603F 同一编码），报文格式见 <a href="u3-l2.html">u3-l2</a>。</p>
     <div data-auto-next></div>
   </section>
 

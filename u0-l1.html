@@ -53,6 +53,21 @@
         </ol>
         <h3>前置课</h3>
         <ul class="prereq" data-auto></ul>
+        <h3>名词速览</h3>
+        <dl class="pre-terms">
+          <dt>ESM 四态</dt>
+          <dd>INIT 仅能访问寄存器 → PREOP 邮箱可用 → SAFEOP 输入有效 → OP 输出生效。<a class="lid-chip" href="u3-l1.html">u3-l1</a></dd>
+          <dt>6040 / 6041</dt>
+          <dd>控制字与状态字：主站下命令，驱动器报状态。<a class="lid-chip" href="u5-l1.html">u5-l1</a></dd>
+          <dt>607A / 6064</dt>
+          <dd>目标位置与实际位置：去程的值和回程的值。<a class="lid-chip" href="u5-l1.html">u5-l1</a></dd>
+          <dt>SDO</dt>
+          <dd>一问一答，走邮箱，用来读写参数。<a class="lid-chip" href="u3-l2.html">u3-l2</a></dd>
+          <dt>PDO</dt>
+          <dd>每周期整块镜像，走过程数据。<a class="lid-chip" href="u3-l3.html">u3-l3</a></dd>
+          <dt>对象字典</dt>
+          <dd>从站的参数表：SDO 读写其中条目，PDO 映射其中条目。<a class="lid-chip" href="u3-l0.html">u3-l0</a></dd>
+        </dl>
       </div>
     </div>
   </section>
@@ -70,8 +85,11 @@
         <!-- 两台状态机 / 两条通路（逻辑链路） -->
         <line class="stroke-drive dashed sw-2" x1="256" y1="246" x2="704" y2="246"/>
         <text class="t-small t-muted t-mid" x="480" y="239">CiA402 状态机 · 6040 ⇄ 6041</text>
-        <line class="stroke-mail dashed sw-2" x1="256" y1="302" x2="704" y2="302"/>
-        <text class="t-small t-muted t-mid" x="480" y="295">ESM 状态机 · 邮箱 SDO / PDO</text>
+        <text class="t-small t-muted t-mid" x="480" y="284">ESM 状态机</text>
+        <path id="u0-sdo" class="stroke-mail dashed sw-2 fill-none" d="M256 298 H422 M538 298 H704"/>
+        <text class="t-small t-mail t-mid" x="480" y="302">CoE 邮箱 SDO</text>
+        <path id="u0-pdo" class="stroke-bus dashed sw-2 fill-none" d="M256 318 H422 M538 318 H704"/>
+        <text class="t-small t-bus t-mid" x="480" y="322">过程数据 PDO</text>
 
         <!-- 主站五层 -->
         <rect id="u0-r-planner" class="box" x="16" y="112" width="240" height="44" rx="8"/>
@@ -81,7 +99,7 @@
         <rect id="u0-r-ciam" class="box-drive" x="16" y="224" width="240" height="44" rx="8"/>
         <text x="28" y="251">CiA402 主站侧</text><text class="t-small t-mono t-muted t-end" x="246" y="251">6040 · 607A</text>
         <rect id="u0-r-mstack" class="box-mail" x="16" y="280" width="240" height="44" rx="8"/>
-        <text x="28" y="307">主站协议栈</text><text class="t-small t-mono t-muted t-end" x="246" y="307">IgH</text>
+        <text x="28" y="307">主站协议栈</text><text class="t-small t-mono t-muted t-end" x="246" y="307">IgH · CoE 客户端</text>
         <rect id="u0-r-nic" class="box-bus" x="16" y="336" width="240" height="44" rx="8"/>
         <text x="28" y="363">网卡驱动</text><text class="t-small t-mono t-muted t-end" x="246" y="363">NIC</text>
 
@@ -99,7 +117,7 @@
         <rect id="u0-r-cias" class="box-drive" x="704" y="224" width="240" height="44" rx="8"/>
         <text x="716" y="251">CiA402 驱动器</text><text class="t-small t-mono t-muted t-end" x="934" y="251">6041 · 6064</text>
         <rect id="u0-r-sstack" class="box-mail" x="704" y="280" width="240" height="44" rx="8"/>
-        <text x="716" y="307">从站协议栈</text><text class="t-small t-mono t-muted t-end" x="934" y="307">ESM · CoE</text>
+        <text x="716" y="307">从站协议栈</text><text class="t-small t-mono t-muted t-end" x="934" y="307">ESM · CoE 对象字典</text>
         <rect id="u0-r-esc" class="box-bus" x="704" y="336" width="240" height="44" rx="8"/>
         <text x="716" y="363">ESC 从站控制器</text><text class="t-small t-mono t-muted t-end" x="934" y="363">SM · FMMU</text>
 
@@ -159,7 +177,7 @@
         <tr><td>主站怎么命令</td><td>写 ESC 寄存器 <code>0x0120</code> AL Control</td><td>写对象 <code>6040</code> 控制字</td></tr>
         <tr><td>从站怎么回报</td><td><code>0x0130</code> AL Status、<code>0x0134</code> AL Status Code</td><td>对象 <code>6041</code> 状态字</td></tr>
         <tr><td>状态</td><td>INIT → PREOP → SAFEOP → OP（另有 BOOT）</td><td>Switch On Disabled → Ready to Switch On → Switched On → Operation Enabled 等</td></tr>
-        <tr><td>图上位置</td><td>紫色虚线，主站协议栈 ⇄ 从站协议栈</td><td>绿色虚线，CiA402 主站侧 ⇄ CiA402 驱动器</td></tr>
+        <tr><td>图上位置</td><td>两协议栈之间、两条虚线上方的"ESM 状态机"标签</td><td>绿色虚线，CiA402 主站侧 ⇄ CiA402 驱动器</td></tr>
       </table>
     </div>
 
@@ -190,7 +208,7 @@
           <text class="t-small t-muted" x="300" y="184">输出 607A 等 → SM2，同一帧带回 SM3 的 6064 等输入</text>
         </svg>
       </div>
-      <figcaption>SM0 邮箱写、SM1 邮箱读、SM2 输出、SM3 输入是常见惯例，实际分配以从站 ESI / SII 为准（u2-l2、u3-l2、u3-l3）。</figcaption>
+      <figcaption>SM0 邮箱写、SM1 邮箱读、SM2 输出、SM3 输入是常见惯例，实际分配以从站 ESI / SII 为准（u2-l2、u3-l2、u3-l3）。两条通路的另一端都是从站的对象字典，见 <a href="u3-l0.html">u3-l0 CoE 与对象字典</a>；主动画里紫色虚线是邮箱，蓝色虚线是过程数据。</figcaption>
     </figure>
 
     <h3>为什么不走 TCP/IP</h3>
@@ -294,8 +312,8 @@ ethercat slaves</code></pre>
       apply: function (svg) { Academy.fx(svg).move('u0-tokY', 0, 2 * GAP); only(svg, ['u0-r-rtloop', 'u0-r-ciam']); } },
     { title: '主站栈打包进 LRW 帧', text: '主站协议栈把整个过程映像（含 607A）装进一个 LRW 数据报，封成 EtherCAT 帧。',
       apply: function (svg) { Academy.fx(svg).move('u0-tokY', 0, 3 * GAP).show('u0-frame'); only(svg, 'u0-r-mstack'); } },
-    { title: '帧经网线到 ESC', text: '网卡把帧直接发上网线（EtherType 0x88A4，不经 TCP/IP），帧到达从站的 ESC。',
-      apply: function (svg) { Academy.fx(svg).move('u0-tokY', 0, 4 * GAP).move('u0-tokX', 360, 0).flow('u0-cable'); only(svg, ['u0-r-nic', 'u0-r-esc']); } },
+    { title: '帧经网线到 ESC', text: '网卡把帧直接发上网线（EtherType 0x88A4，不经 TCP/IP），帧到达从站的 ESC；607A 走的是蓝色的过程数据通路。',
+      apply: function (svg) { Academy.fx(svg).move('u0-tokY', 0, 4 * GAP).move('u0-tokX', 360, 0).flow(['u0-cable', 'u0-pdo']); only(svg, ['u0-r-nic', 'u0-r-esc']); } },
     { title: 'SM 缓冲到对象字典', text: 'ESC 在帧经过时把输出写进 SM2 缓冲，从站协议栈再把它拷进对象字典的 607A。',
       apply: function (svg) { Academy.fx(svg).move('u0-tokY', 0, 3 * GAP).hide('u0-frame'); only(svg, 'u0-r-sstack'); } },
     { title: '交给位置环、FOC、PWM', text: 'CiA402 层把 607A 交给位置环，经速度环、电流环和 FOC 变成 PWM，功率级驱动电机。',

@@ -149,11 +149,11 @@
     { key: 'planner',      side: 'm', row: 1, label: '轨迹规划',       sub: 'planner',          tone: 'ink' },
     { key: 'rt-loop',      side: 'm', row: 2, label: '实时周期循环',   sub: 'RT loop · 1 ms',   tone: 'ink' },
     { key: 'cia402-m',     side: 'm', row: 3, label: 'CiA402 主站侧',  sub: '6040 · 607A',      tone: 'drive' },
-    { key: 'master-stack', side: 'm', row: 4, label: '主站协议栈',     sub: 'IgH EtherCAT',     tone: 'mail' },
+    { key: 'master-stack', side: 'm', row: 4, label: '主站协议栈',     sub: 'IgH · CoE 客户端', tone: 'mail' },
     { key: 'nic',          side: 'm', row: 5, label: '网卡驱动',       sub: 'NIC · 0x88A4',     tone: 'bus' },
     { key: 'cable',        side: 'c', row: 5, label: 'EtherCAT 网线',  sub: '',                 tone: 'bus' },
     { key: 'esc',          side: 's', row: 5, label: 'ESC 从站控制器', sub: 'SM · FMMU · DC',   tone: 'bus' },
-    { key: 'slave-stack',  side: 's', row: 4, label: '从站协议栈',     sub: 'ESM · CoE',        tone: 'mail' },
+    { key: 'slave-stack',  side: 's', row: 4, label: '从站协议栈',     sub: 'ESM · CoE 对象字典', tone: 'mail' },
     { key: 'cia402-s',     side: 's', row: 3, label: 'CiA402 驱动器',  sub: '6041 · 6064',      tone: 'drive' },
     { key: 'motor-ctrl',   side: 's', row: 2, label: '电机控制',       sub: '位置/速度/电流环', tone: 'drive' },
     { key: 'power-stage',  side: 's', row: 1, label: '功率级',         sub: '逆变器 · PWM',     tone: 'power' },
@@ -172,15 +172,20 @@
     var yc = function (row) { return y(row) + RH / 2; };
     s += '<path class="ov-link ov-link-drive" d="M' + (X_M + W) + ' ' + yc(3) + ' H' + X_S + '"/>';
     s += '<text class="ov-note" x="480" y="' + (yc(3) - 7) + '" text-anchor="middle">CiA402 状态机 · 6040 ⇄ 6041</text>';
-    s += '<path class="ov-link ov-link-mail" d="M' + (X_M + W) + ' ' + yc(4) + ' H' + X_S + '"/>';
-    s += '<text class="ov-note" x="480" y="' + (yc(4) - 7) + '" text-anchor="middle">ESM 状态机 · 邮箱 SDO / 过程数据 PDO</text>';
+    // 两协议栈之间：ESM 标签在上，下面两条并行虚线——紫色邮箱（CoE SDO）、蓝色过程数据（PDO），标签嵌在线中间
+    var y4 = y(4), xa = X_M + W, xb = X_S;
+    s += '<text class="ov-note" x="480" y="' + (y4 + 2) + '" text-anchor="middle">ESM 状态机</text>';
+    [[y4 + 17, 'mail', 'CoE 邮箱 SDO'], [y4 + 38, 'bus', '过程数据 PDO']].forEach(function (ln) {
+      s += '<path class="ov-link ov-link-' + ln[1] + '" d="M' + xa + ' ' + ln[0] + ' H' + (480 - 58) + ' M' + (480 + 58) + ' ' + ln[0] + ' H' + xb + '"/>';
+      s += '<text class="ov-note ov-note-' + ln[1] + '" x="480" y="' + (ln[0] + 4) + '" text-anchor="middle">' + ln[2] + '</text>';
+    });
     LAYERS.forEach(function (l) {
       var yy = y(l.row);
       var g = '<g class="ov-layer tone-' + l.tone + '" data-layer="' + l.key + '">';
       if (l.side === 'c') {
         g += '<rect x="' + (X_M + W) + '" y="' + yy + '" width="' + (X_S - X_M - W) + '" height="' + RH + '"/>';
         g += '<line class="ov-cable-line" x1="' + (X_M + W) + '" y1="' + yc(5) + '" x2="' + X_S + '" y2="' + yc(5) + '"/>';
-        g += '<text x="480" y="' + (yy - 2) + '" text-anchor="middle">' + l.label + '</text>';
+        g += '<text x="480" y="' + (yc(5) - 7) + '" text-anchor="middle">' + l.label + '</text>';
         g += '<text class="ov-sub" x="480" y="' + (yy + RH + 4) + '" text-anchor="middle">以太网帧 EtherType 0x88A4</text>';
       } else {
         var x = l.side === 'm' ? X_M : X_S;
@@ -571,7 +576,7 @@
     document.querySelectorAll('[data-auto-next]').forEach(function (n) {
       n.innerHTML = nextL
         ? '<div class="next-card"><span><span class="lid">下一课 ' + nextL.id + '</span><br><strong>' + esc(nextL.title) + '</strong></span><a class="btn btn-primary" href="' + href(nextL.id) + '">继续 ▶</a></div>'
-        : '<div class="next-card"><span><strong>全部 21 课已走完。</strong>回到首页看看还有哪课没打勾。</span><a class="btn btn-primary" href="index.html">回首页</a></div>';
+        : '<div class="next-card"><span><strong>全部 ' + LESSONS.length + ' 课已走完。</strong>回到首页看看还有哪课没打勾。</span><a class="btn btn-primary" href="index.html">回首页</a></div>';
     });
     // 上一课 / 下一课
     var pager = document.getElementById('pager');
@@ -647,7 +652,7 @@
       var p = progress.get();
       var nextUndone = LESSONS.filter(function (l) { return !p[l.id]; })[0];
       if (nextUndone) { cont.href = href(nextUndone.id); cont.textContent = (Object.keys(p).length ? '继续学习：' : '从第一课开始：') + nextUndone.id; }
-      else { cont.href = 'u7-l2.html'; cont.textContent = '21 课全部完成 ✓'; }
+      else { cont.href = 'u7-l2.html'; cont.textContent = LESSONS.length + ' 课全部完成 ✓'; }
     }
   }
 

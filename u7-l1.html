@@ -19,6 +19,7 @@
 .lesson .cmd-table td:first-child { font-family: var(--font-mono); white-space: nowrap; font-size: .86rem; }
 .lesson .cmd-table td:last-child { font-family: var(--font-mono); font-size: .8rem; white-space: pre; color: var(--muted); }
 .lesson .cmd-table tr.is-core td:first-child { color: var(--bus); font-weight: 600; }
+.lesson .spec-table td:first-child { white-space: nowrap; font-weight: 600; }
 .lesson .filter-table td:first-child { font-family: var(--font-mono); font-size: .86rem; white-space: nowrap; }
 </style>
 </head>
@@ -200,6 +201,28 @@ Attached、State</td></tr>
         <tr><td><code>0x0310</code>–<code>0x0313</code></td><td>各端口丢链计数</td><td><code>reg_read -p0 0x0310 4</code></td></tr>
         <tr><td><code>0x0440</code></td><td>SM 看门狗状态（过程数据看门狗）</td><td><code>reg_read -p0 0x0440 2</code></td></tr>
         <tr><td><code>0x092C</code></td><td>DC 系统时间差（本地与参考时钟之差）</td><td><code>reg_read -p0 0x092C 4</code></td></tr>
+      </table>
+    </div>
+
+    <h3>规范地图</h3>
+    <p>本站内容分散在十几份文档里，下表说明每份定义什么、在哪几课用到。ETG.1000 各部分是"服务定义 / 协议规范"成对出现：.3/.4 是数据链路层，.5/.6 是应用层。ETG 规范在 ETG 官网会员区下载，CiA 规范在 can-cia.org；编号与分工以 ETG 官网目录为准。</p>
+    <div class="table-wrap">
+      <table class="spec-table">
+        <tr><th>文档</th><th>定义什么</th><th>本站用到</th></tr>
+        <tr><td>ETG.1000.2</td><td>物理层：服务定义与协议（100BASE-TX、E-Bus 等介质）</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+        <tr><td>ETG.1000.3</td><td>数据链路层服务定义：寻址方式与读写服务</td><td><a href="u1-l2.html">u1-l2</a> · <a href="u1-l3.html">u1-l3</a></td></tr>
+        <tr><td>ETG.1000.4</td><td>数据链路层协议：帧与数据报格式、命令码、WKC、ESC 寄存器、SM、FMMU、DC</td><td><a href="u1-l2.html">u1-l2</a> · <a href="u1-l3.html">u1-l3</a> · <a href="u2-l1.html">u2-l1</a> · <a href="u2-l2.html">u2-l2</a> · <a href="u2-l3.html">u2-l3</a> · <a href="u4-l1.html">u4-l1</a></td></tr>
+        <tr><td>ETG.1000.5</td><td>应用层服务定义：ESM 服务、邮箱与 CoE/EoE/FoE 等服务</td><td><a href="u3-l1.html">u3-l1</a> · <a href="u3-l2.html">u3-l2</a></td></tr>
+        <tr><td>ETG.1000.6</td><td>应用层协议：ESM 与 AL 状态码、邮箱头、CoE（SDO、PDO 映射）编码</td><td><a href="u3-l0.html">u3-l0</a> · <a href="u3-l1.html">u3-l1</a> · <a href="u3-l2.html">u3-l2</a> · <a href="u3-l3.html">u3-l3</a></td></tr>
+        <tr><td>ETG.1020</td><td>协议增强：同步模式与 0x1C32/0x1C33 等补充约定</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+        <tr><td>ETG.2000</td><td>ESI：从站描述 XML 的格式</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+        <tr><td>ETG.2010</td><td>SII：从站 EEPROM 内容的布局与类别区</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+        <tr><td>ETG.5001</td><td>模块化设备行规（MDP）</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
+        <tr><td>CiA 301</td><td>CANopen 应用层：对象字典、SDO、PDO 映射、通信对象 0x1000 段</td><td><a href="u3-l0.html">u3-l0</a> · <a href="u3-l2.html">u3-l2</a> · <a href="u3-l3.html">u3-l3</a></td></tr>
+        <tr><td>CiA 402（IEC 61800-7）</td><td>驱动器行规：状态机、6040/6041、运行模式、0x6000 段对象</td><td><a href="u5-l1.html">u5-l1</a> · <a href="u5-l2.html">u5-l2</a> · <a href="u5-l3.html">u5-l3</a></td></tr>
+        <tr><td>ESC 芯片手册</td><td>Beckhoff ESC 数据手册（ET1100 等）、Microchip LAN9252 数据手册：寄存器与引脚</td><td><a href="u2-l1.html">u2-l1</a> · <a href="u2-l2.html">u2-l2</a> · <a href="u2-l3.html">u2-l3</a> · <a href="u4-l1.html">u4-l1</a></td></tr>
+        <tr><td>IgH 主站手册</td><td>IgH EtherCAT Master 1.5 文档：架构、ecrt_* API、ethercat 命令</td><td><a href="u6-l1.html">u6-l1</a> · <a href="u7-l1.html">u7-l1</a></td></tr>
+        <tr><td>SSC 文档</td><td>ETG Slave Stack Code（ET9300）及其应用说明</td><td><a href="u6-l2.html">u6-l2</a></td></tr>
       </table>
     </div>
   </section>

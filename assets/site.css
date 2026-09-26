@@ -225,6 +225,19 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 .prereq li a:hover { border-color: var(--bus); text-decoration: none; }
 .prereq .is-done::after { content: " ✓"; color: var(--drive); }
 @media (max-width: 760px) { .locate-grid { grid-template-columns: minmax(0, 1fr); } }
+/* 先知道这些：紧凑两栏定义列表，窄屏单列 */
+.pre-terms { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem .9rem; margin: .4em 0; font-size: .93rem; line-height: 1.5; }
+.pre-terms dt { font-weight: 700; white-space: nowrap; }
+.pre-terms dd { margin: 0; color: var(--muted); }
+.lid-chip {
+  display: inline-block; margin-left: .35em; padding: 0 .5em; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel2); font-family: var(--font-mono); font-size: .78rem; color: var(--bus); white-space: nowrap; line-height: 1.6;
+}
+.lid-chip:hover { border-color: var(--bus); text-decoration: none; }
+@media (max-width: 520px) {
+  .pre-terms { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .pre-terms dt { white-space: normal; margin-top: .45rem; }
+}
 
 /* 系统总图 */
 .overview { width: 100%; }
@@ -247,6 +260,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 .ov-link { stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
 .ov-link-drive { stroke: var(--drive); }
 .ov-link-mail { stroke: var(--mail); }
+.ov-link-bus { stroke: var(--bus); }
+.ov-note-mail { fill: var(--mail); }
+.ov-note-bus { fill: var(--bus); }
 .ov-note { fill: var(--muted); font-size: 12px; font-family: var(--font-body); }
 .ov-side { fill: var(--muted); font-family: var(--font-head); font-size: 17px; font-weight: 600; letter-spacing: .05em; }
 .overview.is-interactive .ov-layer { cursor: pointer; }
@@ -389,12 +405,12 @@ svg .t-power { fill: var(--power); }
 svg .t-onfill { fill: #fff; }
 
 .box { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.box-muted { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
 .box-bus { fill: var(--bus-soft); stroke: var(--bus); stroke-width: 1.5; }
 .box-mail { fill: var(--mail-soft); stroke: var(--mail); stroke-width: 1.5; }
 .box-drive { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 1.5; }
 .box-fault { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 1.5; }
 .box-power { fill: var(--power-soft); stroke: var(--power); stroke-width: 1.5; }
-.box-muted { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
 
 .fill-bg { fill: var(--bg); } .fill-panel { fill: var(--panel); } .fill-panel2 { fill: var(--panel2); }
 .fill-ink { fill: var(--ink); } .fill-muted { fill: var(--muted); } .fill-line { fill: var(--line); } .fill-none { fill: none; }
@@ -418,6 +434,7 @@ svg * { transition: opacity .35s ease, fill .35s ease, stroke .35s ease, transfo
 .is-hidden { opacity: 0 !important; pointer-events: none; }
 .is-dim { opacity: .28; }
 .is-hot { stroke-width: 3 !important; filter: drop-shadow(0 0 4px var(--bus)); }
+.box.is-hot, .box-muted.is-hot { stroke: var(--bus); }  /* 中性框高亮时描边改为总线蓝，否则仍是 --line 看不清 */
 .is-hot-fault { stroke: var(--fault) !important; stroke-width: 3 !important; filter: drop-shadow(0 0 4px var(--fault)); }
 /* 作用在 <g> 上时，让直接子图形也加粗（子元素自带 stroke-width 会盖过继承值） */
 g.is-hot > :is(rect, circle, ellipse, path, polygon, polyline, line) { stroke-width: 3; }

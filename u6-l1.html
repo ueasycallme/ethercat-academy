@@ -233,6 +233,18 @@
       </figure>
     </div>
     <p><code>ecrt_domain_state(domain, &amp;ds)</code> 在 process 之后调用，给出 <code>ds.working_counter</code>（本周期实际 WKC）和 <code>ds.wc_state</code>：<code>EC_WC_ZERO</code> 没有从站交换数据，<code>EC_WC_INCOMPLETE</code> 部分交换，<code>EC_WC_COMPLETE</code> 全部交换。只有 <code>EC_WC_COMPLETE</code> 时读到的输入才可信。</p>
+
+    <h3>实时前提：PREEMPT_RT、SCHED_FIFO、mlockall</h3>
+    <p>周期任务要准时，靠的不是 IgH 本身，而是操作系统能否在截止时刻前把线程叫醒并让它跑完。下面三项分别去掉三类抖动来源；还剩多少抖动因硬件而异，要在自己的机器上用 cyclictest 测（见 u4-l2）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>机制</th><th>解决什么抖动来源</th><th>在最小示例里对应哪里</th></tr>
+        <tr><td>PREEMPT_RT 内核</td><td>普通内核里有些内核路径和中断处理不可抢占，实时线程醒来后要等它们结束；RT 补丁让内核大部分路径可抢占、中断处理线程化，降低最坏情况延迟</td><td>系统配置：安装并启动 PREEMPT_RT 内核（<code>uname -v</code> 通常显示 PREEMPT_RT 或 PREEMPT RT 字样，因内核版本而异）；代码里不体现</td></tr>
+        <tr><td>SCHED_FIFO 实时优先级</td><td>普通调度（SCHED_OTHER）下周期线程要和其他进程分时间片；实时优先级让它一就绪就抢占普通任务</td><td><code>sched_setscheduler(0, SCHED_FIFO, &amp;sp)</code>，优先级 80，放在 activate 之后、进入循环之前</td></tr>
+        <tr><td>mlockall</td><td>运行中首次访问的内存页触发缺页，甚至换页到磁盘，一次就可能拖过一个周期</td><td><code>mlockall(MCL_CURRENT | MCL_FUTURE)</code>，main() 开头第一步</td></tr>
+        <tr><td>CPU 隔离（可选）</td><td>其他任务和中断与周期线程抢同一个 CPU 核</td><td>系统配置：内核参数 <code>isolcpus</code> 预留一个核，再把周期线程绑到该核；最小示例未做</td></tr>
+      </table>
+    </div>
   </section>
 
   <!-- 04 主从对照 -->

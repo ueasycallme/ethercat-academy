@@ -52,6 +52,19 @@
         </ol>
         <h3>前置课</h3>
         <ul class="prereq" data-auto></ul>
+        <h3>先知道这些</h3>
+        <dl class="pre-terms">
+          <dt>ESM 四态</dt>
+          <dd>INIT→PREOP→SAFEOP→OP，经 AL 控制/状态寄存器切换。<a class="lid-chip" href="u3-l1.html">u3-l1</a></dd>
+          <dt>SM 同步管理器</dt>
+          <dd>划定 RAM 哪段做邮箱或过程数据，并协调双方访问。<a class="lid-chip" href="u2-l2.html">u2-l2</a></dd>
+          <dt>FMMU</dt>
+          <dd>把主站逻辑地址映射到本从站物理内存的硬件单元。<a class="lid-chip" href="u2-l3.html">u2-l3</a></dd>
+          <dt>DC 分布式时钟</dt>
+          <dd>把各 ESC 的本地时钟对齐到同一系统时间。<a class="lid-chip" href="u4-l1.html">u4-l1</a></dd>
+          <dt>看门狗</dt>
+          <dd>输出 SM 超时未被写入即过期；ESC 复位输出，固件据此退 SAFEOP。<a class="lid-chip" href="u2-l2.html">u2-l2</a></dd>
+        </dl>
       </div>
     </div>
   </section>

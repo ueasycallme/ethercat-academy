@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CoE 与对象字典：从站的参数表与数据模型 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1f6feb">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .odb { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 12px; margin: 1em 0; min-width: 0; }
+.lesson .odb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lesson .odb-bar button {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 3px 10px;
+  cursor: pointer; font-size: .9rem; white-space: nowrap;
+}
+.lesson .odb-bar button:hover { border-color: var(--bus); }
+.lesson .odb-bar button[aria-pressed="true"] { background: var(--bus-soft); border-color: var(--bus); color: var(--bus); font-weight: 600; }
+.lesson .odb-bar input {
+  font-family: var(--font-mono); font-size: .9rem; width: 13em; max-width: 100%; min-width: 0;
+  padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+}
+.lesson .odb-count { font-size: .82rem; color: var(--muted); }
+.lesson .odb-foot { margin: .6em 0 0; }
+.lesson .odb-grid { display: grid; grid-template-columns: minmax(0, 17rem) minmax(0, 1fr); gap: 12px; margin-top: 10px; align-items: start; }
+@media (max-width: 760px) { .lesson .odb-grid { grid-template-columns: minmax(0, 1fr); } }
+.lesson .odb-list {
+  list-style: none; margin: 0; padding: 0; max-height: 27rem; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+}
+@media (max-width: 760px) { .lesson .odb-list { max-height: 15rem; } }
+.lesson .odb-list li { margin: 0; }
+.lesson .odb-item {
+  display: grid; grid-template-columns: 4.4em minmax(0, 1fr); gap: 6px; width: 100%; text-align: left;
+  border: 0; border-bottom: 1px solid var(--line); border-left: 4px solid var(--line);
+  background: none; padding: 4px 10px; cursor: pointer; line-height: 1.45; font-size: .9rem;
+}
+.lesson .odb-item.a-comm { border-left-color: var(--mail); }
+.lesson .odb-item.a-profile { border-left-color: var(--drive); }
+.lesson .odb-item:hover { background: var(--panel2); }
+.lesson .odb-item.is-sel { background: var(--bus-soft); }
+.lesson .odb-item .ix { font-family: var(--font-mono); font-weight: 600; }
+.lesson .odb-item .nm { overflow-wrap: anywhere; }
+.lesson .odb-empty { padding: 8px 12px; color: var(--muted); font-size: .9rem; }
+.lesson .odb-card { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 8px 14px 12px; min-width: 0; }
+.lesson .odb-card h4 { margin: .3em 0 .5em; font-size: 1.15rem; overflow-wrap: anywhere; }
+.lesson .odb-card h4 .ix { font-family: var(--font-mono); color: var(--bus); margin-right: .4em; }
+.lesson .odb-card dl { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 4px 10px; margin: 0; }
+.lesson .odb-card dt { color: var(--muted); font-size: .88rem; }
+.lesson .odb-card dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 560px) {
+  .lesson .odb-card dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .lesson .odb-card dt { margin-top: 6px; }
+}
+.lesson .odb-card td:last-child { white-space: nowrap; }
+.lesson .odb-card table { font-size: .85rem; }
+.lesson .odb-card td:first-child { font-family: var(--font-mono); white-space: nowrap; }
+.lesson .odb-card .odb-note { font-size: .88rem; color: var(--muted); margin: .6em 0 0; }
+.lesson .odb-card .odb-les a { margin-right: .8em; display: inline-block; }
+.lesson .sdos-cols td:first-child { font-family: var(--font-mono); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u3-l0">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">CoE 与对象字典：从站的参数表与数据模型</h1>
+    <p class="lesson-lede">EtherCAT 只管运输，运什么由 CoE 规定。SDO 和 PDO 读写的不是 ESC 寄存器，而是从站固件里的一张表：按"16 位索引 + 8 位子索引"编号的对象字典。本课先认这张表的分区和条目格式，再看两条路（邮箱 SDO、周期 PDO）怎样访问同一张表。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>说出 CoE 在协议栈里的位置：EtherCAT 只提供邮箱和过程数据两种运输，CoE 借用 CANopen（CiA 301）规定数据模型、参数访问、PDO 映射、SDO Info 和 Emergency。</li>
+          <li>说出对象字典是什么：从站固件维护的、按 16 位索引 + 8 位子索引编号的参数与数据表，是 SDO 与 PDO 共同的数据源，和 ESC 寄存器（物理内存 0x0000–0x0FFF）不是一回事。</li>
+          <li>分清索引分区：数据类型区、0x1000 通信区、0x2000 厂商区、0x6000 设备行规区（CiA 402 占 0x6000–0x67FF）、0xA000 起保留区。</li>
+          <li>读懂一条对象的属性：索引、子索引、名称、对象类型（VAR 7 / ARRAY 8 / RECORD 9）、数据类型编码、访问权限、PDO 可映射性、默认值、范围、单位；知道 ARRAY/RECORD 的子索引 0 是元素个数。</li>
+          <li>说出主站从哪里知道这张表：ESI 的 <code>&lt;Objects&gt;</code>、从站在线提供的 SDO Info 服务、固件里的对象定义表，三者必须一致。</li>
+          <li>理解"同一对象、两条路"：已映射进 RxPDO 的对象每周期被过程数据覆盖，SDO 写它会被冲掉；TxPDO 对象 SDO 读到的是同一份值。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+        <h3>先知道这些</h3>
+        <dl class="pre-terms">
+          <dt>CiA 402 对象</dt>
+          <dd>6040 控制字、6041 状态字、6060 运行模式，驱动器的命令与反馈。<a class="lid-chip" href="u5-l1.html">u5-l1</a> <a class="lid-chip" href="u5-l2.html">u5-l2</a></dd>
+          <dt>607A / 6064</dt>
+          <dd>目标位置与实际位置，CSP 下每周期一收一发。<a class="lid-chip" href="u5-l2.html">u5-l2</a></dd>
+          <dt>PDO 映射</dt>
+          <dd>0x1600 列出装哪些对象，0x1C12 把它挂到 SM2。<a class="lid-chip" href="u3-l3.html">u3-l3</a></dd>
+          <dt>0x1C32</dt>
+          <dd>SM 同步参数：同步类型与周期时间。<a class="lid-chip" href="u4-l2.html">u4-l2</a></dd>
+          <dt>abort code</dt>
+          <dd>SDO 访问失败时从站回的 4 字节错误码。<a class="lid-chip" href="u3-l2.html">u3-l2</a></dd>
+          <dt>位置单位</dt>
+          <dd>6065 等以位置单位计，经 6091 齿轮比等换算成电机增量。<a class="lid-chip" href="u6-l3.html">u6-l3</a></dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 530" role="img" aria-label="主动画：一张对象字典表，两条访问路。左侧主站有 SDO 客户端和过程映像，右侧从站里是按索引分区着色的对象字典；依次放大 VAR、RECORD、ARRAY 三种对象，再演示 SDO 经邮箱读写、PDO 每周期读写同一张表，最后从固件视角看回调与 abort code">
+        <!-- 主站 -->
+        <rect class="box-bus" x="16" y="16" width="184" height="500" rx="10"/>
+        <text class="t-title" x="30" y="44">主站</text>
+        <rect class="box-muted" x="28" y="60" width="160" height="46" rx="6"/>
+        <text class="t-small t-bold" x="38" y="79">ESI XML（离线）</text>
+        <text class="t-small t-muted t-mono" x="38" y="97">&lt;Objects&gt;</text>
+        <rect id="u30-msdo-r" class="box-mail" x="28" y="120" width="160" height="72" rx="6"/>
+        <text class="t-small t-bold" x="38" y="139">SDO 客户端</text>
+        <text id="u30-msdo" class="t-small t-mono" x="38" y="160">空闲</text>
+        <text id="u30-msdo2" class="t-small t-mono" x="38" y="180"></text>
+        <rect id="u30-pi-r" class="box" x="28" y="330" width="160" height="150" rx="6"/>
+        <text class="t-small t-bold" x="38" y="350">过程映像（域）</text>
+        <text class="t-small t-mono" x="38" y="374">出 6040 控制字</text>
+        <text class="t-small t-mono" x="38" y="396">出 607A 目标位置</text>
+        <text class="t-small t-mono" x="38" y="428">入 6041 状态字</text>
+        <text class="t-small t-mono" x="38" y="450">入 6064 实际位置</text>
+
+        <!-- 两条路 -->
+        <text class="t-small t-mail t-mid" x="250" y="146">CoE 邮箱 SDO</text>
+        <line id="u30-wm" class="wire stroke-mail sw-3" x1="200" y1="155" x2="300" y2="155"/>
+        <g id="u30-pk" class="is-hidden">
+          <rect class="fill-mail" x="204" y="164" width="92" height="24" rx="5"/>
+          <text id="u30-pkt" class="t-small t-onfill t-mid t-mono" x="250" y="181">上传 1008</text>
+        </g>
+        <text class="t-small t-bus t-mid" x="250" y="396">过程数据 PDO</text>
+        <line id="u30-wp" class="wire-bus" x1="200" y1="405" x2="300" y2="405"/>
+
+        <!-- 从站 -->
+        <rect class="box" x="290" y="16" width="654" height="500" rx="10"/>
+        <text class="t-title" x="300" y="44">从站</text>
+        <rect class="box-mail" x="300" y="120" width="80" height="70" rx="6"/>
+        <text class="t-small t-bold t-mid" x="340" y="140">ESC</text>
+        <text class="t-small t-mono t-mid" x="340" y="160">SM0/SM1</text>
+        <text class="t-small t-mid" x="340" y="180">邮箱</text>
+        <rect class="box-bus" x="300" y="370" width="80" height="70" rx="6"/>
+        <text class="t-small t-bold t-mid" x="340" y="390">ESC</text>
+        <text class="t-small t-mono t-mid" x="340" y="410">SM2/SM3</text>
+        <text class="t-small t-mid" x="340" y="430">过程数据</text>
+        <text class="t-small t-muted t-mid" x="340" y="262">ESC 寄存器</text>
+        <text class="t-small t-muted t-mid" x="340" y="280">≠ 对象字典</text>
+        <line id="u30-im" class="wire stroke-mail sw-2" x1="380" y1="155" x2="404" y2="155"/>
+        <line id="u30-ip" class="wire stroke-bus sw-2" x1="380" y1="405" x2="404" y2="405"/>
+
+        <g id="u30-coe" class="is-hidden">
+          <rect class="box-mail dashed" x="28" y="206" width="160" height="112" rx="6"/>
+          <text class="t-small t-bold t-mail" x="38" y="226">IgH · CoE 客户端</text>
+          <text class="t-small" x="38" y="248">SDO 读写参数</text>
+          <text class="t-small" x="38" y="268">PDO 映射打包</text>
+          <text class="t-small" x="38" y="288">SDO Info 读表结构</text>
+          <text class="t-small" x="38" y="308">Emergency 收报错</text>
+          <text class="t-small t-mail t-bold" x="692" y="56">从站协议栈：ESM · CoE 对象字典</text>
+          <text class="t-small t-muted t-mid" x="340" y="214">EtherCAT</text>
+          <text class="t-small t-muted t-mid" x="340" y="232">只管运输</text>
+        </g>
+
+        <!-- 对象字典 -->
+        <text class="t-small t-bold" x="410" y="56">对象字典（固件 RAM）</text>
+        <rect id="u30-tbl" class="box" x="404" y="62" width="276" height="440" rx="6"/>
+        <rect id="u30-b-dt" class="box" x="408" y="68" width="268" height="22" rx="3"/>
+        <rect id="u30-b-com" class="box" x="408" y="96" width="268" height="160" rx="4"/>
+        <rect id="u30-b-mfr" class="box" x="408" y="262" width="268" height="44" rx="4"/>
+        <rect id="u30-b-prof" class="box" x="408" y="312" width="268" height="160" rx="4"/>
+        <rect id="u30-b-res" class="box" x="408" y="478" width="268" height="20" rx="3"/>
+        <rect id="u30-r-1008" class="box" x="414" y="118" width="256" height="20" rx="3"/>
+        <rect id="u30-r-1010" class="box" x="414" y="140" width="256" height="20" rx="3"/>
+        <rect id="u30-r-1600" class="box" x="414" y="162" width="256" height="20" rx="3"/>
+        <rect id="u30-r-1a00" class="box" x="414" y="184" width="256" height="20" rx="3"/>
+        <rect id="u30-r-1c12" class="box" x="414" y="206" width="256" height="20" rx="3"/>
+        <rect id="u30-r-1c13" class="box" x="414" y="228" width="256" height="20" rx="3"/>
+        <rect id="u30-r-2xxx" class="box" x="414" y="284" width="256" height="20" rx="3"/>
+        <rect id="u30-r-6040" class="box" x="414" y="334" width="256" height="20" rx="3"/>
+        <rect id="u30-r-6041" class="box" x="414" y="356" width="256" height="20" rx="3"/>
+        <rect id="u30-r-6060" class="box" x="414" y="378" width="256" height="20" rx="3"/>
+        <rect id="u30-r-6061" class="box" x="414" y="400" width="256" height="20" rx="3"/>
+        <rect id="u30-r-6064" class="box" x="414" y="422" width="256" height="20" rx="3"/>
+        <rect id="u30-r-607a" class="box" x="414" y="444" width="256" height="20" rx="3"/>
+        <g id="u30-txt" class="is-hidden">
+          <text class="t-small t-muted" x="416" y="84">0x0000–0x0FFF 数据类型</text>
+          <text class="t-small t-mail t-bold" x="416" y="112">0x1000–0x1FFF 通信区</text>
+          <text class="t-small t-mono" x="420" y="133">1008</text><text class="t-small" x="462" y="133">设备名</text>
+          <text class="t-small t-mono" x="420" y="155">1010</text><text class="t-small" x="462" y="155">保存参数</text>
+          <text class="t-small t-mono" x="420" y="177">1600</text><text class="t-small" x="462" y="177">RxPDO 映射</text>
+          <text class="t-small t-mono" x="420" y="199">1A00</text><text class="t-small" x="462" y="199">TxPDO 映射</text>
+          <text class="t-small t-mono" x="420" y="221">1C12</text><text class="t-small" x="462" y="221">SM2 PDO 分配</text>
+          <text class="t-small t-mono" x="420" y="243">1C13</text><text class="t-small" x="462" y="243">SM3 PDO 分配</text>
+          <text class="t-small t-muted t-bold" x="416" y="278">0x2000–0x5FFF 厂商区</text>
+          <text class="t-small t-mono" x="420" y="299">2xxx</text><text class="t-small t-muted" x="462" y="299">厂商自定义参数</text>
+          <text class="t-small t-drive t-bold" x="416" y="328">0x6000–0x9FFF 行规区（CiA 402）</text>
+          <text class="t-small t-mono" x="420" y="349">6040</text><text class="t-small" x="462" y="349">控制字</text>
+          <text class="t-small t-mono" x="420" y="371">6041</text><text class="t-small" x="462" y="371">状态字</text>
+          <text class="t-small t-mono" x="420" y="393">6060</text><text class="t-small" x="462" y="393">运行模式</text>
+          <text class="t-small t-mono" x="420" y="415">6061</text><text class="t-small" x="462" y="415">运行模式显示</text>
+          <text class="t-small t-mono" x="420" y="437">6064</text><text class="t-small" x="462" y="437">实际位置</text>
+          <text class="t-small t-mono" x="420" y="459">607A</text><text class="t-small" x="462" y="459">目标位置</text>
+          <text class="t-small t-muted" x="416" y="493">0xA000–0xFFFF 保留</text>
+        </g>
+        <text id="u30-v6060" class="t-small t-mono t-bold t-end" x="664" y="393"></text>
+        <text id="u30-v6061" class="t-small t-mono t-bold t-end" x="664" y="415"></text>
+        <g id="u30-cb" class="is-hidden">
+          <path class="wire stroke-drive sw-2" d="M670 388 C 688 388, 688 410, 676 410"/>
+          <polygon class="fill-drive" points="670,410 679,405 679,415"/>
+        </g>
+
+        <!-- 放大卡片：VAR -->
+        <g id="u30-c-var" class="is-hidden">
+          <line class="wire stroke-drive dashed" x1="670" y1="366" x2="692" y2="200"/>
+          <rect class="box-drive" x="692" y="96" width="244" height="196" rx="8"/>
+          <text class="t-bold t-mono" x="706" y="120">VAR · 0x6041:00</text>
+          <text class="t-small" x="706" y="144">名称：状态字 Statusword</text>
+          <text class="t-small" x="706" y="166">对象类型：VAR（7）</text>
+          <text class="t-small" x="706" y="188">数据类型：UINT16（0x0006）</text>
+          <text class="t-small" x="706" y="210">访问：ro</text>
+          <text class="t-small" x="706" y="232">PDO：可映射进 TxPDO</text>
+          <text class="t-small" x="706" y="254">默认值：因厂商而异</text>
+          <text class="t-small t-muted" x="706" y="276">单个值，只有子索引 0</text>
+        </g>
+        <!-- 放大卡片：RECORD -->
+        <g id="u30-c-rec" class="is-hidden">
+          <line class="wire stroke-mail dashed" x1="670" y1="172" x2="692" y2="172"/>
+          <rect class="box-mail" x="692" y="96" width="244" height="208" rx="8"/>
+          <text class="t-bold t-mono" x="706" y="120">RECORD · 0x1600</text>
+          <text class="t-small t-muted" x="706" y="142">第 1 个 RxPDO 映射，对象类型 9</text>
+          <text class="t-small t-mono" x="706" y="168">:00 = 2</text><text class="t-small t-muted" x="800" y="168">条目数 UINT8</text>
+          <text class="t-small t-mono" x="706" y="196">:01 = 0x60400010</text>
+          <text class="t-small t-muted" x="722" y="214">→ 6040:00，16 位</text>
+          <text class="t-small t-mono" x="706" y="242">:02 = 0x607A0020</text>
+          <text class="t-small t-muted" x="722" y="260">→ 607A:00，32 位</text>
+          <text class="t-small t-muted" x="706" y="288">条目 = 索引 | 子索引 | 位长</text>
+        </g>
+        <!-- 放大卡片：ARRAY -->
+        <g id="u30-c-arr" class="is-hidden">
+          <line class="wire stroke-mail dashed" x1="670" y1="216" x2="692" y2="200"/>
+          <rect class="box-mail" x="692" y="96" width="244" height="172" rx="8"/>
+          <text class="t-bold t-mono" x="706" y="120">ARRAY · 0x1C12</text>
+          <text class="t-small t-muted" x="706" y="142">SM2 的 RxPDO 分配，对象类型 8</text>
+          <text class="t-small t-mono" x="706" y="168">:00 = 1</text><text class="t-small t-muted" x="800" y="168">元素个数 UINT8</text>
+          <text class="t-small t-mono" x="706" y="194">:01 = 0x1600</text><text class="t-small t-muted" x="820" y="194">UINT16</text>
+          <text class="t-small" x="706" y="224">所有元素同一类型：UINT16</text>
+          <text class="t-small t-muted" x="706" y="250">RECORD 的成员类型可以不同</text>
+        </g>
+        <!-- PDO 说明 -->
+        <g id="u30-c-pdo" class="is-hidden">
+          <rect class="box-bus" x="692" y="96" width="244" height="150" rx="8"/>
+          <text class="t-bold" x="706" y="120">每个周期（蓝色路）</text>
+          <text class="t-small" x="706" y="146">映像 → 表：6040、607A</text>
+          <text class="t-small" x="706" y="170">表 → 映像：6041、6064</text>
+          <text class="t-small" x="706" y="198">SDO 读 6041 = PDO 读到的值</text>
+          <text class="t-small t-fault" x="706" y="224">SDO 写 6040 → 下周期被覆盖</text>
+        </g>
+        <!-- 固件视角 -->
+        <g id="u30-c-fw" class="is-hidden">
+          <rect class="box-power" x="692" y="262" width="244" height="236" rx="8"/>
+          <text class="t-bold" x="706" y="286">固件视角</text>
+          <text class="t-small" x="706" y="310">表 = RAM 里的对象描述数组</text>
+          <text class="t-small" x="706" y="334">6041、6064 → 直连内部变量</text>
+          <text class="t-small" x="706" y="358">写 6060 → 回调：切换模式</text>
+          <text class="t-small" x="706" y="382">写 1010:01 "save" → 存 NVRAM</text>
+          <text class="t-small t-fault" x="706" y="412">越界 → abort 0x06090030</text>
+          <text class="t-small t-fault" x="706" y="436">写只读 → abort 0x06010002</text>
+          <text class="t-small t-fault" x="706" y="460">状态不允许 → 0x08000022</text>
+          <text class="t-small t-muted" x="706" y="486">回什么码以固件实现为准</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>CoE 在栈里的位置</h3>
+    <p>EtherCAT 数据链路层只提供两种运输：按需的邮箱（SM0/SM1）和每周期的过程数据（SM2/SM3），它不关心里面装的是什么。CoE（ETG.1000.6）把 CANopen 应用层（CiA 301）整套搬进来，规定装什么、怎么编号；CiA 402 再在这张表的 0x6000 区定义驱动器对象。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 250" role="img" aria-label="三层关系：底层 EtherCAT 数据链路层提供邮箱和过程数据两种运输；中间 CoE 借用 CiA 301 的对象字典、SDO、PDO 映射、SDO Info、Emergency；顶层 CiA 402 在 0x6000 区定义驱动器对象">
+        <rect class="box-drive" x="20" y="14" width="700" height="50" rx="8"/>
+        <text class="t-bold" x="36" y="36">CiA 402 驱动器行规（IEC 61800-7-201）</text>
+        <text class="t-small" x="36" y="55">在对象字典的 0x6000 区定义 6040、6041、6060、607A……</text>
+        <rect class="box-mail" x="20" y="76" width="700" height="80" rx="8"/>
+        <text class="t-bold" x="36" y="98">CoE：CANopen over EtherCAT（ETG.1000.6）</text>
+        <text class="t-small" x="36" y="120">数据模型：对象字典　参数访问：SDO　周期打包：PDO 映射</text>
+        <text class="t-small" x="36" y="142">自报表结构：SDO Info　主动报错：Emergency</text>
+        <rect class="box-bus" x="20" y="168" width="344" height="66" rx="8"/>
+        <text class="t-bold" x="36" y="192">邮箱 SM0/SM1（按需）</text>
+        <text class="t-small" x="36" y="216">SDO、SDO Info、Emergency</text>
+        <rect class="box-bus" x="376" y="168" width="344" height="66" rx="8"/>
+        <text class="t-bold" x="392" y="192">过程数据 SM2/SM3（每周期）</text>
+        <text class="t-small" x="392" y="216">按 PDO 映射排好的对象值</text>
+        <rect class="box-muted" x="740" y="76" width="200" height="80" rx="8"/>
+        <text class="t-bold t-mid" x="840" y="104">CANopen CiA 301</text>
+        <text class="t-small t-mid" x="840" y="126">对象字典、数据类型、</text>
+        <text class="t-small t-mid" x="840" y="144">SDO/PDO 的原始定义</text>
+        <line class="wire stroke-muted sw-2 dashed" x1="740" y1="116" x2="728" y2="116"/>
+        <polygon class="fill-muted" points="722,116 732,110 732,122"/>
+        <text class="t-small t-muted" x="740" y="174">CoE 借用：规则按 CiA 301</text>
+        <text class="t-small t-muted" x="740" y="206">← EtherCAT 数据链路层</text>
+      </svg>
+      </div>
+      <figcaption>下两格是 EtherCAT 本身提供的运输，中间一层是 CoE 规定的内容，上层是具体设备行规。</figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table>
+        <tr><th>CoE 规定的内容</th><th>走哪种运输</th><th>本课程在哪讲</th></tr>
+        <tr><td>数据模型：对象字典</td><td>表在从站固件里，下面几项都访问它</td><td>本课</td></tr>
+        <tr><td>参数访问：SDO 上传/下载</td><td>邮箱</td><td>u3-l2</td></tr>
+        <tr><td>周期数据打包：PDO 映射（0x1600/0x1A00、0x1C12/0x1C13）</td><td>过程数据；映射本身在 PREOP 用 SDO 配</td><td>u3-l3</td></tr>
+        <tr><td>自报表结构：SDO Info</td><td>邮箱</td><td>本课</td></tr>
+        <tr><td>主动报错：Emergency</td><td>邮箱（从站主动放进 SM1，主站读邮箱时取回）</td><td>u3-l2 讲报文格式</td></tr>
+      </table>
+    </div>
+
+    <h3>编号与分区</h3>
+    <p>每个对象由 16 位索引定位，复合对象再用 8 位子索引选成员，写作 <code>0x1018:01</code>。索引空间按用途切成几段，看到索引就知道它归谁管（CiA 301 规定，CoE 原样沿用）。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 150" role="img" aria-label="16 位索引空间示意：0x0000 到 0xFFFF 按比例分为数据类型区、通信区、厂商区、设备行规区和保留区，行规区开头一小段是 CiA 402 第一个轴">
+        <text class="t-small t-mono" x="20" y="30">0x0000</text>
+        <text class="t-small t-mono t-mid" x="77.5" y="16">0x1000</text>
+        <text class="t-small t-mono t-mid" x="135" y="30">0x2000</text>
+        <text class="t-small t-mono t-mid" x="365" y="30">0x6000</text>
+        <text class="t-small t-mono t-mid" x="595" y="30">0xA000</text>
+        <text class="t-small t-mono t-end" x="940" y="30">0xFFFF</text>
+        <rect class="box-muted" x="20" y="40" width="57.5" height="44"/>
+        <text class="t-small t-mid" x="48.75" y="67">类型</text>
+        <rect class="box-mail" x="77.5" y="40" width="57.5" height="44"/>
+        <text class="t-small t-mid t-mail" x="106.25" y="67">通信</text>
+        <rect class="box-muted" x="135" y="40" width="230" height="44"/>
+        <text class="t-small t-mid" x="250" y="67">厂商区</text>
+        <rect class="box-drive" x="365" y="40" width="230" height="44"/>
+        <text class="t-small t-mid t-drive" x="480" y="67">设备行规区</text>
+        <rect class="box" x="595" y="40" width="345" height="44"/>
+        <text class="t-small t-mid t-muted" x="767.5" y="67">保留 / 其他行规</text>
+        <rect class="fill-drive" x="365" y="90" width="28.75" height="10"/>
+        <text class="t-small t-drive" x="365" y="120">CiA 402 轴 0：0x6000–0x67FF（每多一个轴偏移 0x800）</text>
+        <text class="t-small t-muted" x="20" y="142">宽度按索引数量等比例：厂商区和行规区各占 1/4 的编号空间</text>
+      </svg>
+      </div>
+      <figcaption>16 位索引空间。数据类型区与通信区只占开头两小段，但几乎所有"通用"对象都在通信区。</figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table>
+        <tr><th>索引范围</th><th>分区</th><th>例子</th></tr>
+        <tr><td><code>0x0000–0x0FFF</code></td><td>数据类型区（0x0001–0x025F 用于类型定义，其余保留）</td><td><code>0x0006</code> 即 UINT16 的定义；<code>0x0007</code> 即 UINT32</td></tr>
+        <tr><td><code>0x1000–0x1FFF</code></td><td>通信区：设备身份、PDO 映射与分配、SM 参数</td><td><code>0x1018</code> 身份；<code>0x1C12</code> SM2 PDO 分配</td></tr>
+        <tr><td><code>0x2000–0x5FFF</code></td><td>厂商区：各家自定义参数（增益、报警阈值……）</td><td>含义完全因厂商而异，只能查该设备的手册或 ESI</td></tr>
+        <tr><td><code>0x6000–0x9FFF</code></td><td>设备行规区；CiA 402 驱动器第一个轴占 <code>0x6000–0x67FF</code></td><td><code>0x6040</code> 控制字；<code>0x607A</code> 目标位置</td></tr>
+        <tr><td><code>0xA000–0xFFFF</code></td><td>CiA 301 中为保留/其他用途；EtherCAT 的模块化设备行规（ETG.5001）使用 <code>0xF000</code> 起的一段</td><td><code>0xF000</code> 模块化设备描述；普通单轴驱动器一般不涉及</td></tr>
+      </table>
+    </div>
+    <div class="note"><strong>0x1018 身份对象要和 SII 对得上：</strong><code>:01</code> 厂商号、<code>:02</code> 产品码、<code>:03</code> 版本号、<code>:04</code> 序列号，分别对应 SII 字地址 0x0008、0x000A、0x000C、0x000E（见 u2-l4）。主站按 SII 认设备、按对象字典配参数，两边不一致就会出现"认对了人、配错了参数"。</div>
+
+    <h3>一条对象长什么样</h3>
+    <p>对象字典的每一项都带一组属性。数据类型用 16 位编码表示，编码本身就是数据类型区里的索引。VAR 只有子索引 0；ARRAY 和 RECORD 的子索引 0 是 UINT8 的"最大子索引"，实际成员从 1 开始。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>属性</th><th>含义</th><th>例：0x6041</th></tr>
+        <tr><td>索引 / 子索引</td><td>16 位 / 8 位编号</td><td><code>0x6041:00</code></td></tr>
+        <tr><td>名称</td><td>固件里的描述字符串，ESI 和 SDO Info 都会给出</td><td>Statusword</td></tr>
+        <tr><td>对象类型（Object Code）</td><td>VAR 7、ARRAY 8、RECORD 9</td><td>VAR</td></tr>
+        <tr><td>数据类型</td><td>数据类型编码，决定位长</td><td>UINT16（<code>0x0006</code>）</td></tr>
+        <tr><td>访问权限</td><td>ro / rw / wo（const 视作只读）；CoE 里可按 PREOP / SAFEOP / OP 分别规定读、写</td><td>ro</td></tr>
+        <tr><td>PDO 可映射性</td><td>能否映射进 RxPDO（主→从）或 TxPDO（从→主）</td><td>TxPDO</td></tr>
+        <tr><td>默认值 / 范围 / 单位</td><td>多数由厂商定义；行规只规定部分对象的取值含义</td><td>默认值因厂商而异</td></tr>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <tr><th>编码</th><th>类型</th><th>位长</th><th>编码</th><th>类型</th><th>位长</th></tr>
+        <tr><td><code>0x0001</code></td><td>BOOL</td><td>1</td><td><code>0x0008</code></td><td>REAL32</td><td>32</td></tr>
+        <tr><td><code>0x0002</code></td><td>INT8</td><td>8</td><td><code>0x0009</code></td><td>VISIBLE_STRING</td><td>8 × n</td></tr>
+        <tr><td><code>0x0003</code></td><td>INT16</td><td>16</td><td><code>0x000A</code></td><td>OCTET_STRING</td><td>8 × n</td></tr>
+        <tr><td><code>0x0004</code></td><td>INT32</td><td>32</td><td><code>0x000B</code></td><td>UNICODE_STRING</td><td>16 × n</td></tr>
+        <tr><td><code>0x0005</code></td><td>UINT8</td><td>8</td><td><code>0x0015</code></td><td>INT64</td><td>64</td></tr>
+        <tr><td><code>0x0006</code></td><td>UINT16</td><td>16</td><td><code>0x001B</code></td><td>UINT64</td><td>64</td></tr>
+        <tr><td><code>0x0007</code></td><td>UINT32</td><td>32</td><td></td><td></td><td></td></tr>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <tr><th>对象类型</th><th>编码</th><th>结构</th><th>子索引 0</th><th>例子</th></tr>
+        <tr><td>VAR</td><td>7</td><td>单个值</td><td>就是值本身</td><td><code>0x6041</code>、<code>0x6060</code></td></tr>
+        <tr><td>ARRAY</td><td>8</td><td>多个<strong>同类型</strong>成员</td><td>最大子索引（UINT8）</td><td><code>0x1C12</code>、<code>0x1010</code>、<code>0x6091</code></td></tr>
+        <tr><td>RECORD</td><td>9</td><td>多个成员，类型<strong>可以不同</strong></td><td>最大子索引（UINT8）</td><td><code>0x1018</code>、<code>0x1600</code>、<code>0x1C32</code></td></tr>
+      </table>
+    </div>
+    <p>Complete Access（SDO 命令字节 bit4，见 u3-l2）让一次 SDO 读写整个对象的全部子索引，常用来整块下载 PDO 映射；IgH 应用层用 <code>ecrt_slave_config_complete_sdo()</code> 配置这种下载，从站是否支持以 ESI 或手册为准。下面的浏览器收了约 30 条常用对象，点一条看它的全部属性。</p>
+
+    <div class="odb" id="odb" aria-label="对象浏览器">
+      <div class="odb-bar" role="group" aria-label="按分区筛选">
+        <button type="button" data-area="all" aria-pressed="true">全部</button>
+        <button type="button" data-area="comm" aria-pressed="false">通信区 0x1000</button>
+        <button type="button" data-area="profile" aria-pressed="false">行规区 0x6000</button>
+        <input type="search" id="odb-q" placeholder="索引，如 6041" aria-label="按索引搜索" autocomplete="off">
+        <span class="odb-count" id="odb-count" aria-live="polite"></span>
+      </div>
+      <div class="odb-grid">
+        <ul class="odb-list" id="odb-list"></ul>
+        <div class="odb-card" id="odb-card" aria-live="polite"></div>
+      </div>
+      <p class="odb-count odb-foot">访问权限与 PDO 可映射性给的是 CiA 301/402 的规定或常见做法，具体设备以其 ESI 和 SDO Info 为准；默认值除注明外均因厂商而异。</p>
+    </div>
+    <script type="application/json" id="od-data">
+[
+  {"i":"0x1000","n":"设备类型","en":"Device type","a":"comm","ot":"VAR","dt":"UINT32","acc":"ro","pdo":"不可映射","val":"低 16 位 = 设备行规号（CiA 402 驱动器为 0x0192 = 402），高 16 位为附加信息；具体值因厂商而异","note":"主站可据此判断这是不是 CiA 402 设备。","les":["u2-l4","u5-l1"]},
+  {"i":"0x1008","n":"设备名","en":"Manufacturer device name","a":"comm","ot":"VAR","dt":"VISIBLE_STRING","acc":"ro（CiA 301 规定为 const）","pdo":"不可映射","val":"字符串内容与长度因厂商而异","note":"字符串常超过 4 字节，SDO 读它走普通传输（u3-l2）。","les":["u3-l2"]},
+  {"i":"0x1009","n":"硬件版本","en":"Manufacturer hardware version","a":"comm","ot":"VAR","dt":"VISIBLE_STRING","acc":"ro（const）","pdo":"不可映射","val":"因厂商而异；可选对象","note":"","les":["u2-l4"]},
+  {"i":"0x100A","n":"软件版本","en":"Manufacturer software version","a":"comm","ot":"VAR","dt":"VISIBLE_STRING","acc":"ro（const）","pdo":"不可映射","val":"因厂商而异；可选对象","note":"升级固件后先读它确认版本。","les":["u6-l2"]},
+  {"i":"0x1010","n":"保存参数","en":"Store parameters","a":"comm","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"不可映射","val":"写签名 0x65766173（ASCII \"save\"）触发保存；读回 bit0 = 支持按命令保存，bit1 = 支持自动保存","subs":[[":00","最大子索引","UINT8"],[":01","保存全部参数","UINT32"],[":02","保存通信参数（可选）","UINT32"],[":03","保存应用参数（可选）","UINT32"],[":04–:7F","厂商自定义分组（可选）","UINT32"]],"note":"不写 1010 的话，SDO 改的参数多半掉电即失；支持哪些子索引因厂商而异。","les":["u6-l2"]},
+  {"i":"0x1011","n":"恢复默认参数","en":"Restore default parameters","a":"comm","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"不可映射","val":"写签名 0x64616F6C（ASCII \"load\"）；通常在复位或重新上电后生效，以手册为准","subs":[[":00","最大子索引","UINT8"],[":01","恢复全部参数","UINT32"],[":02–:7F","按分组恢复（可选）","UINT32"]],"note":"","les":["u6-l2"]},
+  {"i":"0x1018","n":"身份对象","en":"Identity object","a":"comm","ot":"RECORD","dt":"IDENTITY（0x0023）","acc":"ro","pdo":"不可映射","val":"各值由厂商分配","subs":[[":00","最大子索引，通常为 4","UINT8"],[":01","厂商号 Vendor ID","UINT32"],[":02","产品码 Product code","UINT32"],[":03","版本号 Revision","UINT32"],[":04","序列号 Serial number","UINT32"]],"note":"必须与 SII 字地址 0x0008–0x000F 及 ESI 一致。","les":["u2-l4","u3-l2"]},
+  {"i":"0x1600","n":"第 1 个 RxPDO 映射","en":"RxPDO mapping","a":"comm","ot":"RECORD","dt":"PDO_MAPPING（0x0021）","acc":"固定映射为 ro；可配映射为 rw 且通常只在 PREOP 可写，因厂商而异","pdo":"不可映射","val":"条目 = 索引 &lt;&lt; 16 | 子索引 &lt;&lt; 8 | 位长；出厂映射因厂商而异","subs":[[":00","已映射条目数","UINT8"],[":01…:n","映射条目，如 0x60400010","UINT32"]],"note":"0x1600–0x17FF 都是 RxPDO 映射对象。","les":["u3-l3"]},
+  {"i":"0x1A00","n":"第 1 个 TxPDO 映射","en":"TxPDO mapping","a":"comm","ot":"RECORD","dt":"PDO_MAPPING（0x0021）","acc":"同 0x1600，因厂商而异","pdo":"不可映射","val":"条目格式同 0x1600，如 0x60410010","subs":[[":00","已映射条目数","UINT8"],[":01…:n","映射条目","UINT32"]],"note":"0x1A00–0x1BFF 都是 TxPDO 映射对象。","les":["u3-l3"]},
+  {"i":"0x1C00","n":"SM 通信类型","en":"Sync manager communication type","a":"comm","ot":"ARRAY","dt":"UINT8","acc":"ro","pdo":"不可映射","val":"0 未用，1 邮箱接收（主→从），2 邮箱发送（从→主），3 过程数据输出，4 过程数据输入","subs":[[":00","SM 个数","UINT8"],[":01","SM0 类型（通常 1）","UINT8"],[":02","SM1 类型（通常 2）","UINT8"],[":03","SM2 类型（通常 3）","UINT8"],[":04","SM3 类型（通常 4）","UINT8"]],"note":"子索引 = SM 号 + 1。","les":["u2-l2"]},
+  {"i":"0x1C12","n":"SM2 PDO 分配","en":"RxPDO assign","a":"comm","ot":"ARRAY","dt":"UINT16","acc":"rw（通常只在 PREOP 可写）或 ro，因厂商而异","pdo":"不可映射","val":"元素为 RxPDO 映射对象的索引，如 0x1600","subs":[[":00","已分配个数","UINT8"],[":01…:n","分配的 PDO 号","UINT16"]],"note":"改分配要先写 :00 = 0，再写条目，最后写回个数。","les":["u3-l3"]},
+  {"i":"0x1C13","n":"SM3 PDO 分配","en":"TxPDO assign","a":"comm","ot":"ARRAY","dt":"UINT16","acc":"同 0x1C12，因厂商而异","pdo":"不可映射","val":"元素为 TxPDO 映射对象的索引，如 0x1A00","subs":[[":00","已分配个数","UINT8"],[":01…:n","分配的 PDO 号","UINT16"]],"note":"","les":["u3-l3"]},
+  {"i":"0x1C32","n":"SM 输出同步参数","en":"SM output parameter","a":"comm","ot":"RECORD","dt":"—（各子索引类型不同）","acc":"各子索引不同，因厂商而异","pdo":"不可映射","val":"时间类子索引单位为 ns","subs":[[":00","最大子索引","UINT8"],[":01","同步类型（0 自由运行、1 SM2 事件同步、2 DC SYNC0、3 DC SYNC1）","UINT16"],[":02","周期时间（ns）","UINT32"],[":03","Shift 时间（ns）","UINT32"],[":04","支持的同步类型","UINT16"],[":05","最小周期时间（ns）","UINT32"],[":06","计算与拷贝时间（ns）","UINT32"],[":07 起","其余计数与错误标志，见 ETG.1020","—"]],"note":"","les":["u4-l2"]},
+  {"i":"0x1C33","n":"SM 输入同步参数","en":"SM input parameter","a":"comm","ot":"RECORD","dt":"—（各子索引类型不同）","acc":"各子索引不同，因厂商而异","pdo":"不可映射","val":"结构同 0x1C32；:01 的取值含义与输出侧略有不同，见 ETG.1020","subs":[[":01","同步类型","UINT16"],[":02","周期时间（ns）","UINT32"],[":03","Shift 时间（ns）","UINT32"]],"note":"","les":["u4-l2"]},
+  {"i":"0x603F","n":"错误码","en":"Error code","a":"profile","ot":"VAR","dt":"UINT16","acc":"ro","pdo":"可映射进 TxPDO（可选）","val":"0 = 无故障；码值按 IEC 61800-7-201 的错误码表，厂商可扩展","note":"","les":["u5-l3"]},
+  {"i":"0x6040","n":"控制字","en":"Controlword","a":"profile","ot":"VAR","dt":"UINT16","acc":"rw","pdo":"可映射进 RxPDO","val":"bit0 Switch on、bit1 Enable voltage、bit2 Quick stop、bit3 Enable operation、bit7 Fault reset","note":"已映射进 RxPDO 时，SDO 写它会在下一周期被覆盖。","les":["u5-l1","u3-l3"]},
+  {"i":"0x6041","n":"状态字","en":"Statusword","a":"profile","ot":"VAR","dt":"UINT16","acc":"ro","pdo":"可映射进 TxPDO","val":"状态判定用掩码 0x004F / 0x006F，见 u5-l1","note":"","les":["u5-l1","u3-l2","u3-l3"]},
+  {"i":"0x605A","n":"快速停机选项码","en":"Quick stop option code","a":"profile","ot":"VAR","dt":"INT16","acc":"rw","pdo":"通常不映射，因厂商而异","val":"0 关闭驱动；1–4 按减速斜坡 / 急停斜坡 / 电流极限 / 电压极限停车后转 Switch on disabled；5–8 同样停车但停留在 Quick stop active；支持哪些值因厂商而异","note":"","les":["u5-l3"]},
+  {"i":"0x605E","n":"故障反应选项码","en":"Fault reaction option code","a":"profile","ot":"VAR","dt":"INT16","acc":"rw","pdo":"通常不映射，因厂商而异","val":"0 关闭驱动、电机自由停转；1 减速斜坡；2 急停斜坡；3 电流极限；4 电压极限","note":"","les":["u5-l3"]},
+  {"i":"0x6060","n":"运行模式","en":"Modes of operation","a":"profile","ot":"VAR","dt":"INT8","acc":"rw","pdo":"可映射进 RxPDO","val":"1 PP、2 VL、3 PV、4 TQ、6 HM、7 IP、8 CSP、9 CSV、10 CST；负值为厂商自定义","note":"写入后以 6061 的回读为准，切换时机因厂商而异。","les":["u5-l2"]},
+  {"i":"0x6061","n":"运行模式显示","en":"Modes of operation display","a":"profile","ot":"VAR","dt":"INT8","acc":"ro","pdo":"可映射进 TxPDO","val":"取值同 6060","note":"","les":["u5-l2"]},
+  {"i":"0x6064","n":"实际位置","en":"Position actual value","a":"profile","ot":"VAR","dt":"INT32","acc":"ro","pdo":"可映射进 TxPDO","val":"单位：位置单位（与电机增量的换算见下一节）","note":"","les":["u3-l3","u6-l3"]},
+  {"i":"0x6065","n":"跟随误差窗口","en":"Following error window","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"通常不映射，因厂商而异","val":"单位：位置单位；0xFFFFFFFF 表示关闭跟随误差监控（以驱动器手册为准）","note":"配合 6066 跟随误差超时使用。","les":["u6-l3"]},
+  {"i":"0x606C","n":"实际速度","en":"Velocity actual value","a":"profile","ot":"VAR","dt":"INT32","acc":"ro","pdo":"可映射进 TxPDO","val":"单位：速度单位","note":"","les":["u6-l3"]},
+  {"i":"0x607A","n":"目标位置","en":"Target position","a":"profile","ot":"VAR","dt":"INT32","acc":"rw","pdo":"可映射进 RxPDO","val":"单位：位置单位；CSP 下每周期一个点","note":"","les":["u3-l3","u5-l2","u6-l3"]},
+  {"i":"0x6081","n":"轮廓速度","en":"Profile velocity","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：速度单位；PP 模式的巡航速度","note":"","les":["u5-l2"]},
+  {"i":"0x6083","n":"轮廓加速度","en":"Profile acceleration","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：加速度单位","note":"","les":["u5-l2"]},
+  {"i":"0x6084","n":"轮廓减速度","en":"Profile deceleration","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：加速度单位","note":"","les":["u5-l2"]},
+  {"i":"0x6091","n":"齿轮比","en":"Gear ratio","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"通常不映射","val":"齿轮比 = :01 / :02","subs":[[":00","最大子索引 = 2","UINT8"],[":01","电机转数 Motor revolutions","UINT32"],[":02","轴转数 Shaft revolutions","UINT32"]],"note":"","les":["u6-l3"]},
+  {"i":"0x6092","n":"进给常数","en":"Feed constant","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"通常不映射","val":"进给常数 = :01 / :02（位置单位每轴转）","subs":[[":00","最大子索引 = 2","UINT8"],[":01","进给量 Feed","UINT32"],[":02","轴转数 Shaft revolutions","UINT32"]],"note":"","les":["u6-l3"]},
+  {"i":"0x60C2","n":"插补周期","en":"Interpolation time period","a":"profile","ot":"RECORD","dt":"—（各子索引类型不同）","acc":"rw","pdo":"通常不映射","val":"周期 = :01 × 10^(:02) 秒，例如 :01 = 1、:02 = −3 即 1 ms","subs":[[":00","最大子索引 = 2","UINT8"],[":01","周期数值","UINT8"],[":02","周期指数","INT8"]],"note":"两个成员类型不同，所以是 RECORD 不是 ARRAY。应与总线周期一致。","les":["u4-l2","u5-l2"]},
+  {"i":"0x60FD","n":"数字输入","en":"Digital inputs","a":"profile","ot":"VAR","dt":"UINT32","acc":"ro","pdo":"可映射进 TxPDO","val":"bit0 负限位、bit1 正限位、bit2 原点开关、bit3 interlock；bit16–31 厂商自定义","note":"","les":["u5-l3"]},
+  {"i":"0x60FE","n":"数字输出","en":"Digital outputs","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":":01 通常可映射进 RxPDO，因厂商而异","val":":01 bit0 = set brake；bit16–31 厂商自定义","subs":[[":00","最大子索引","UINT8"],[":01","物理输出","UINT32"],[":02","位掩码","UINT32"]],"note":"","les":["u5-l3"]},
+  {"i":"0x6502","n":"支持的运行模式","en":"Supported drive modes","a":"profile","ot":"VAR","dt":"UINT32","acc":"ro","pdo":"通常不映射","val":"位图：bit0 PP、bit1 VL、bit2 PV、bit3 TQ、bit5 HM、bit6 IP、bit7 CSP、bit8 CSV、bit9 CST；bit16–31 厂商自定义","note":"写 6060 之前先读它，确认驱动器支持该模式。","les":["u5-l2"]}
+]
+    </script>
+
+    <h3>主站怎么知道这张表</h3>
+    <p>表的"真身"是从站固件里的对象定义数组；ESI 的 <code>&lt;Objects&gt;</code>/<code>&lt;DataTypes&gt;</code> 是厂商随设备给的离线副本，SDO Info 服务是固件在线报告自己实现了什么。三者必须一致；ESI 里写了而固件没实现的对象，一访问就是 abort 0x06020000。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 240" role="img" aria-label="三个来源：左侧主站；中间上方 ESI XML 离线文件；右侧从站里的固件对象表与 SDO Info 服务，SDO Info 经邮箱把对象列表报告给主站；ESI 与固件表之间标注必须一致">
+        <rect class="box-bus" x="20" y="80" width="200" height="90" rx="8"/>
+        <text class="t-title t-mid" x="120" y="115">主站</text>
+        <text class="t-small t-mid t-muted" x="120" y="140">扫描、配置时读取</text>
+        <rect class="box-muted" x="380" y="16" width="220" height="60" rx="8"/>
+        <text class="t-bold t-mid" x="490" y="40">ESI XML（离线）</text>
+        <text class="t-small t-mid t-mono t-muted" x="490" y="62">&lt;Objects&gt; &lt;DataTypes&gt;</text>
+        <path class="wire" d="M380 46 L 260 46 L 226 92"/>
+        <polygon class="fill-muted" points="220,100 222,86 232,92"/>
+        <text class="t-small t-muted" x="250" y="36">厂商随设备提供</text>
+        <rect class="box-drive" x="700" y="16" width="240" height="210" rx="8"/>
+        <text class="t-title" x="714" y="42">从站</text>
+        <rect class="box" x="716" y="56" width="208" height="60" rx="6"/>
+        <text class="t-bold t-mid" x="820" y="80">固件对象表</text>
+        <text class="t-small t-mid t-muted" x="820" y="102">实际实现了什么，以它为准</text>
+        <line class="wire stroke-drive sw-2" x1="820" y1="116" x2="820" y2="136"/>
+        <polygon class="fill-drive" points="820,142 814,132 826,132"/>
+        <rect class="box-mail" x="716" y="144" width="208" height="64" rx="6"/>
+        <text class="t-bold t-mid" x="820" y="168">SDO Info 服务</text>
+        <text class="t-small t-mid" x="820" y="192">CoE 服务类型 8</text>
+        <line class="wire stroke-mail sw-2" x1="716" y1="176" x2="230" y2="156"/>
+        <polygon class="fill-mail" points="222,156 234,150 234,162"/>
+        <text class="t-small t-mail t-mid" x="470" y="186">在线：经邮箱逐条报告对象</text>
+        <path class="wire stroke-fault dashed" d="M600 46 L 716 80"/>
+        <text class="t-small t-fault" x="612" y="92">必须一致</text>
+      </svg>
+      </div>
+      <figcaption>IgH 扫描从站时，若从站支持 SDO Info，会把对象字典读上来缓存，<code>ethercat sdos</code> 显示的就是这份缓存；不支持时列表为空，读写时必须手动给 <code>--type</code>。</figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table>
+        <tr><th>SDO Info 服务（ETG.1000.6）</th><th>OpCode 请求 / 应答</th><th>主站得到什么</th></tr>
+        <tr><td>Get OD List</td><td><code>0x01</code> / <code>0x02</code></td><td>索引列表（可选全部、仅 RxPDO 可映射、仅 TxPDO 可映射等）</td></tr>
+        <tr><td>Get Object Description</td><td><code>0x03</code> / <code>0x04</code></td><td>某索引的数据类型、最大子索引、对象类型、名称</td></tr>
+        <tr><td>Get Entry Description</td><td><code>0x05</code> / <code>0x06</code></td><td>某子索引的数据类型、位长、按 ESM 状态的读写权限、PDO 可映射性、名称（可选单位、默认值、最小/最大值）</td></tr>
+        <tr><td>SDO Info Error</td><td><code>0x07</code></td><td>出错时返回 abort code</td></tr>
+      </table>
+    </div>
+    <p><code>ethercat sdos</code> 的输出每个对象一行标题、每个子索引一行条目，格式大致如下（示意，列格式以所装 IgH 版本为准，名称字符串来自固件）：</p>
+    <pre><code>SDO 0x1018, "Identity"
+  0x1018:00, r-r-r-, uint8, 8 bit, "SubIndex 000"
+  0x1018:01, r-r-r-, uint32, 32 bit, "Vendor ID"
+SDO 0x6060, "Modes of operation"
+  0x6060:00, rwrwrw, int8, 8 bit, "Modes of operation"</code></pre>
+    <div class="table-wrap">
+      <table class="sdos-cols">
+        <tr><th>列</th><th>含义</th></tr>
+        <tr><td>SDO 0x1018, "…"</td><td>对象索引与对象名（Get Object Description）</td></tr>
+        <tr><td>0x1018:01</td><td>索引:子索引，子索引在这里按十六进制两位显示</td></tr>
+        <tr><td>r-r-r-</td><td>三对读写位，依次是 PREOP、SAFEOP、OP；<code>-</code> 表示该状态下不可读或不可写</td></tr>
+        <tr><td>uint32</td><td>数据类型；IgH 不认识的类型编码会显示原始编号</td></tr>
+        <tr><td>32 bit</td><td>位长</td></tr>
+        <tr><td>"Vendor ID"</td><td>条目描述（Get Entry Description）</td></tr>
+      </table>
+    </div>
+
+    <h3>两条路，一张表</h3>
+    <p>SDO 是按需的一问一答，PDO 是每个周期固定搬运；两者最后都读写同一个对象。已映射进 RxPDO 的对象，表里的值每周期被主站过程数据覆盖，所以 SDO 写它只能活到下一周期；TxPDO 对象则相反，SDO 读和 PDO 读拿到的是同一份值。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 262" role="img" aria-label="时序图：6040 已映射进 RxPDO，每个周期 PDO 写入 0x000F；两个周期之间 SDO 把 6040 写成 0x0006，下一个周期又被 PDO 覆盖回 0x000F">
+        <text class="t-small t-muted" x="20" y="24">时间 →</text>
+        <line class="wire stroke-line" x1="200" y1="34" x2="200" y2="206"/>
+        <line class="wire stroke-line" x1="420" y1="34" x2="420" y2="206"/>
+        <line class="wire stroke-line" x1="640" y1="34" x2="640" y2="206"/>
+        <line class="wire stroke-line" x1="860" y1="34" x2="860" y2="206"/>
+        <text class="t-small t-mid t-muted" x="200" y="28">周期 n</text>
+        <text class="t-small t-mid t-muted" x="420" y="28">n+1</text>
+        <text class="t-small t-mid t-muted" x="640" y="28">n+2</text>
+        <text class="t-small t-mid t-muted" x="860" y="28">n+3</text>
+        <text class="t-small t-bus" x="20" y="74">PDO 写 6040</text>
+        <polygon class="fill-bus" points="200,86 192,66 208,66"/>
+        <polygon class="fill-bus" points="420,86 412,66 428,66"/>
+        <polygon class="fill-bus" points="640,86 632,66 648,66"/>
+        <polygon class="fill-bus" points="860,86 852,66 868,66"/>
+        <text class="t-small t-mail" x="20" y="130">SDO 下载 6040</text>
+        <polygon class="fill-mail" points="510,142 502,118 518,118"/>
+        <text class="t-small t-mono t-mail" x="524" y="132">= 0x0006</text>
+        <text class="t-small" x="20" y="186">表内 6040 的值</text>
+        <rect class="box-bus" x="200" y="166" width="310" height="30" rx="4"/>
+        <text class="t-small t-mono t-mid" x="355" y="186">0x000F</text>
+        <rect class="box-fault" x="510" y="166" width="130" height="30" rx="4"/>
+        <text class="t-small t-mono t-mid" x="575" y="186">0x0006</text>
+        <rect class="box-bus" x="640" y="166" width="300" height="30" rx="4"/>
+        <text class="t-small t-mono t-mid" x="790" y="186">0x000F（被覆盖）</text>
+        <text class="t-small t-muted" x="200" y="238">TxPDO 对象（如 6041）方向相反：固件更新表，PDO 与 SDO 读到的是同一份值</text>
+      </svg>
+      </div>
+      <figcaption>有的从站在 SAFEOP/OP 下直接拒绝对已映射 RxPDO 对象的 SDO 写，回 abort 而不是静默覆盖，行为因厂商而异。</figcaption>
+    </figure>
+    <p>行规对象的数值带单位，单位由换算对象决定；写目标位置前要先知道"1 个位置单位是多少"。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>对象</th><th>作用</th><th>换算</th></tr>
+        <tr><td><code>0x6091</code> 齿轮比</td><td>电机转数 : 轴转数</td><td><code>:01</code> / <code>:02</code></td></tr>
+        <tr><td><code>0x6092</code> 进给常数</td><td>每轴转对应多少位置单位</td><td><code>:01</code> / <code>:02</code></td></tr>
+        <tr><td><code>0x6065</code> 跟随误差窗口</td><td>允许的位置偏差</td><td>位置单位，经上面两项换算成电机增量；未配置换算时很多驱动器的位置单位就是编码器增量，因厂商而异</td></tr>
+        <tr><td><code>0x60C2</code> 插补周期</td><td>CSP/IP 下两点之间的时间</td><td><code>:01</code> × 10^<code>:02</code> 秒，应等于总线周期</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>读 ESI 的 <code>&lt;Objects&gt;</code>，或在线用 SDO Info 把从站的对象字典读上来，认识这张表。</li>
+          <li>在 PREOP 用 SDO 下载参数：运行模式、斜坡、换算系数、PDO 映射与分配。</li>
+          <li>只把"PDO 可映射"的对象装进 RxPDO/TxPDO，进入 OP 后每周期通过过程映像读写它们。</li>
+          <li>需要掉电保持时写 <code>0x1010</code>；不要用 SDO 去写已映射进 RxPDO 的对象。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>固件持有对象字典：一张 RAM 里的对象描述数组，每项指向变量或回调。</li>
+          <li>每次 SDO 访问先校验：对象/子索引存在、访问权限、当前 ESM 状态、数据长度与取值范围；不通过就回 abort code。</li>
+          <li>执行回调：写 6060 触发模式切换并更新 6061；PDO 映射写完后校验并算出 SM 长度。</li>
+          <li>收到 <code>0x1010</code> 的 "save" 签名时把参数存进 NVRAM，上电再装回表里。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>从站需在 PREOP 或更高。IgH 命令行里数字按 C 语言规则解析：<code>0x</code> 开头是十六进制，不带前缀是十进制，所以索引一定要写 <code>0x</code>。</p>
+    <pre><code># 看整张对象字典（需从站支持 SDO Info）
+ethercat sdos -p0
+# 厂商号，应与 ethercat slaves -v 的 Vendor Id 一致
+ethercat upload -p0 0x1018 1 --type uint32
+# 设备名（字符串）
+ethercat upload -p0 0x1008 0 --type string
+# 第 1 个 RxPDO 映射的条目数
+ethercat upload -p0 0x1600 0 --type uint8
+# 写运行模式 CSP，再读回显示值
+ethercat download -p0 0x6060 0 8 --type int8
+ethercat upload -p0 0x6061 0 --type int8</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>命令</th><th>期望</th><th>说明</th></tr>
+        <tr><td>sdos -p0</td><td>每个对象一行 SDO 标题 + 若干子索引行</td><td>空列表说明从站不支持 SDO Info 或主站没读到；输出格式以所装版本为准</td></tr>
+        <tr><td>upload 0x1018 1</td><td>厂商号（十六进制 + 十进制）</td><td>与 <code>slaves -v</code> 和 SII 一致；不一致就是 u2-l4 的身份不匹配</td></tr>
+        <tr><td>upload 0x1008 0</td><td>设备名字符串</td><td>内容因厂商而异</td></tr>
+        <tr><td>upload 0x1600 0</td><td>当前映射条目数，如 <code>0x02 2</code></td><td>与 <code>ethercat pdos</code> 里该 PDO 的条目数一致</td></tr>
+        <tr><td>download 0x6060 0 8</td><td>无输出</td><td>成功静默；不支持 CSP 时打印 abort code</td></tr>
+        <tr><td>upload 0x6061 0</td><td><code>0x08 8</code></td><td>有的驱动器要在特定 CiA 402 状态才切换，回读值更新时机因厂商而异</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "对象 <code>0x6040</code>（控制字）属于索引空间的哪个分区？", "options": ["通信区 0x1000–0x1FFF", "厂商区 0x2000–0x5FFF", "设备行规区 0x6000–0x9FFF", "数据类型区 0x0000–0x0FFF"], "answer": 2, "explain": "0x6000–0x9FFF 是设备行规区，CiA 402 驱动器的第一个轴占 0x6000–0x67FF，6040 就在其中。"},
+  {"q": "RECORD 对象（如 <code>0x1018</code>、<code>0x1600</code>）的子索引 0 是什么？", "options": ["第一个数据成员", "最大子索引，即成员个数（UINT8）", "整个对象的数据类型编码", "对象的访问权限"], "answer": 1, "explain": "ARRAY 和 RECORD 的子索引 0 都是 UINT8 的最大子索引，成员从 1 开始；PDO 映射对象里它就是已映射条目数。VAR 只有子索引 0，那才是值本身。"},
+  {"q": "<code>0x6040</code> 已映射进 RxPDO，从站在 OP。此时用 SDO 把 6040 写成 0x0006，会怎样？", "options": ["永久生效，直到下次 SDO 写", "下一周期被主站过程数据覆盖（有的从站直接回 abort 拒绝）", "从站自动把 6040 从 PDO 映射里移除", "主站会把 SDO 值同步进过程映像"], "answer": 1, "explain": "表里只有一个 6040，每周期 PDO 都把主站过程映像里的值写进去，SDO 写入只能活到下一周期。要改控制字就改过程映像里的值。"},
+  {"q": "主站从哪里知道从站对象字典的结构？", "options": ["读 ESC 寄存器 0x0000–0x0FFF", "ESI 的 <code>&lt;Objects&gt;</code> 和从站在线提供的 SDO Info 服务，二者都应与固件对象表一致", "从 FMMU 配置反推", "从 WKC 的计数推断"], "answer": 1, "explain": "ESC 寄存器是芯片的物理内存，不含对象字典。结构来自离线的 ESI 和在线的 SDO Info；真正实现了什么以固件（SDO Info）为准。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>对象字典就是 ESC 的寄存器，<code>0x6041</code> 是某个内存地址。<br><strong>实际上：</strong>ESC 寄存器是芯片里 0x0000–0x0FFF 的物理内存，用 FPRD/FPWR 直接读写；对象字典是固件里的软件表，只能经邮箱 SDO 或 PDO 映射间接访问。</li>
+      <li><strong>误区：</strong><code>ethercat upload -p0 6041 0</code> 读的就是状态字。<br><strong>实际上：</strong>IgH 命令行里不带前缀的数是十进制，6041 会被当作 0x1799。索引要写 <code>0x6041</code>；子索引写 <code>1</code> 或 <code>0x01</code> 等价，但 <code>10</code> 是十进制 10（0x0A），而 <code>sdos</code> 输出里子索引是按十六进制显示的。</li>
+      <li><strong>误区：</strong>ESI 里列出的对象，从站一定都实现了。<br><strong>实际上：</strong>ESI 可能对应别的固件版本，或列了可选对象；以 SDO Info（<code>ethercat sdos</code>）和实际访问结果为准，没实现的对象会回 abort 0x06020000。</li>
+    </ul>
+    <p class="note">对象字典是 CANopen（CiA 301）的概念，EtherCAT 通过 CoE（CANopen over EtherCAT）整套借用，所以索引分区、数据类型编码、对象类型、SDO 与 abort code 的规则都按 CiA 301 理解；CiA 402 的 0x6000 区对象也原样适用。</p>
+    <p>关联：下一课 u3-l1 讲 ESM 状态机（哪个状态能访问这张表）；u3-l2 讲怎么用 SDO 逐字节访问这张表；u3-l3 讲怎么把表里的对象装进周期帧。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  // 对象浏览器：事件委托到 #odb 容器
+  var root = document.getElementById('odb');
+  var raw = document.getElementById('od-data');
+  if (!root || !raw) return;
+  var data;
+  try { data = JSON.parse(raw.textContent); } catch (e) { console.error('u3-l0: od-data 解析失败', e); return; }
+  var OT = { VAR: 'VAR（7）', ARRAY: 'ARRAY（8）', RECORD: 'RECORD（9）' };
+  var AREA = { comm: '通信区 0x1000–0x1FFF', profile: '行规区 0x6000–0x9FFF（CiA 402）' };
+  var DT = { BOOL: '0x0001', INT8: '0x0002', INT16: '0x0003', INT32: '0x0004', UINT8: '0x0005', UINT16: '0x0006', UINT32: '0x0007', REAL32: '0x0008', VISIBLE_STRING: '0x0009', OCTET_STRING: '0x000A', UNICODE_STRING: '0x000B', INT64: '0x0015', UINT64: '0x001B' };
+  var list = document.getElementById('odb-list');
+  var card = document.getElementById('odb-card');
+  var q = document.getElementById('odb-q');
+  var count = document.getElementById('odb-count');
+  var area = 'all';
+  var sel = '0x6041';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+  }
+  // 数据里已转义的 &lt;&lt; 原样保留，其余转义
+  function safe(s) { return esc(String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>')); }
+  function norm(s) { return String(s).toLowerCase().replace(/^0x/, '').replace(/[^0-9a-f]/g, ''); }
+  function match(o) {
+    if (area !== 'all' && o.a !== area) return false;
+    var k = norm(q.value);
+    if (!k) return true;
+    return norm(o.i).indexOf(k) === 0;
+  }
+  function renderList() {
+    var rows = data.filter(match);
+    count.textContent = rows.length + ' / ' + data.length + ' 条';
+    if (!rows.length) { list.innerHTML = '<li class="odb-empty">没有匹配的对象。索引用十六进制，例如 6041、1c12。</li>'; return; }
+    list.innerHTML = rows.map(function (o) {
+      return '<li><button type="button" class="odb-item a-' + o.a + (o.i === sel ? ' is-sel' : '') + '" data-i="' + o.i + '" aria-pressed="' + (o.i === sel) + '">' +
+        '<span class="ix">' + o.i.slice(2) + '</span><span class="nm">' + esc(o.n) + '</span></button></li>';
+    }).join('');
+  }
+  function dtText(dt) {
+    return DT[dt] ? dt + '（' + DT[dt] + '）' : dt;
+  }
+  function renderCard() {
+    var o = null;
+    data.forEach(function (x) { if (x.i === sel) o = x; });
+    if (!o) { card.innerHTML = '<p class="odb-note">点左侧一条对象查看属性。</p>'; return; }
+    var subs = o.subs
+      ? '<div class="table-wrap"><table><tr><th>子索引</th><th>含义</th><th>类型</th></tr>' +
+        o.subs.map(function (s) { return '<tr><td>' + esc(s[0]) + '</td><td>' + esc(s[1]) + '</td><td>' + esc(s[2]) + '</td></tr>'; }).join('') + '</table></div>'
+      : '只有 <code>:00</code>（值本身）';
+    var les = (o.les || []).map(function (id) {
+      var l = window.Academy && Academy.lesson(id);
+      var name = l ? l.title : id;
+      return '<a href="' + id + '.html">' + id + ' ' + esc(name) + '</a>';
+    }).join('');
+    card.innerHTML =
+      '<h4><span class="ix">' + o.i + '</span>' + esc(o.n) + '</h4>' +
+      '<dl>' +
+      '<dt>英文名</dt><dd>' + esc(o.en) + '</dd>' +
+      '<dt>分区</dt><dd>' + AREA[o.a] + '</dd>' +
+      '<dt>对象类型</dt><dd>' + (OT[o.ot] || esc(o.ot)) + '</dd>' +
+      '<dt>数据类型</dt><dd>' + esc(dtText(o.dt)) + (o.ot === 'ARRAY' ? '（每个成员）' : '') + '</dd>' +
+      '<dt>子索引</dt><dd>' + subs + '</dd>' +
+      '<dt>访问</dt><dd>' + esc(o.acc) + '</dd>' +
+      '<dt>PDO 映射</dt><dd>' + esc(o.pdo) + '</dd>' +
+      '<dt>值 / 范围 / 单位</dt><dd>' + safe(o.val) + (/因厂商而异/.test(o.val) ? '' : '；默认值因厂商而异') + '</dd>' +
+      '<dt>在哪一课用到</dt><dd class="odb-les">' + (les || '本课') + '</dd>' +
+      '</dl>' + (o.note ? '<p class="odb-note">' + esc(o.note) + '</p>' : '');
+  }
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || !root.contains(b)) return;
+    if (b.hasAttribute('data-area')) {
+      area = b.getAttribute('data-area');
+      [].forEach.call(root.querySelectorAll('[data-area]'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      renderList();
+    } else if (b.hasAttribute('data-i')) {
+      sel = b.getAttribute('data-i');
+      renderList(); renderCard();
+    }
+  });
+  root.addEventListener('input', function (e) {
+    if (e.target !== q) return;
+    renderList();
+    var hit = data.filter(match);
+    if (hit.length === 1) { sel = hit[0].i; renderList(); renderCard(); }
+  });
+  renderList(); renderCard();
+})();
+</script>
+<script>
+(function () {
+  var ROWS = ['u30-r-1008', 'u30-r-1010', 'u30-r-1600', 'u30-r-1a00', 'u30-r-1c12', 'u30-r-1c13',
+              'u30-r-6040', 'u30-r-6041', 'u30-r-6060', 'u30-r-6061', 'u30-r-6064', 'u30-r-607a'];
+  // 行高亮：加粗描边 + 着色；先清掉上一步的高亮
+  function mark(f, ids, color) {
+    f.cool(ROWS).cls(ROWS, 'stroke-mail', false).cls(ROWS, 'stroke-bus', false).cls(ROWS, 'stroke-drive', false);
+    return f.hot(ids).cls(ids, color, true);
+  }
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '主站在左，从站在右。从站固件里有一张大表：对象字典，现在还是空白。先认表，再认两条访问路。',
+      apply: function () {} },
+    { title: 'CoE 的位置', text: 'EtherCAT 本身只提供两种运输：邮箱（SM0/SM1）和过程数据（SM2/SM3）。运什么由 CoE 规定：主站侧是 IgH 的 CoE 客户端，从站侧是固件里的 CoE 对象字典。',
+      apply: function (svg) { Academy.fx(svg).show('u30-coe'); } },
+    { title: '按索引分区', text: '表按 16 位索引分区着色：0x1000 起是通信区（紫），0x2000 起是厂商区（灰），0x6000 起是设备行规区（绿，CiA 402 占 0x6000–0x67FF）。',
+      apply: function (svg) { Academy.fx(svg).show('u30-txt').cls('u30-b-com', 'box-mail').cls('u30-b-mfr', 'box-muted').cls('u30-b-prof', 'box-drive'); } },
+    { title: '放大一条 VAR', text: '0x6041 状态字是 VAR：单个值，只有子索引 0。UINT16（编码 0x0006）、只读、可映射进 TxPDO；默认值标准没有规定，因厂商而异。',
+      apply: function (svg) { mark(Academy.fx(svg), 'u30-r-6041', 'stroke-drive').show('u30-c-var'); } },
+    { title: '放大一条 RECORD', text: '0x1600 第 1 个 RxPDO 映射是 RECORD：子索引 0 = 条目数 2，:01 = 0x60400010（6040:00，16 位），:02 = 0x607A0020（607A:00，32 位）。',
+      apply: function (svg) { mark(Academy.fx(svg), 'u30-r-1600', 'stroke-mail').hide('u30-c-var').show('u30-c-rec'); } },
+    { title: '放大一条 ARRAY', text: '0x1C12 SM2 的 PDO 分配是 ARRAY：所有元素都是 UINT16；:00 = 1 个元素，:01 = 0x1600。',
+      apply: function (svg) { mark(Academy.fx(svg), 'u30-r-1c12', 'stroke-mail').hide('u30-c-rec').show('u30-c-arr'); } },
+    { title: 'SDO 读 0x1008', text: '走紫色的 CoE 邮箱路：上传请求经 SM0 进从站，CoE 栈查表找到 1008:00，应答经 SM1 把设备名字符串带回主站。',
+      apply: function (svg) {
+        mark(Academy.fx(svg), 'u30-r-1008', 'stroke-mail').hide('u30-c-arr').show('u30-pk').flow(['u30-wm', 'u30-im'])
+          .text('u30-msdo', '上传 1008:00').text('u30-msdo2', '← 设备名字符串');
+      } },
+    { title: 'SDO 写 0x6060 = 8', text: '同一条 CoE 邮箱路下载 6060:00 = 8（CSP）：表里的值被改写，固件回调执行模式切换，完成后把 0x6061 回填为 8。',
+      apply: function (svg) {
+        mark(Academy.fx(svg), ['u30-r-6060', 'u30-r-6061'], 'stroke-drive').text('u30-pkt', '下载 6060')
+          .text('u30-v6060', '8').text('u30-v6061', '8').show('u30-cb')
+          .text('u30-msdo', '下载 6060:00=8').text('u30-msdo2', '← 成功');
+      } },
+    { title: 'PDO 周期路', text: '走蓝色的过程数据 PDO 路：每个周期 6040、607A 从过程映像写进表，6041、6064 从表读出送回映像。这和 SDO 访问的是同一张表。',
+      apply: function (svg) {
+        mark(Academy.fx(svg), ['u30-r-6040', 'u30-r-607a', 'u30-r-6041', 'u30-r-6064'], 'stroke-bus')
+          .hide(['u30-pk', 'u30-cb']).flow(['u30-wm', 'u30-im'], false).flow(['u30-wp', 'u30-ip']).hot('u30-pi-r').show('u30-c-pdo')
+          .text('u30-msdo', '空闲').text('u30-msdo2', '');
+      } },
+    { title: '固件视角', text: '表就是固件 RAM 里的一组对象描述：有的直连变量，有的挂读写回调（写 6060 切模式、写 1010 存 NVRAM）；越界、写只读或状态不允许时回 abort code。',
+      apply: function (svg) { Academy.fx(svg).show('u30-c-fw'); } }
+  ]);
+  Academy.init('u3-l0');
+})();
+</script>
+</body>
+</html>

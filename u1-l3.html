@@ -42,6 +42,21 @@
         </ol>
         <h3>前置课</h3>
         <ul class="prereq" data-auto></ul>
+        <h3>先知道这些</h3>
+        <dl class="pre-terms">
+          <dt>FMMU 与逻辑地址</dt>
+          <dd>FMMU 把一段逻辑地址映射到本从站的物理内存。<a class="lid-chip" href="u2-l3.html">u2-l3</a></dd>
+          <dt>站地址 0x0010 / 别名 0x0012</dt>
+          <dd>站地址由主站写入；别名从 SII 装载，可代替寻址。<a class="lid-chip" href="u2-l1.html">u2-l1</a></dd>
+          <dt>RxPDO / TxPDO</dt>
+          <dd>周期输出数据（主站→从站）与输入数据（从站→主站）。<a class="lid-chip" href="u3-l3.html">u3-l3</a></dd>
+          <dt>域（domain）</dt>
+          <dd>IgH 主站里一起收发的一块过程数据内存。<a class="lid-chip" href="u6-l1.html">u6-l1</a></dd>
+          <dt>参考时钟</dt>
+          <dd>DC 里作为时间基准的从站，通常是第一台带 DC 的。<a class="lid-chip" href="u4-l1.html">u4-l1</a></dd>
+          <dt>SAFEOP / OP</dt>
+          <dd>SAFEOP 输入有效、输出保持安全态；到 OP 输出才生效。<a class="lid-chip" href="u3-l1.html">u3-l1</a></dd>
+        </dl>
       </div>
     </div>
   </section>

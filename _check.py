@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """EtherCAT 学院静态检查：python3 _check.py [课号 ...]
-检查 21 课：七区块 class 齐全且顺序正确、调用 Academy.init('课号')、quiz JSON 可解析且 4 题字段合法、
+检查 curriculum.js 登记的全部课：七区块 class 齐全且顺序正确、调用 Academy.init('课号')、quiz JSON 可解析且 4 题字段合法、
 Academy.stepper 调用存在且步数 ≥6（含初始画面）、无外部 <script src>、无 assets 以外的本地脚本。"""
 import json, re, sys
 from html.parser import HTMLParser
@@ -89,6 +89,13 @@ def check(lid):
                     if not isinstance(q.get('explain'), str) or not q['explain'].strip(): errs.append(f'Q{i} 缺 explain')
         except json.JSONDecodeError as e:
             errs.append(f'quiz JSON 解析失败：{e}')
+    m = re.search(r'<dl class="pre-terms">(.*?)</dl>', src, re.S)
+    if m:
+        for href in re.findall(r'href="([^"#]+)', m.group(1)):
+            if not (ROOT / href).exists():
+                errs.append('先知道这些：链接指向不存在的页面 ' + href)
+        if 'lesson-locate' in src and src.find('pre-terms') < src.find('lesson-locate'):
+            errs.append('先知道这些不在定位区块内')
     if re.search(r'<link[^>]+rel="stylesheet"[^>]+href="https?://(?!fonts\.googleapis\.com)', src):
         errs.append('外部样式表（仅允许 Google Fonts）')
     if '课名' in src.split('</title>')[0]:

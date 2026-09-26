@@ -33,7 +33,7 @@
 ```bash
 cd ~/wuql_ws/ethercat_ws/web/academy
 # 1. 修改课页或 assets；新课复制 _template.html 并在 assets/curriculum.js 登记
-python3 _check.py                       # 2. 静态检查须 21/21 通过
+python3 _check.py                       # 2. 静态检查须全部通过
 python3 -m http.server 8765 --bind 127.0.0.1   # 3. 本地预览 http://127.0.0.1:8765/
 # 4. 改 assets/curriculum.js 的 version，CHANGELOG.md 加条目
 git add -A && git commit -m "Release vX.Y.Z: 说明"
