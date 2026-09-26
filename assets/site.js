@@ -201,7 +201,9 @@
 
   /* overview(el, highlightKeys, opts)
    * opts.interactive: true 时各层可点击/键盘选择，回调 opts.onSelect(key)
-   * opts.link: 字符串 URL，整个缩略图作为链接（课页缩略图默认链到首页对应层）
+   * opts.link: 字符串 URL。支持 <dialog> 时缩略图带"放大"按钮，点图或按钮打开放大对话框，对话框底部链到该 URL；
+   *            不支持时整个缩略图作为该链接（课页缩略图默认链到首页对应层）
+   * opts.zoomTitle: 放大对话框标题里的课名
    * 返回 {select(key)} */
   function overview(el, highlightKeys, opts) {
     opts = opts || {};
@@ -224,7 +226,23 @@
       }
     });
     el.innerHTML = '';
-    if (opts.link) {
+    var canZoom = opts.link && typeof HTMLDialogElement === 'function' && typeof HTMLDialogElement.prototype.showModal === 'function';
+    if (canZoom) {
+      // 课页缩略图：点图或点"放大"打开对话框；不支持 <dialog> 的浏览器走下面的整图链接
+      wrap.classList.add('is-zoomable');
+      el.appendChild(wrap);
+      // "放大总图"按钮放在总图容器外、紧贴其下方的一行工具条里，图上不叠任何元素
+      var old = el.nextElementSibling;
+      if (old && old.classList.contains('ov-tools')) old.remove();
+      var tools = h('div', { class: 'ov-tools' });
+      var zb = h('button', { type: 'button', class: 'step-btn ov-zoom', 'aria-label': '放大系统总图', 'aria-haspopup': 'dialog' },
+        '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>放大总图');
+      tools.appendChild(zb);
+      el.insertAdjacentElement('afterend', tools);
+      var open = function () { openOverviewDialog(keys, opts, zb); };
+      zb.addEventListener('click', open);
+      wrap.addEventListener('click', open);
+    } else if (opts.link) {
       var a = h('a', { href: opts.link, title: '在首页系统总图中查看' });
       a.appendChild(wrap); el.appendChild(a);
     } else el.appendChild(wrap);
@@ -239,6 +257,33 @@
         });
       }
     };
+  }
+
+  // 系统总图放大对话框：全页只建一个，每次打开时按当前缩略图的高亮重画
+  var ovDialog = null, ovReturnFocus = null;
+  function openOverviewDialog(keys, opts, returnTo) {
+    if (!ovDialog) {
+      ovDialog = h('dialog', { class: 'ov-dialog', 'aria-labelledby': 'ov-dlg-title' });
+      ovDialog.innerHTML =
+        '<div class="ov-dlg-inner">' +
+        '<div class="ov-dlg-head"><h2 id="ov-dlg-title"></h2>' +
+        '<button type="button" class="icon-btn ov-dlg-close" aria-label="关闭">✕</button></div>' +
+        '<div class="ov-dlg-body"></div>' +
+        '<div class="ov-dlg-foot"><a class="ov-dlg-link" href="index.html">到首页地图查看该层 →</a></div></div>';
+      document.body.appendChild(ovDialog);
+      ovDialog.querySelector('.ov-dlg-close').addEventListener('click', function () { ovDialog.close(); });
+      // 点遮罩关闭：点击落在 dialog 自身（内容之外）时
+      ovDialog.addEventListener('click', function (e) { if (e.target === ovDialog) ovDialog.close(); });
+      ovDialog.addEventListener('close', function () {
+        if (ovReturnFocus && ovReturnFocus.focus) ovReturnFocus.focus();
+      });
+    }
+    ovReturnFocus = returnTo || null;
+    ovDialog.querySelector('#ov-dlg-title').textContent = '系统总图' + (opts.zoomTitle ? ' · ' + opts.zoomTitle : '');
+    overview(ovDialog.querySelector('.ov-dlg-body'), keys, {});
+    ovDialog.querySelector('.ov-dlg-link').setAttribute('href', opts.link);
+    ovDialog.showModal();
+    ovDialog.querySelector('.ov-dlg-close').focus();
   }
 
   // ---------- SVG 助手 ----------
@@ -281,6 +326,7 @@
   var activeStepper = null;
   document.addEventListener('keydown', function (e) {
     if (!activeStepper || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (document.querySelector('dialog[open]')) return; // 对话框打开时不翻动画
     var t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); activeStepper.next(); }
@@ -563,7 +609,7 @@
     document.querySelectorAll('[data-overview]').forEach(function (n) {
       var attr = n.getAttribute('data-highlight');
       var keys = attr ? attr.split(/[\s,]+/).filter(Boolean) : lesson.highlight;
-      overview(n, keys, { link: 'index.html#layer=' + (keys[0] || '') });
+      overview(n, keys, { link: 'index.html#layer=' + (keys[0] || ''), zoomTitle: lesson.title });
     });
     // 前置课
     document.querySelectorAll('.prereq[data-auto]').forEach(function (n) {

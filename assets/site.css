@@ -213,7 +213,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 @media (max-width: 600px) { .lesson-block { padding: 6px 14px 16px; } }
 
 /* 定位 */
-.locate-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.locate-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+/* v1.1.3：定位区单列——总图通栏居中（宽屏随内容列放大，上限约 760px 起），下面依次是目标、前置课、先知道这些 */
+.locate-grid > .overview-thumb { justify-self: center; width: 100%; max-width: max(760px, 62%); }
 .locate-grid h3 { margin-top: .6em; }
 .goals { padding-left: 1.3em; margin: .3em 0; }
 .goals li { margin: .2em 0; }
@@ -240,27 +242,14 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 }
 
 /* 定位区布局修订（v1.1.2，见 DESIGN.md 第 4 节）：上层 缩略图 | 本课目标，下层通栏 前置课 + 先知道这些。
-   只在支持 :has 的浏览器生效，不支持时保持上面的旧两栏布局。 */
+   只在支持 :has 的浏览器生效，不支持时保持上面的单列布局（子元素仍包在 div 里）。v1.1.3 起全宽单列、无吸顶。 */
 @supports selector(:has(+ *)) {
-  .locate-grid > div:not(.overview-thumb) { display: contents; }
+  .locate-grid > div:not(.overview-thumb):not(.ov-tools) { display: contents; }
   .locate-grid { row-gap: 0; }  /* 子元素已直接进网格，行间距交给 h3 自身的外边距 */
   .locate-grid > .overview-thumb { margin-bottom: .4rem; }
   .locate-grid h3:has(+ .prereq),
   .locate-grid h3:has(+ .pre-terms) { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
   .locate-grid h3:has(+ .prereq) ~ h3:has(+ .pre-terms) { border-top: 0; padding-top: 0; margin-top: .9rem; }
-  @media (min-width: 761px) {
-    .locate-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 0 1.5rem; }
-    .locate-grid > .overview-thumb {
-      grid-column: 1; grid-row: 1 / span 2; align-self: start;
-      position: sticky; top: calc(var(--topbar-h) + 16px);
-    }
-    .locate-grid h3:has(+ .goals) { grid-column: 2; grid-row: 1; margin-top: 0; }
-    .locate-grid .goals { grid-column: 2; grid-row: 2; }
-    .locate-grid h3:has(+ .prereq) { grid-column: 1 / -1; grid-row: 3; }
-    .locate-grid .prereq { grid-column: 1 / -1; grid-row: 4; }
-    .locate-grid h3:has(+ .pre-terms) { grid-column: 1 / -1; grid-row: 5; }
-    .locate-grid .pre-terms { grid-column: 1 / -1; grid-row: 6; }
-  }
 }
 
 /* 先知道这些：按定位区内容宽度排——≥900px 一行两对，600–899px 一对，<600px 单列 */
@@ -282,6 +271,28 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 .overview { width: 100%; }
 .overview svg { display: block; width: 100%; height: auto; }
 .overview-thumb { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 6px; }
+.overview-thumb .overview.is-zoomable { cursor: zoom-in; }
+.ov-tools { display: flex; justify-content: flex-end; justify-self: center; width: 100%; max-width: max(760px, 62%); margin-top: .35rem; }
+.ov-zoom { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; }
+.ov-zoom svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+/* 系统总图放大对话框 */
+.ov-dialog {
+  width: min(92vw, 1200px); max-width: none; max-height: 92vh; padding: 0;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--ink); box-shadow: var(--shadow);
+}
+.ov-dialog::backdrop { background: color-mix(in srgb, var(--bg, #0e1319) 70%, transparent); backdrop-filter: blur(2px); }
+.ov-dlg-inner { display: flex; flex-direction: column; max-height: 92vh; }
+.ov-dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.ov-dlg-head h2 { margin: 0; font-size: 1.2rem; }
+.ov-dlg-body { overflow: auto; padding: 12px 16px; background: var(--bg); }
+.ov-dlg-body .overview svg { min-width: 720px; }
+.ov-dlg-foot { padding: 8px 16px; border-top: 1px solid var(--line); font-size: .92rem; }
+@media (max-width: 600px) {
+  .ov-dialog { width: 100vw; height: 100dvh; max-height: none; margin: 0; border-radius: 0; border: 0; }
+  .ov-dlg-inner { height: 100%; max-height: none; }
+  .ov-dlg-body { flex: 1; }
+}
 .overview-thumb a { display: block; }
 .ov-layer rect { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; transition: fill .25s, stroke .25s, opacity .25s; }
 .ov-layer text { fill: var(--ink); font-family: var(--font-body); font-size: 15px; }
