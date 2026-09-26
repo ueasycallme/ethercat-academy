@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电机控制链：三环、FOC 与插补 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .u63-arrow { fill: none; stroke: var(--ink); stroke-width: 2; }
+  .lesson .u63-fb { fill: none; stroke: var(--drive); stroke-width: 2; stroke-dasharray: 6 4; }
+  .lesson .u63-tgt { fill: none; stroke: var(--bus); stroke-width: 2.5; }
+  .lesson .u63-act { fill: none; stroke: var(--drive); stroke-width: 2.5; }
+  .lesson .u63-axis { fill: none; stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u63-err { fill: var(--fault-soft); stroke: none; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u6-l3">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">电机控制链：三环、FOC 与插补</h1>
+    <p class="lesson-lede">总线每周期送来的 607A 只是起点：驱动器里位置环、速度环、电流环一层套一层，越往里越快；主站给的点是否"每周期可达"，决定了跟随误差是平稳还是报错。</p>
+  </header>
+
+  <!-- 01 定位 -->
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>画出位置、速度、电流三环级联，以及电流环里的 FOC（Clarke、Park、反 Park、PWM）。</li>
+          <li>解释总线周期与各控制环周期的关系：为什么电流环比总线快一个数量级以上。</li>
+          <li>解释插补与跟随误差，读懂 6065、6066、60F4、606C。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 主动画 -->
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 600" role="img" aria-label="主动画：左侧主站规划器与插补，中间网线，右侧 CSP 驱动器内的位置环、速度环、电流环、FOC、逆变桥、电机与编码器；下方对比主站跳变与插补">
+        <!-- 主站 -->
+        <text class="t-title" x="16" y="28">主站</text>
+        <rect class="box-bus" x="16" y="60" width="160" height="150" rx="8"/>
+        <text class="t-small t-bold t-mid" x="96" y="88">规划器 + 插补</text>
+        <text class="t-small t-mid" x="96" y="116">每周期算一个点</text>
+        <text class="t-small t-mid t-mono t-bus" x="96" y="140">607A 目标位置</text>
+        <text class="t-small t-mid t-muted" x="96" y="168">CSP：6060 = 8</text>
+
+        <!-- 网线 -->
+        <line id="u63-cable" class="wire-bus" x1="176" y1="130" x2="236" y2="130"/>
+        <text id="u63-r-bus" class="t-small t-bus t-mid is-hidden" x="206" y="118">1 ms</text>
+
+        <!-- 驱动器 -->
+        <text class="t-title" x="236" y="28">驱动器（CSP）</text>
+        <rect class="box" x="236" y="40" width="708" height="340" rx="8"/>
+
+        <line id="u63-a-cmd" class="u63-arrow is-hidden" x1="236" y1="130" x2="250" y2="130"/>
+        <g id="u63-g-pos" class="is-dim">
+          <rect id="u63-pos" class="box-drive" x="250" y="100" width="120" height="60" rx="6"/>
+          <text class="t-small t-bold t-mid" x="310" y="124">位置环 P</text>
+          <text class="t-small t-mid t-mono" x="310" y="145">607A − 6064</text>
+        </g>
+        <g id="u63-a-pv" class="is-hidden">
+          <line class="u63-arrow" x1="370" y1="130" x2="400" y2="130"/>
+          <text class="t-small t-mid t-muted" x="385" y="92">速度</text>
+          <text class="t-small t-mid t-muted" x="385" y="108">指令</text>
+        </g>
+        <g id="u63-g-vel" class="is-dim">
+          <rect id="u63-vel" class="box-drive" x="400" y="100" width="120" height="60" rx="6"/>
+          <text class="t-small t-bold t-mid" x="460" y="124">速度环 PI</text>
+          <text class="t-small t-mid" x="460" y="145">指令 − 实际速度</text>
+        </g>
+        <g id="u63-a-vc" class="is-hidden">
+          <line class="u63-arrow" x1="520" y1="130" x2="550" y2="130"/>
+          <text class="t-small t-mid t-muted" x="535" y="92">电流</text>
+          <text class="t-small t-mid t-muted" x="535" y="108">iq*</text>
+        </g>
+        <g id="u63-g-cur" class="is-dim">
+          <rect id="u63-cur" class="box-drive" x="550" y="70" width="200" height="120" rx="6"/>
+          <text class="t-small t-bold t-mid" x="650" y="92">电流环（FOC）</text>
+          <text class="t-small t-mid" x="650" y="116">Clarke：ia ib ic → iα iβ</text>
+          <text class="t-small t-mid" x="650" y="136">Park：iα iβ + θ → id iq</text>
+          <text class="t-small t-mid" x="650" y="156">PI：id → 0，iq → iq*</text>
+          <text class="t-small t-mid" x="650" y="176">反 Park → vα vβ</text>
+        </g>
+        <g id="u63-g-pwm" class="is-dim">
+          <line class="u63-arrow" x1="750" y1="130" x2="780" y2="130"/>
+          <rect class="box-power" x="780" y="100" width="150" height="60" rx="6"/>
+          <text class="t-small t-bold t-mid" x="855" y="124">SVPWM + 逆变桥</text>
+          <text class="t-small t-mid" x="855" y="145">母线电压 → 三相</text>
+          <line class="u63-arrow" x1="855" y1="160" x2="855" y2="240"/>
+          <rect class="box-drive" x="780" y="240" width="150" height="60" rx="6"/>
+          <text class="t-small t-bold t-mid" x="855" y="266">电机 PMSM</text>
+          <text class="t-small t-mid" x="855" y="286">转矩 ∝ iq</text>
+        </g>
+        <g id="u63-g-fb" class="is-hidden">
+          <line class="u63-arrow" x1="780" y1="280" x2="580" y2="280"/>
+          <rect class="box-drive" x="440" y="250" width="140" height="60" rx="6"/>
+          <text class="t-small t-bold t-mid" x="510" y="274">编码器</text>
+          <text class="t-small t-mid t-mono" x="510" y="294">→ 6064</text>
+          <path class="u63-fb" d="M440 290 H310 V160"/>
+          <path class="u63-fb" d="M470 250 V160"/>
+          <path class="u63-fb" d="M580 262 H630 V190"/>
+          <path class="u63-fb" d="M855 300 V344 H690 V190"/>
+          <text class="t-small t-drive" x="318" y="306">位置</text>
+          <text class="t-small t-drive" x="476" y="226">速度</text>
+          <text class="t-small t-drive" x="600" y="236">θ</text>
+          <text class="t-small t-drive" x="700" y="338">相电流采样</text>
+        </g>
+        <g id="u63-rates" class="is-hidden">
+          <text class="t-small t-bold t-mid t-power" x="310" y="182">1 ms</text>
+          <text class="t-small t-bold t-mid t-power" x="460" y="182">250 µs</text>
+          <text class="t-small t-bold t-mid t-power" x="650" y="62">62.5 µs（16 kHz）</text>
+          <text class="t-small t-muted" x="250" y="366">环路周期为典型值，因驱动器而异</text>
+        </g>
+
+        <!-- 下方对比 -->
+        <g id="u63-cmp-jump" class="is-hidden">
+          <text class="t-small t-bold" x="40" y="414">主站跳变：一个周期给出远处目标</text>
+          <path class="u63-axis" d="M40 430 V570 H450"/>
+          <path class="u63-err" d="M80 440 H300 C 200 440, 150 560, 80 560 Z"/>
+          <path class="u63-tgt" d="M40 560 H80 V440 H450"/>
+          <path class="u63-act" d="M40 560 H80 C 150 560, 200 440, 300 440 H450"/>
+          <text class="t-small t-fault" x="310" y="470">红区：跟随误差</text>
+          <text class="t-small t-fault" x="310" y="488">超 6065 持续 6066 → 报错</text>
+        </g>
+        <g id="u63-cmp-interp" class="is-hidden">
+          <text class="t-small t-bold" x="510" y="414">插补：每周期一个可达的小步</text>
+          <path class="u63-axis" d="M510 430 V570 H920"/>
+          <path class="u63-tgt" d="M510 560 H550 V552 H570 V544 H590 V536 H610 V528 H630 V520 H650 V512 H670 V504 H690 V496 H710 V488 H730 V480 H750 V472 H770 V464 H790 V456 H810 V448 H830 V440 H850 H920"/>
+          <path class="u63-act" d="M510 560 H558 L858 440 H920"/>
+          <text class="t-small t-drive" x="700" y="560">跟随误差一直很小</text>
+        </g>
+        <g id="u63-legend" class="is-hidden">
+          <line class="u63-tgt" x1="640" y1="588" x2="670" y2="588"/>
+          <text class="t-small" x="676" y="592">607A 目标</text>
+          <line class="u63-act" x1="760" y1="588" x2="790" y2="588"/>
+          <text class="t-small" x="796" y="592">6064 实际</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <!-- 03 机制拆解 -->
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>三环级联：谁给谁指令</h3>
+    <p>外环的输出是内环的指令：位置误差变成速度指令，速度误差变成电流（转矩）指令。内环必须比外环快得多，外环才能把内环当成"立刻跟上"的执行器。运行模式决定主站从哪一环切进来（u5-l2）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>环</th><th>输入</th><th>输出</th><th>典型周期</th><th>主站从这里切入的模式</th></tr>
+        <tr><td>位置环</td><td>607A 目标位置 − 6064 实际位置</td><td>速度指令</td><td>1 ms（常与总线同）</td><td>CSP（6060 = 8）</td></tr>
+        <tr><td>速度环</td><td>速度指令 − 实际速度</td><td>电流指令 iq*</td><td>250 µs 左右</td><td>CSV（60FF，6060 = 9）</td></tr>
+        <tr><td>电流环</td><td>iq* − iq，id* − id</td><td>电压指令 → PWM 占空比</td><td>50–100 µs（10–20 kHz）</td><td>CST（6071，6060 = 10）</td></tr>
+      </table>
+    </div>
+    <p class="note">表中周期都是典型值，因驱动器而异；有的驱动器位置环也跑得比总线快，并在两个 607A 之间做细插补。</p>
+
+    <h3>FOC：电流环内部</h3>
+    <p>三相电流是正弦量，直接用 PI 跟踪效果差。FOC 用转子角 θ 把它们变到跟转子一起转的 d/q 坐标，在那里电流是直流量，PI 很好调：iq 管转矩，id 通常压到 0（表贴式永磁电机）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>步骤</th><th>输入</th><th>输出</th><th>作用</th></tr>
+        <tr><td>Clarke</td><td>ia、ib、ic</td><td>iα、iβ</td><td>三相 → 两相静止坐标</td></tr>
+        <tr><td>Park</td><td>iα、iβ、θ</td><td>id、iq</td><td>静止 → 随转子旋转的坐标，正弦量变直流量</td></tr>
+        <tr><td>PI 调节</td><td>id* − id、iq* − iq</td><td>vd、vq</td><td>在直流量上闭环</td></tr>
+        <tr><td>反 Park</td><td>vd、vq、θ</td><td>vα、vβ</td><td>变回静止坐标</td></tr>
+        <tr><td>SVPWM</td><td>vα、vβ、母线电压</td><td>三相占空比</td><td>驱动逆变桥开关</td></tr>
+      </table>
+    </div>
+
+    <h3>总线周期与控制周期</h3>
+    <p>总线每 1 ms 在 SYNC0 时刻交付一个新 607A，位置环在同一节拍用它；速度环在这 1 ms 里跑 4 次，电流环跑 16 次（按典型值）。所以总线只需要"准时"，不需要"很快"；电流环的快是驱动器本地的事。</p>
+    <div class="fig-scroll">
+      <figure>
+        <svg viewBox="0 0 960 190" role="img" aria-label="时间线：2 ms 内总线与位置环各 2 次，速度环 8 次，电流环 32 次（典型值）">
+          <text class="t-small" x="16" y="40">总线 / SYNC0</text>
+          <text class="t-small" x="16" y="80">位置环</text>
+          <text class="t-small" x="16" y="120">速度环</text>
+          <text class="t-small" x="16" y="160">电流环</text>
+          <path class="u63-axis" d="M130 45 H930 M130 85 H930 M130 125 H930 M130 165 H930"/>
+          <g class="stroke-bus sw-3">
+            <line x1="130" y1="25" x2="130" y2="45"/><line x1="530" y1="25" x2="530" y2="45"/><line x1="930" y1="25" x2="930" y2="45"/>
+          </g>
+          <g class="stroke-drive sw-3">
+            <line x1="130" y1="65" x2="130" y2="85"/><line x1="530" y1="65" x2="530" y2="85"/><line x1="930" y1="65" x2="930" y2="85"/>
+          </g>
+          <g class="stroke-drive sw-2">
+            <line x1="130" y1="108" x2="130" y2="125"/><line x1="230" y1="108" x2="230" y2="125"/><line x1="330" y1="108" x2="330" y2="125"/><line x1="430" y1="108" x2="430" y2="125"/>
+            <line x1="530" y1="108" x2="530" y2="125"/><line x1="630" y1="108" x2="630" y2="125"/><line x1="730" y1="108" x2="730" y2="125"/><line x1="830" y1="108" x2="830" y2="125"/><line x1="930" y1="108" x2="930" y2="125"/>
+          </g>
+          <path class="stroke-power sw-1" d="M130 152 V165 M155 152 V165 M180 152 V165 M205 152 V165 M230 152 V165 M255 152 V165 M280 152 V165 M305 152 V165 M330 152 V165 M355 152 V165 M380 152 V165 M405 152 V165 M430 152 V165 M455 152 V165 M480 152 V165 M505 152 V165 M530 152 V165 M555 152 V165 M580 152 V165 M605 152 V165 M630 152 V165 M655 152 V165 M680 152 V165 M705 152 V165 M730 152 V165 M755 152 V165 M780 152 V165 M805 152 V165 M830 152 V165 M855 152 V165 M880 152 V165 M905 152 V165 M930 152 V165"/>
+          <text class="t-small t-muted t-mid" x="130" y="185">0</text>
+          <text class="t-small t-muted t-mid" x="530" y="185">1 ms</text>
+          <text class="t-small t-muted t-end" x="930" y="185">2 ms</text>
+        </svg>
+        <figcaption>典型值：总线与位置环 1 ms，速度环 250 µs，电流环 62.5 µs；因驱动器而异。</figcaption>
+      </figure>
+    </div>
+
+    <h3>插补与跟随误差</h3>
+    <p>CSP 下驱动器只跟踪、不规划，所以主站每周期给的点必须是电机在一个周期里走得到的：相邻两点之差不能超过"最大速度 × 周期"。例如 20 位编码器（1 048 576 counts/圈）、3000 rpm、1 ms 周期，每周期最多约 52 429 counts（假设 6091/6092 为 1:1）。给得太远，60F4 跟随误差瞬间变大，超过 6065 窗口并持续 6066 时间就报错。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>对象</th><th>名称</th><th>类型</th><th>单位 / 说明</th></tr>
+        <tr><td><code>0x6064</code></td><td>Position actual value</td><td>INTEGER32</td><td>位置单位</td></tr>
+        <tr><td><code>0x60F4</code></td><td>Following error actual value</td><td>INTEGER32</td><td>位置单位；当前跟随误差</td></tr>
+        <tr><td><code>0x6065</code></td><td>Following error window</td><td>UNSIGNED32</td><td>位置单位（用户单位，默认常为编码器 counts，经 6091/6092 换算，以厂商为准）；0xFFFFFFFF 表示关闭跟随误差监视</td></tr>
+        <tr><td><code>0x6066</code></td><td>Following error time out</td><td>UNSIGNED16</td><td>ms；误差超窗口持续这么久才判定</td></tr>
+        <tr><td><code>0x606C</code></td><td>Velocity actual value</td><td>INTEGER32</td><td>速度单位，因厂商而异（常见 counts/s 或 0.1 rpm 等）</td></tr>
+        <tr><td><code>0x6041</code> bit13</td><td>Following error（CSP/PP 下）</td><td>位</td><td>1 = 跟随误差超限；之后是否转故障、如何停车因厂商而异</td></tr>
+        <tr><td><code>0x6091</code> / <code>0x6092</code></td><td>Gear ratio / Feed constant</td><td>数组</td><td>把用户位置单位换算成电机侧 counts</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 04 主从对照 -->
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>规划整条轨迹（速度、加速度、加加速度受限）。</li>
+          <li>插补：每个总线周期取轨迹上的下一个点写进 607A，相邻点之差受最大速度约束。</li>
+          <li>使能前让 607A 等于 6064，避免使能瞬间跳变。</li>
+          <li>监视 6041 bit13 与 60F4（可映射进 TxPDO），及时停机。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>驱动器做什么</h3>
+        <ul>
+          <li>SYNC0 时刻取新 607A，必要时在两个点之间细插补（因厂商而异）。</li>
+          <li>位置环 → 速度环 → 电流环（FOC）→ PWM，逐层闭环。</li>
+          <li>读编码器更新 6064、606C，算 60F4。</li>
+          <li>|60F4| 超过 6065 并持续 6066：置 6041 bit13，按厂商策略报故障或停车。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 在真机上看 -->
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <pre><code>ethercat upload -p0 0x6065 0 --type uint32   # 跟随误差窗口
+ethercat upload -p0 0x6066 0 --type uint16   # 超时 ms
+ethercat upload -p0 0x606C 0 --type int32    # 实际速度
+ethercat upload -p0 0x60F4 0 --type int32    # 当前跟随误差
+ethercat upload -p0 0x6091 1 --type uint32   # 齿轮比 分子
+ethercat upload -p0 0x6091 2 --type uint32   # 齿轮比 分母
+ethercat upload -p0 0x6092 1 --type uint32   # 导程常数 进给
+ethercat upload -p0 0x6092 2 --type uint32   # 导程常数 转数</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>0x6065</td><td>非零，厂商默认值</td><td>位置单位；0xFFFFFFFF 表示关闭监视，调试期不建议关</td></tr>
+        <tr><td>0x6066</td><td>几 ms 到几十 ms</td><td>厂商默认值差异大</td></tr>
+        <tr><td>0x606C（静止）</td><td>约 0，有少量噪声</td><td>单位因厂商而异</td></tr>
+        <tr><td>0x606C（匀速）</td><td>≈ 每周期增量 ÷ 周期</td><td>如每 1 ms 增 1000 counts，速度约 1 000 000 counts/s（单位若为 counts/s）</td></tr>
+        <tr><td>0x60F4（匀速）</td><td>|值| 远小于 6065</td><td>接近窗口说明增益不足或指令不可达</td></tr>
+        <tr><td>0x6091 / 0x6092</td><td>常为 1 / 1</td><td>非 1:1 时 6065、607A 的单位不再是 counts</td></tr>
+      </table>
+    </div>
+    <p class="tip">做实验：在 u6-l1 的程序里把每周期增量从 100 逐步加大，同时在 PDO 里映射 60F4，观察它的幅值何时逼近 6065。</p>
+  </section>
+
+  <!-- 06 自测 -->
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "CSP 模式下，驱动器内部哪几个环由驱动器自己闭合？", "options": ["只有电流环", "速度环和电流环，位置环在主站", "位置环、速度环、电流环都在驱动器"], "answer": 2, "explain": "CSP 下主站每周期给目标位置 607A，驱动器闭合位置、速度、电流三环；主站负责的是规划和插补，不是位置闭环。"},
+  {"q": "为什么电流环周期（如 62.5 µs）远短于总线周期（如 1 ms）？", "options": ["因为总线会在 1 ms 内发 16 帧", "内环要比外环快得多，外环才能把它当作即时执行器；电流环在驱动器本地运行，不依赖总线", "因为 FOC 必须与 SYNC0 同频"], "answer": 1, "explain": "级联控制要求内环带宽远高于外环。电流环只用本地的相电流采样和编码器角度，与总线周期无关。"},
+  {"q": "20 位编码器、6091/6092 为 1:1、周期 1 ms，主站在一个周期里把 607A 从 0 改成 5 000 000，最可能发生什么？", "options": ["电机在 1 ms 内走到位", "60F4 瞬间巨大，超过 6065 并持续 6066 后置 6041 bit13，多数驱动器随即报故障", "驱动器自动把它规划成梯形曲线"], "answer": 1, "explain": "5 000 000 counts 约 4.8 圈，1 ms 内走完需要约 286 000 rpm，不可达。CSP 下驱动器不做轨迹规划，于是跟随误差爆表。"},
+  {"q": "6065 的值为 10000，它的单位是什么？", "options": ["毫秒", "位置单位：用户单位，默认常为编码器 counts，经 6091/6092 换算", "0.1 rpm"], "answer": 1, "explain": "6065 与 607A、6064 同为位置单位。若 6091/6092 不是 1:1，它就不再等于编码器 counts，以厂商手册为准。时间是 6066（ms）。"}
+]
+    </script>
+  </section>
+
+  <!-- 07 误区与关联 -->
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>CSP 下主站可以直接把终点写进 607A，驱动器会自己慢慢走过去。<br><strong>实际上：</strong>那是 PP 模式的行为。CSP 下驱动器把每个 607A 当作"这一拍就该到的位置"，主站必须自己插补。</li>
+      <li><strong>误区：</strong>总线周期越短，电机控制就越好。<br><strong>实际上：</strong>电流环、速度环在驱动器本地跑；总线周期主要影响轨迹分辨率和外环延迟，准时（抖动小）比快更重要。</li>
+      <li><strong>误区：</strong>跟随误差报警就调大 6065。<br><strong>实际上：</strong>先查指令是否可达、增益是否合适、机械是否卡滞；随意放大窗口会掩盖真实故障。</li>
+    </ul>
+    <p>关联：运行模式 6060 见 u5-l2；故障反应与抱闸见 u5-l3；主站周期程序见 u6-l1；"使能瞬间猛冲"等案例见 u7-l2。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '左边主站每周期算一个点写进 607A；右边驱动器里各环暂时淡化。', apply: function () {} },
+    { title: '607A 进位置环', text: '新 607A 随周期帧到达，位置环用它减去实际位置 6064 得到位置误差。',
+      apply: function (svg) { Academy.fx(svg).show('u63-a-cmd').undim('u63-g-pos'); } },
+    { title: '速度指令进速度环', text: '位置环输出速度指令，速度环用它减去实际速度。',
+      apply: function (svg) { Academy.fx(svg).show('u63-a-pv').undim('u63-g-vel'); } },
+    { title: '电流指令进电流环（FOC）', text: '速度环输出 iq*；电流环用 Clarke、Park 把三相电流变成 id、iq 在直流量上闭环。',
+      apply: function (svg) { Academy.fx(svg).show('u63-a-vc').undim('u63-g-cur'); } },
+    { title: 'PWM 驱动电机', text: '反 Park 得到的电压经 SVPWM 变成三相占空比，逆变桥把母线电压加到电机上。',
+      apply: function (svg) { Academy.fx(svg).undim('u63-g-pwm'); } },
+    { title: '编码器与反馈闭环', text: '编码器给出位置、速度和转子角 θ，连同相电流采样回到三个环，三环闭合。',
+      apply: function (svg) { Academy.fx(svg).show('u63-g-fb'); } },
+    { title: '各环周期', text: '典型值：总线与位置环 1 ms，速度环 250 µs，电流环 62.5 µs；因驱动器而异。',
+      apply: function (svg) { Academy.fx(svg).show(['u63-rates', 'u63-r-bus']); } },
+    { title: '主站跳变', text: '主站一个周期就给远处目标：实际位置追不上，跟随误差超 6065 持续 6066 即报错。',
+      apply: function (svg) { Academy.fx(svg).show(['u63-cmp-jump', 'u63-legend']); } },
+    { title: '主站插补', text: '同样的终点拆成每周期可达的小步，实际位置紧跟，跟随误差一直很小。',
+      apply: function (svg) { Academy.fx(svg).show('u63-cmp-interp'); } }
+  ]);
+  Academy.init('u6-l3');
+})();
+</script>
+</body>
+</html>

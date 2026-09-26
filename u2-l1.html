@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESC 内存映射与关键寄存器 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .u21-reg { cursor: pointer; }
+.lesson .u21-reg:hover > rect:first-child { stroke: var(--bus); stroke-width: 2.5; }
+.lesson .u21-detail { margin-top: 12px; border: 1px dashed var(--line); border-radius: var(--radius-sm); padding: 8px 14px; background: var(--bg); }
+.lesson .u21-detail h4 { margin: .3em 0; font-size: 1.05rem; }
+.lesson .u21-detail table { font-size: .88rem; }
+.lesson .u21-dec { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.lesson .u21-dec input { font-family: var(--font-mono); width: 8em; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.lesson .u21-dec-out { font-weight: 600; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u2-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">ESC 内存映射与关键寄存器</h1>
+    <p class="lesson-lede">在主站看来，从站芯片 ESC 就是一张按地址编号的内存地图：0x0000–0x0FFF 是寄存器，0x1000 起是过程数据 RAM。主站发出的每一条读写命令，最后都落在这张图的某个地址上。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>说出寄存器区（0x0000–0x0FFF）和过程数据 RAM（0x1000 起）的边界，知道 RAM 大小从哪个寄存器读。</li>
+          <li>列出最常用的十个寄存器，说出各自由谁来写、拿来做什么。</li>
+          <li>逐位解释 AL Control（0x0120）和 AL Status（0x0130），会看错误位。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 560" role="img" aria-label="ESC 地址空间地图：左侧主站经网线访问右侧 ESC，ESC 内从 0x0000 到 0x1000 以上逐区展开，可点击每一块查看寄存器">
+        <g id="u21-master">
+          <rect class="box-bus" x="20" y="200" width="150" height="110" rx="8"/>
+          <text class="t-title t-mid" x="95" y="242">主站</text>
+          <text class="t-small t-mid t-muted" x="95" y="266">FPRD / FPWR</text>
+          <text class="t-small t-mid t-muted" x="95" y="286">按地址读写</text>
+        </g>
+        <line id="u21-cable" class="wire-bus" x1="170" y1="255" x2="230" y2="255"/>
+        <rect class="box" x="230" y="16" width="710" height="530" rx="10"/>
+        <text class="t-title" x="250" y="44">ESC 地址空间（从站）</text>
+        <text class="t-small t-muted" x="920" y="44" text-anchor="end">点击任一块看寄存器细节</text>
+
+        <!-- 寄存器区各块：底色灰块 + 彩色覆盖层（初始隐藏） -->
+        <g class="u21-reg" data-reg="info">
+          <rect class="box-muted" x="380" y="60" width="300" height="38" rx="4"/>
+          <g id="u21-info" class="is-hidden">
+            <rect id="u21-info-r" class="box-bus" x="380" y="60" width="300" height="38" rx="4"/>
+            <text class="t-mid" x="530" y="84">信息区 · 类型 / 版本 / 能力</text>
+            <text class="t-small t-muted" x="696" y="84">FMMU 数 · SM 数 · RAM KB 数</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="84">0x0000</text>
+        </g>
+        <g class="u21-reg" data-reg="addr">
+          <rect class="box-muted" x="380" y="102" width="300" height="32" rx="4"/>
+          <g id="u21-addr" class="is-hidden">
+            <rect id="u21-addr-r" class="box-bus" x="380" y="102" width="300" height="32" rx="4"/>
+            <text class="t-mid" x="530" y="123">站地址 / 站别名</text>
+            <text class="t-small t-muted" x="696" y="123">0x0010 主站写入 · 0x0012 来自 SII</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="123">0x0010</text>
+        </g>
+        <g class="u21-reg" data-reg="dl">
+          <rect class="box-muted" x="380" y="138" width="300" height="32" rx="4"/>
+          <g id="u21-dl" class="is-hidden">
+            <rect id="u21-dl-r" class="box-bus" x="380" y="138" width="300" height="32" rx="4"/>
+            <text class="t-mid" x="530" y="159">DL 控制 / DL 状态</text>
+            <text class="t-small t-muted" x="696" y="159">0x0100 端口回环 · 0x0110 链路位</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="159">0x0100</text>
+        </g>
+        <g class="u21-reg" data-reg="al">
+          <rect class="box-muted" x="380" y="174" width="300" height="48" rx="4"/>
+          <g id="u21-al" class="is-hidden">
+            <rect id="u21-al-r" class="box-mail" x="380" y="174" width="300" height="48" rx="4"/>
+            <text class="t-mid t-bold" x="530" y="195">AL 控制 / 状态 / 状态码</text>
+            <text class="t-small t-mid t-mono" x="530" y="214">0x0120 · 0x0130 · 0x0134</text>
+            <text class="t-small t-muted" x="696" y="195">主站写 0x0120 请求状态</text>
+            <text class="t-small t-muted" x="696" y="214">从站回 0x0130 实际状态、0x0134 原因</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="203">0x0120</text>
+        </g>
+        <g class="u21-reg" data-reg="aux">
+          <rect class="box-muted" x="380" y="226" width="300" height="48" rx="4"/>
+          <g id="u21-aux" class="is-hidden">
+            <rect id="u21-aux-r" class="box-bus" x="380" y="226" width="300" height="48" rx="4"/>
+            <text class="t-mid" x="530" y="247">事件 · 错误计数 · 看门狗</text>
+            <text class="t-small t-mid" x="530" y="266">EEPROM 接口（0x0500）</text>
+            <text class="t-small t-muted" x="696" y="247">0x0200 事件 · 0x0300 错误计数</text>
+            <text class="t-small t-muted" x="696" y="266">0x0400 看门狗 · 0x0500 EEPROM</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="255">0x0200</text>
+        </g>
+        <g class="u21-reg" data-reg="cfg">
+          <rect class="box-muted" x="380" y="278" width="300" height="84" rx="4"/>
+          <g id="u21-cfg" class="is-hidden">
+            <rect id="u21-cfg-r" class="box-bus" x="380" y="278" width="300" height="84" rx="4"/>
+            <text class="t-mid" x="530" y="300">FMMU × n（每个 16 字节）</text>
+            <text class="t-mid" x="530" y="325">SM × n（每个 8 字节）</text>
+            <text class="t-mid" x="530" y="350">分布式时钟 DC</text>
+            <text class="t-small t-muted" x="696" y="300">0x0600–0x06FF → u2-l3</text>
+            <text class="t-small t-muted" x="696" y="325">0x0800–0x087F → u2-l2</text>
+            <text class="t-small t-muted" x="696" y="350">0x0900–0x09FF → u4-l1</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="300">0x0600</text>
+          <text class="t-small t-mono t-end t-muted" x="370" y="325">0x0800</text>
+          <text class="t-small t-mono t-end t-muted" x="370" y="350">0x0900</text>
+        </g>
+        <line class="stroke-muted dashed sw-2" x1="250" y1="382" x2="920" y2="382"/>
+        <text class="t-small t-muted" x="250" y="376">寄存器区 0x0000–0x0FFF（4 KB）</text>
+        <text class="t-small t-muted" x="250" y="400">用户 RAM</text>
+        <g class="u21-reg" data-reg="ram">
+          <rect class="box-muted" x="380" y="410" width="300" height="120" rx="4"/>
+          <g id="u21-ram" class="is-hidden">
+            <rect id="u21-ram-r" class="box-drive" x="380" y="410" width="300" height="120" rx="4"/>
+            <text class="t-mid t-bold" x="530" y="432">过程数据 RAM</text>
+            <rect class="box-mail" x="396" y="444" width="128" height="34" rx="4"/>
+            <text class="t-small t-mid" x="460" y="466">邮箱 SM0 / SM1</text>
+            <rect class="box-bus" x="536" y="444" width="128" height="34" rx="4"/>
+            <text class="t-small t-mid" x="600" y="466">过程数据 SM2 / SM3</text>
+            <text class="t-small t-mid t-muted" x="530" y="508">位置由 SM 配置决定，其余空闲</text>
+            <text class="t-small t-muted" x="696" y="432">ET1100：8 KB → 0x1000–0x2FFF</text>
+            <text class="t-small t-muted" x="696" y="452">LAN9252：4 KB → 0x1000–0x1FFF</text>
+            <text class="t-small t-muted" x="696" y="472">以 0x0006 读数为准</text>
+          </g>
+          <text class="t-small t-mono t-end t-muted" x="370" y="432">0x1000</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+    <div class="u21-detail" id="u21-detail" aria-live="polite">
+      <p style="margin:.3em 0;color:var(--muted)">点击地图上任一块，这里列出该区的寄存器。</p>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>一块地址空间，两个访问入口</h3>
+    <p>ESC 的物理地址是 16 位，主站用 APRD/FPRD 等命令按这个地址访问，从站 MCU 经 PDI（SPI、并行总线等）访问同一张图。寄存器行为由 ESC 硬件实现，不需要固件参与应答；但有些寄存器只允许一侧写，例如 AL Status 由 PDI 侧写、主站只读。0x1000 以上是普通 RAM，由 SM 规定哪一段做邮箱、哪一段做过程数据。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>地址范围</th><th>内容</th><th>主要使用者</th></tr>
+        <tr><td><code>0x0000–0x000F</code></td><td>信息：类型、版本、FMMU/SM 数、RAM 大小、端口描述</td><td>主站扫描时读</td></tr>
+        <tr><td><code>0x0010–0x0013</code></td><td>站地址、站别名</td><td>主站写站地址</td></tr>
+        <tr><td><code>0x0100–0x0111</code></td><td>DL 控制与 DL 状态（端口、链路、回环）</td><td>主站诊断拓扑</td></tr>
+        <tr><td><code>0x0120–0x0135</code></td><td>AL Control、AL Status、AL Status Code</td><td>ESM 状态机（u3-l1）</td></tr>
+        <tr><td><code>0x0200–0x0313</code></td><td>事件屏蔽与请求、错误计数器</td><td>中断、链路质量诊断</td></tr>
+        <tr><td><code>0x0400–0x0443</code></td><td>看门狗分频、时间、状态</td><td>过程数据安全（u2-l2）</td></tr>
+        <tr><td><code>0x0500–0x050F</code></td><td>EEPROM（SII）接口</td><td>读从站身份（u2-l4）</td></tr>
+        <tr><td><code>0x0600–0x06FF</code></td><td>FMMU，每个 16 字节</td><td>逻辑寻址（u2-l3）</td></tr>
+        <tr><td><code>0x0800–0x087F</code></td><td>SM，每个 8 字节</td><td>邮箱与过程数据缓冲（u2-l2）</td></tr>
+        <tr><td><code>0x0900–0x09FF</code></td><td>分布式时钟</td><td>同步（u4-l1）</td></tr>
+        <tr><td><code>0x1000–</code></td><td>过程数据 RAM，大小见 0x0006（单位 KB）</td><td>SM 缓冲所在地</td></tr>
+      </table>
+    </div>
+
+    <h3>最常用的十个寄存器</h3>
+    <p>调试时九成的问题靠下面这张表就能定位到层。宽度单位是字节，"写方"指谁负责写入。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>地址</th><th>名称</th><th>宽度</th><th>写方</th><th>看它做什么</th></tr>
+        <tr><td><code>0x0000</code></td><td>Type</td><td>1</td><td>只读</td><td>芯片类型，ET1100 读出 0x11</td></tr>
+        <tr><td><code>0x0005</code></td><td>SyncManagers supported</td><td>1</td><td>只读</td><td>有几个 SM（ET1100 为 8，LAN9252 为 4）</td></tr>
+        <tr><td><code>0x0006</code></td><td>RAM Size</td><td>1</td><td>只读</td><td>过程数据 RAM 的 KB 数</td></tr>
+        <tr><td><code>0x0010</code></td><td>Configured Station Address</td><td>2</td><td>主站</td><td>FPRD/FPWR 用这个地址找从站</td></tr>
+        <tr><td><code>0x0110</code></td><td>DL Status</td><td>2</td><td>只读</td><td>各端口有无链路、是否回环</td></tr>
+        <tr><td><code>0x0120</code></td><td>AL Control</td><td>2</td><td>主站</td><td>请求的目标状态、错误确认位</td></tr>
+        <tr><td><code>0x0130</code></td><td>AL Status</td><td>2</td><td>从站固件</td><td>实际状态、错误指示位</td></tr>
+        <tr><td><code>0x0134</code></td><td>AL Status Code</td><td>2</td><td>从站固件</td><td>出错原因码，如 0x001B 看门狗</td></tr>
+        <tr><td><code>0x0300</code></td><td>RX Error Counter</td><td>8</td><td>ESC 自增</td><td>每端口 CRC/物理层错误计数，查网线</td></tr>
+        <tr><td><code>0x0440</code></td><td>Watchdog Status Process Data</td><td>2</td><td>只读</td><td>bit0 = 0 表示过程数据看门狗已过期</td></tr>
+      </table>
+    </div>
+
+    <h3>AL Control 与 AL Status 逐位</h3>
+    <p>两个寄存器的低 4 位都是状态编码：1 INIT、2 PREOP、3 BOOT、4 SAFEOP、8 OP。0x0120 的 bit4 是"错误确认"，0x0130 的 bit4 是"错误指示"。从站出错时把 0x0130 bit4 置 1 并在 0x0134 写原因码，主站在 0x0120 里带上 bit4 写一次才算确认。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 200" role="img" aria-label="AL Control 与 AL Status 低 6 位的位定义对照">
+        <text class="t-bold" x="20" y="30">0x0120 AL Control（主站写）</text>
+        <text class="t-bold" x="500" y="30">0x0130 AL Status（从站写）</text>
+        <g>
+          <rect class="box-mail" x="20" y="44" width="200" height="44" rx="4"/>
+          <text class="t-mid" x="120" y="64">bit0–3 请求状态</text>
+          <text class="t-small t-mid t-mono" x="120" y="80">1 / 2 / 3 / 4 / 8</text>
+          <rect class="box-fault" x="226" y="44" width="110" height="44" rx="4"/>
+          <text class="t-mid" x="281" y="64">bit4</text>
+          <text class="t-small t-mid" x="281" y="80">错误确认</text>
+          <rect class="box-muted" x="342" y="44" width="110" height="44" rx="4"/>
+          <text class="t-mid" x="397" y="64">bit5</text>
+          <text class="t-small t-mid" x="397" y="80">请求设备标识</text>
+        </g>
+        <g>
+          <rect class="box-mail" x="500" y="44" width="200" height="44" rx="4"/>
+          <text class="t-mid" x="600" y="64">bit0–3 实际状态</text>
+          <text class="t-small t-mid t-mono" x="600" y="80">1 / 2 / 3 / 4 / 8</text>
+          <rect class="box-fault" x="706" y="44" width="110" height="44" rx="4"/>
+          <text class="t-mid" x="761" y="64">bit4</text>
+          <text class="t-small t-mid" x="761" y="80">错误指示</text>
+          <rect class="box-muted" x="822" y="44" width="118" height="44" rx="4"/>
+          <text class="t-mid" x="881" y="64">bit5</text>
+          <text class="t-small t-mid" x="881" y="80">设备标识已装载</text>
+        </g>
+        <text class="t-small t-muted" x="20" y="120">例：主站写 0x0120 = 0x0008 请求 OP；从站因配置不符拒绝，0x0130 = 0x0014（SAFEOP + 错误），0x0134 给出原因。</text>
+        <text class="t-small t-muted" x="20" y="144">确认：主站写 0x0120 = 0x0014（请求 SAFEOP 并置 bit4）；从站清掉 0x0130 的 bit4 后，主站才能再请求 OP。</text>
+        <text class="t-small t-muted" x="20" y="168">bit6 及以上：保留或厂商相关，按芯片手册处理，不要依赖。</text>
+      </svg>
+      </div>
+      <figcaption>AL 寄存器低位定义（ETG.1000.4 / ET1100 手册）。状态码 3 为 BOOT，只用于固件升级。</figcaption>
+    </figure>
+    <p>试一试：输入一个 0x0130 读数，看它被拆成哪些位。</p>
+    <div class="u21-dec">
+      <label for="u21-al-in">0x0130 =</label>
+      <input id="u21-al-in" value="0x0014" spellcheck="false" autocomplete="off">
+      <span class="u21-dec-out" id="u21-al-out"></span>
+    </div>
+    <div id="u21-al-bits"></div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>扫描：广播读（BRD）0x0000，WKC 就是在线从站数。</li>
+          <li>用自增寻址（APWR）给每台写 0x0010 站地址，此后都用 FPRD/FPWR。</li>
+          <li>读 0x0000–0x0007 了解每台 ESC 有几个 FMMU、几个 SM、多大 RAM。</li>
+          <li>写 0x0120 请求状态，再轮询 0x0130；不一致时读 0x0134 取原因。</li>
+          <li>写 0x0600、0x0800、0x0900 区完成 FMMU、SM、DC 配置。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 硬件在帧经过时直接应答寄存器读写，固件不参与。</li>
+          <li>上电时 ESC 从 EEPROM 装载 PDI 配置和站别名（0x0012）。</li>
+          <li>固件经 PDI 收到 AL Control 事件，检查条件后写 0x0130；失败则置 bit4 并写 0x0134。</li>
+          <li>固件只通过 SM 读写 0x1000 以上的 RAM，不关心帧里的地址。</li>
+          <li>ESC 自己累加 0x0300 错误计数、维护 0x0440 看门狗状态。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>IgH 的 <code>reg_read</code> 直接对某台从站发 FPRD，输出按字节列出，低字节在前。</p>
+    <pre><code>ethercat reg_read -p0 0x0130 2    # AL Status
+ethercat reg_read -p0 0x0134 2    # AL Status Code
+ethercat reg_read -p0 0x0120 2    # AL Control（主站最近一次请求）
+ethercat reg_read -p0 0x0000 8    # 信息区：类型、版本、FMMU/SM 数、RAM、端口
+ethercat reg_read -p0 0x0010 2    # 站地址
+ethercat reg_read -p0 0x0300 8    # 端口 0–3 的 RX 错误计数</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>0x0130</td><td><code>0x08 0x00</code></td><td>OP、无错误；PREOP 时为 0x02，SAFEOP 为 0x04</td></tr>
+        <tr><td>0x0130</td><td><code>0x14 0x00</code></td><td>SAFEOP 且错误位置 1，接着读 0x0134</td></tr>
+        <tr><td>0x0134</td><td><code>0x00 0x00</code></td><td>无错误；非零时查 AL 状态码表（u3-l1）</td></tr>
+        <tr><td>0x0000 第 0 字节</td><td>ET1100 为 <code>0x11</code></td><td>其他芯片的类型值见各自手册</td></tr>
+        <tr><td>0x0000 第 4、5 字节</td><td>FMMU 数、SM 数</td><td>ET1100 为 8、8；LAN9252 为 3、4</td></tr>
+        <tr><td>0x0000 第 6 字节</td><td>RAM KB 数</td><td>ET1100 为 0x08，LAN9252 为 0x04</td></tr>
+        <tr><td>0x0010</td><td>非 0</td><td>应与 <code>ethercat slaves -v</code> 里的站地址一致</td></tr>
+        <tr><td>0x0300</td><td>全 0 或长期不涨</td><td>持续增长说明该端口网线或接头有问题</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "读 <code>0x0130</code> 得到 0x0014，这表示什么？", "options": ["从站在 OP，bit4 表示设备标识", "从站在 SAFEOP，且错误指示位置 1", "从站在 PREOP，正在请求 SAFEOP", "主站请求了 SAFEOP 并确认了错误"], "answer": 1, "explain": "低 4 位 0x4 = SAFEOP，bit4 = 1 是错误指示。下一步读 <code>0x0134</code> 看原因码。选项 D 描述的是写 <code>0x0120</code>=0x0014 的含义，那是 AL Control 不是 AL Status。"},
+  {"q": "ESC 的过程数据 RAM 从哪个地址开始？", "options": ["0x0800", "0x0900", "0x1000", "0x2000"], "answer": 2, "explain": "0x0000–0x0FFF 是 4 KB 寄存器区，0x1000 起才是用户 RAM。0x0800 是 SM 寄存器，0x0900 是 DC 寄存器。"},
+  {"q": "想知道一台从站的 ESC 有几个同步管理器，读哪个寄存器？", "options": ["0x0004", "0x0005", "0x0006", "0x0007"], "answer": 1, "explain": "0x0004 是 FMMU 数，0x0005 是 SM 数，0x0006 是 RAM 大小（KB），0x0007 是端口描述。"},
+  {"q": "从站停在 SAFEOP+E，主站要确认这个错误，应该怎么做？", "options": ["向 0x0130 写 0，把错误位清掉", "向 0x0134 写 0，清掉状态码", "向 0x0120 写入目标状态并同时置 bit4，例如 0x0014", "重启主站程序，错误会自动消失"], "answer": 2, "explain": "0x0130 和 0x0134 由从站侧写，主站写无效。确认错误的唯一入口是 AL Control 的 bit4（Error Ind Ack）。从站清掉错误位后，主站才能再次请求更高状态。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>0x0120 和 0x0130 是同一个寄存器的写和读两面。<br><strong>实际上：</strong>它们是两个寄存器。0x0120 是主站的请求，0x0130 是从站的实际状态；两者长期不一致，说明从站拒绝了转换或还没完成。</li>
+      <li><strong>误区：</strong>所有从站的过程数据 RAM 都是 0x1000–0x2FFF。<br><strong>实际上：</strong>RAM 大小因芯片而异，ET1100 8 KB、LAN9252 4 KB，以 0x0006 的读数为准；SM 配到 RAM 之外的地址通常会被从站拒绝。</li>
+      <li><strong>误区：</strong>寄存器是从站固件用软件模拟出来的。<br><strong>实际上：</strong>寄存器由 ESC 硬件实现，帧经过时立即应答。固件只经 PDI 访问同一张地图，所以固件死机时主站仍能读到 0x0000，却看到 0x0130 不再变化。</li>
+    </ul>
+    <p>关联：地图上 0x0800 那一块决定了 RAM 里哪段是邮箱、哪段是过程数据，下一课逐字节拆开 SM。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var F = function (svg) { return Academy.fx(svg); };
+  function on(id) { return function (svg) { F(svg).show('u21-' + id).hot('u21-' + id + '-r'); }; }
+  function off(prev) { return function (svg) { F(svg).cool('u21-' + prev + '-r'); }; }
+  function both(prev, id) { return function (svg) { off(prev)(svg); on(id)(svg); }; }
+
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '空白地图', text: '主站只能按地址读写 ESC；此刻地图上各块还没有展开，前 4 KB 是寄存器，下面是 RAM。', apply: function () {} },
+    { title: '信息区 0x0000–0x000F', text: '类型、版本、FMMU 数、SM 数、RAM 大小、端口描述，全部只读，上电就有，主站扫描时第一个读它。', apply: on('info') },
+    { title: '站地址 0x0010', text: '主站扫描时给每台写入站地址，之后 FPRD/FPWR 都靠它找从站；0x0012 是从 SII 装载的别名。', apply: both('info', 'addr') },
+    { title: 'DL 区 0x0100–0x0111', text: '端口回环控制和链路状态，u1-l1 看过的 0x0110 就在这里。', apply: both('addr', 'dl') },
+    { title: 'AL 区 0x0120 / 0x0130 / 0x0134', text: '主站写 0x0120 请求状态，从站在 0x0130 回实际状态，出错时在 0x0134 写原因码。', apply: both('dl', 'al') },
+    { title: '辅助区 0x0200–0x05FF', text: '事件与中断、端口错误计数、看门狗、EEPROM 接口，诊断和启动时用得到。', apply: both('al', 'aux') },
+    { title: '配置单元 FMMU / SM / DC', text: '0x0600 起 FMMU 每个 16 字节，0x0800 起 SM 每个 8 字节，0x0900 起 DC；主站进 SAFEOP 前要把它们写好。', apply: both('aux', 'cfg') },
+    { title: '0x1000 起用户 RAM', text: '邮箱和过程数据缓冲都在这里，哪段做什么由 SM 决定，总大小因芯片而异。', apply: both('cfg', 'ram') }
+  ]);
+
+  // 点击地图看细节：委托到 .anim-stage，因为步进器会替换 SVG
+  var D = {
+    info: ['信息区 0x0000–0x000F', [['0x0000', 'Type', '芯片类型（ET1100 = 0x11）'], ['0x0001', 'Revision', '芯片版本'], ['0x0002', 'Build', '构建号，2 字节'], ['0x0004', 'FMMUs supported', 'FMMU 个数'], ['0x0005', 'SyncManagers supported', 'SM 个数'], ['0x0006', 'RAM Size', '过程数据 RAM，单位 KB'], ['0x0007', 'Port Descriptor', '每端口 2 位：未实现 / 未配置 / EBUS / MII'], ['0x0008', 'ESC Features', '特性位，2 字节，见芯片手册']]],
+    addr: ['站地址 0x0010–0x0013', [['0x0010', 'Configured Station Address', '主站写入，FPxx 命令按它匹配'], ['0x0012', 'Configured Station Alias', '上电从 SII 字 0x0004 装载，用于固定编号']]],
+    dl: ['DL 区 0x0100–0x0111', [['0x0100', 'DL Control', '4 字节，含各端口回环（自动 / 强制开 / 强制关）'], ['0x0108', 'Physical Read/Write Offset', '2 字节'], ['0x0110', 'DL Status', '2 字节，bit4–7 端口 0–3 物理链路，bit8 起每端口回环/通信位']]],
+    al: ['AL 区 0x0120–0x0135', [['0x0120', 'AL Control', '主站写：bit0–3 请求状态，bit4 错误确认'], ['0x0130', 'AL Status', '从站写：bit0–3 实际状态，bit4 错误指示'], ['0x0134', 'AL Status Code', '从站写：错误原因码，如 0x001B 看门狗']]],
+    aux: ['辅助区 0x0200–0x05FF', [['0x0200', 'ECAT Event Mask', '哪些事件映射到帧里的 IRQ 字段'], ['0x0204', 'AL Event Mask', '哪些事件触发 PDI 中断'], ['0x0220', 'AL Event Request', 'PDI 侧的事件请求位'], ['0x0300', 'RX Error Counter', '每端口 2 字节，查 CRC 与物理层错误'], ['0x0310', 'Lost Link Counter', '每端口 1 字节'], ['0x0400', 'Watchdog Divider', '看门狗时基'], ['0x0410', 'Watchdog Time PDI', 'PDI 看门狗'], ['0x0420', 'Watchdog Time Process Data', '过程数据看门狗'], ['0x0440', 'Watchdog Status PD', 'bit0 = 0 已过期'], ['0x0500', 'EEPROM 接口', '0x0500–0x050F，读写 SII']]],
+    cfg: ['配置单元 0x0600–0x09FF', [['0x0600', 'FMMU 0…', '每个 16 字节：逻辑起始、长度、物理起始、类型、激活'], ['0x0800', 'SM 0…', '每个 8 字节：物理起始、长度、控制、状态、激活、PDI 控制'], ['0x0900', 'DC', '接收时间、系统时间、偏移、延时、SYNC 配置']]],
+    ram: ['用户 RAM 0x1000 起', [['0x1000', 'Process Data RAM', '大小 = 0x0006 × 1 KB；邮箱与过程数据缓冲都放在这里，位置由 SM 起始地址决定']]]
+  };
+  var box = document.getElementById('u21-detail');
+  document.querySelector('#anim .anim-stage').addEventListener('click', function (e) {
+    var g = e.target.closest ? e.target.closest('[data-reg]') : null;
+    if (!g || !D[g.getAttribute('data-reg')]) return;
+    var d = D[g.getAttribute('data-reg')];
+    box.innerHTML = '<h4>' + d[0] + '</h4><div class="table-wrap"><table><tr><th>地址</th><th>名称</th><th>说明</th></tr>' +
+      d[1].map(function (r) { return '<tr><td><code>' + r[0] + '</code></td><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>'; }).join('') +
+      '</table></div>';
+  });
+
+  // AL Status 逐位解码
+  var ST = { 1: 'INIT', 2: 'PREOP', 3: 'BOOT', 4: 'SAFEOP', 8: 'OP' };
+  var names = ['状态 b0', '状态 b1', '状态 b2', '状态 b3', '错误指示', '标识已装载'];
+  var inp = document.getElementById('u21-al-in');
+  function decode() {
+    var v = parseInt(String(inp.value).trim(), 16);
+    var out = document.getElementById('u21-al-out');
+    if (isNaN(v) || v < 0 || v > 0xFFFF) { out.textContent = '请输入 0x0000–0xFFFF 的十六进制数'; return; }
+    var s = ST[v & 0xF] || ('未定义状态 ' + (v & 0xF));
+    out.textContent = Academy.hex(v) + ' → ' + s + ((v & 0x10) ? '，错误指示 = 1（读 0x0134）' : '，无错误');
+    Academy.bitsTable(document.getElementById('u21-al-bits'), v, names, 16);
+  }
+  inp.addEventListener('input', decode);
+  decode();
+
+  Academy.init('u2-l1');
+})();
+</script>
+</body>
+</html>

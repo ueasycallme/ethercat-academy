@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>从站固件：协议栈与中断 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .u62-path { fill: none; stroke-width: 3; stroke-linejoin: round; }
+  .lesson .u62-path.p-mail { stroke: var(--mail); }
+  .lesson .u62-path.p-bus { stroke: var(--bus); }
+  .lesson .u62-path.p-power { stroke: var(--power); }
+  .lesson .u62-path.p-fault { stroke: var(--fault); }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u6-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">从站固件：协议栈与中断</h1>
+    <p class="lesson-lede">ESC 硬件只负责收发和缓冲；从站 MCU 上的协议栈决定何时换状态、怎么回 SDO、何时拷过程数据。本课以倍福 SSC（Slave Stack Code）为样本，把固件拆成三层、一个主循环和两个中断。</p>
+  </header>
+
+  <!-- 01 定位 -->
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>画出 SSC 三层：ESC 驱动层、协议层、应用层，并说出各层的典型文件。</li>
+          <li>说出 MainLoop、PDI 中断、SYNC0 中断各做什么，以及 ESM 状态转换对应的 APPL_ 回调。</li>
+          <li>解释对象字典表如何把索引 6040 连到一个 C 变量，并列出自研协议栈的必备最小集。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 主动画 -->
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 560" role="img" aria-label="主动画：左侧主站，中间网线与 ESC 芯片，右侧从站 MCU 上的 SSC 三层与四个执行上下文；逐步演示邮箱、状态转换、SYNC0、PDI 中断和看门狗">
+        <!-- 主站 -->
+        <text class="t-title" x="16" y="28">主站</text>
+        <rect id="u62-master" class="box-bus" x="16" y="70" width="116" height="340" rx="8"/>
+        <text class="t-small t-mid" x="74" y="100">IgH / 任意主站</text>
+        <text id="u62-m-cmd" class="t-small t-mid t-bold t-bus" x="74" y="250">—</text>
+        <text id="u62-m-sub" class="t-small t-mid t-muted" x="74" y="272">&#160;</text>
+
+        <!-- 网线 -->
+        <line id="u62-cable" class="wire-bus" x1="132" y1="145" x2="196" y2="145"/>
+
+        <!-- ESC -->
+        <text class="t-title" x="196" y="28">ESC 芯片</text>
+        <rect class="box" x="196" y="40" width="184" height="390" rx="8"/>
+        <rect class="box-mail" x="206" y="70" width="164" height="40" rx="5"/>
+        <text class="t-small t-mid" x="288" y="95">SM0 邮箱出 · SM1 邮箱入</text>
+        <rect class="box-bus" x="206" y="130" width="164" height="30" rx="5"/>
+        <text class="t-small t-mid" x="288" y="150">SM2 输出（6040/607A）</text>
+        <rect class="box-bus" x="206" y="170" width="164" height="30" rx="5"/>
+        <text class="t-small t-mid" x="288" y="190">SM3 输入（6041/6064）</text>
+        <rect class="box-muted" x="206" y="218" width="164" height="92" rx="5"/>
+        <text class="t-small t-mono" x="214" y="238">0x0120 控制</text>
+        <text id="u62-alc" class="t-small t-mono t-bold t-end" x="362" y="238">0x0002</text>
+        <text class="t-small t-mono" x="214" y="262">0x0130 状态</text>
+        <text id="u62-als" class="t-small t-mono t-bold t-end" x="362" y="262">0x0002</text>
+        <text class="t-small t-mono" x="214" y="286">0x0134 码</text>
+        <text id="u62-alcode" class="t-small t-mono t-bold t-end" x="362" y="286">0x0000</text>
+        <text id="u62-alname" class="t-small t-bold t-drive" x="214" y="304">PREOP</text>
+        <rect id="u62-wdbox" class="box-muted" x="206" y="326" width="164" height="40" rx="5"/>
+        <text class="t-small" x="214" y="344">看门狗 0x0440 bit0</text>
+        <text id="u62-wd" class="t-small t-mono t-bold" x="214" y="360">1 = 未到期</text>
+        <rect id="u62-sync0" class="box-power" x="206" y="380" width="164" height="30" rx="5"/>
+        <text class="t-small t-mid" x="288" y="400">SYNC0 中断输出</text>
+        <text class="t-small t-muted t-mid" x="410" y="60">PDI</text>
+        <line class="wire" x1="410" y1="68" x2="410" y2="420"/>
+
+        <!-- MCU -->
+        <text class="t-title" x="440" y="28">从站 MCU：SSC</text>
+        <rect class="box" x="440" y="40" width="504" height="506" rx="8"/>
+
+        <g id="u62-l-hw" class="is-dim">
+          <rect class="box-muted" x="450" y="66" width="112" height="340" rx="6"/>
+          <text class="t-small t-bold t-mid" x="506" y="86">ESC 驱动层</text>
+          <text class="t-small t-mono t-mid" x="506" y="350">HW_EscRead</text>
+          <text class="t-small t-mono t-mid" x="506" y="368">HW_EscWrite</text>
+          <text class="t-small t-muted t-mid" x="506" y="390">SPI / 并行 / 片上</text>
+        </g>
+        <g id="u62-l-proto" class="is-dim">
+          <rect class="box-muted" x="574" y="66" width="200" height="340" rx="6"/>
+          <text class="t-small t-bold t-mid" x="674" y="86">协议层</text>
+          <rect id="u62-b-esm" class="box-mail" x="584" y="100" width="180" height="34" rx="4"/>
+          <text class="t-small t-mid" x="674" y="122">ESM 状态机 ecatslv.c</text>
+          <rect class="box-mail" x="584" y="148" width="180" height="34" rx="4"/>
+          <text class="t-small t-mid" x="674" y="170">邮箱 mailbox.c</text>
+          <rect class="box-mail" x="584" y="192" width="180" height="34" rx="4"/>
+          <text class="t-small t-mid" x="674" y="214">CoE / SDO 服务</text>
+          <rect id="u62-b-od" class="box-mail" x="584" y="236" width="180" height="34" rx="4"/>
+          <text class="t-small t-mid" x="674" y="258">对象字典 objdef.c</text>
+          <rect class="box-bus" x="584" y="290" width="180" height="34" rx="4"/>
+          <text class="t-small t-mid" x="674" y="312">过程数据 ecatappl.c</text>
+        </g>
+        <g id="u62-l-app" class="is-dim">
+          <rect class="box-muted" x="786" y="66" width="150" height="340" rx="6"/>
+          <text class="t-small t-bold t-mid" x="861" y="86">应用层 APPL_*</text>
+          <rect id="u62-b-cb" class="box-mail" x="794" y="100" width="134" height="34" rx="4"/>
+          <text class="t-small t-mid" x="861" y="122">ESM 回调 ×6</text>
+          <rect id="u62-b-out" class="box-drive" x="794" y="148" width="134" height="34" rx="4"/>
+          <text class="t-small t-mono t-mid" x="861" y="170">APPL_OutputMapping</text>
+          <rect id="u62-b-appl" class="box-drive" x="794" y="192" width="134" height="34" rx="4"/>
+          <text class="t-small t-mono t-mid" x="861" y="214">APPL_Application</text>
+          <rect id="u62-b-in" class="box-drive" x="794" y="236" width="134" height="34" rx="4"/>
+          <text class="t-small t-mono t-mid" x="861" y="258">APPL_InputMapping</text>
+          <text class="t-small t-muted t-mid" x="861" y="300">CiA402 + 电机控制</text>
+        </g>
+
+        <!-- 执行上下文 -->
+        <text class="t-small t-bold" x="450" y="436">执行上下文</text>
+        <rect id="u62-c-main" class="box" x="450" y="448" width="116" height="40" rx="5"/>
+        <text class="t-small t-mono t-mid" x="508" y="473">MainLoop</text>
+        <text class="t-small t-muted t-mid" x="508" y="508">while(1) 轮询</text>
+        <rect id="u62-c-pdi" class="box" x="572" y="448" width="116" height="40" rx="5"/>
+        <text class="t-small t-mono t-mid" x="630" y="473">PDI_Isr</text>
+        <text class="t-small t-muted t-mid" x="630" y="508">ESC 事件中断</text>
+        <rect id="u62-c-sync" class="box" x="694" y="448" width="116" height="40" rx="5"/>
+        <text class="t-small t-mono t-mid" x="752" y="473">Sync0_Isr</text>
+        <text class="t-small t-muted t-mid" x="752" y="508">SYNC0 中断</text>
+        <rect id="u62-c-tmr" class="box" x="816" y="448" width="120" height="40" rx="5"/>
+        <text class="t-small t-mono t-mid" x="876" y="473">ECAT_CheckTimer</text>
+        <text class="t-small t-muted t-mid" x="876" y="508">约 1 ms 定时</text>
+
+        <!-- 路径（初始隐藏） -->
+        <path id="u62-p-mbx" class="u62-path p-mail is-hidden" d="M370 90 H500 V165 H584 M674 182 V192 M674 226 V236"/>
+        <g id="u62-g-trans" class="is-hidden">
+          <path class="u62-path p-mail" d="M132 238 H206 M370 238 H540 V117 H584 M764 117 H794"/>
+          <rect class="box-mail" x="584" y="332" width="344" height="58" rx="5"/>
+          <text class="t-small t-mono" x="594" y="354">APPL_StartInputHandler() 返回 0</text>
+          <text class="t-small" x="594" y="376">→ ESM 写 0x0130 = 0x0004（SAFEOP）</text>
+        </g>
+        <g id="u62-g-sync">
+          <path id="u62-p-sync" class="u62-path p-power is-hidden" d="M370 395 H786 V209 H794 M861 226 V236"/>
+          <path id="u62-p-in" class="u62-path p-power dashed is-hidden" d="M861 270 V282 H548 V185 H370"/>
+        </g>
+        <path id="u62-p-out" class="u62-path p-bus is-hidden" d="M370 145 H520 V307 H584 M764 300 H772 V165 H794"/>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <!-- 03 机制拆解 -->
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>SSC 三层</h3>
+    <p>SSC 把固件切成三层：最底层只会读写 ESC 地址，中间层实现 EtherCAT 协议，最上层是你的应用。你通常只改最底层（适配 MCU 与 PDI）和最上层（APPL_ 函数），中间层由 SSC Tool 按配置生成。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>层</th><th>典型文件（以 SSC 版本与芯片为准）</th><th>职责</th></tr>
+        <tr><td>ESC 驱动层（硬件抽象）</td><td>芯片相关的 *hw.c，如 el9800hw.c；LAN9252 由 Microchip 提供对应 HAL</td><td>HW_Init、HW_EscRead/HW_EscWrite、读 AL 事件寄存器、开关中断；PDI 可以是 SPI、并行总线或片上（如 ESC 集成在 MCU 内）</td></tr>
+        <tr><td>协议层</td><td>ecatslv.c、mailbox.c、coeappl.c、sdoserv.c、objdef.c、ecatappl.c</td><td>ESM 转换与检查（SM 配置、同步类型）、邮箱收发、CoE SDO 服务、对象字典、过程数据拷贝、看门狗处理</td></tr>
+        <tr><td>应用层</td><td>SSC Tool 生成的 <code>&lt;工程名&gt;.c</code> 及对象定义头文件</td><td>APPL_* 回调：状态转换钩子、输入输出映射、控制算法</td></tr>
+      </table>
+    </div>
+
+    <h3>一个主循环、两个中断、一个定时器</h3>
+    <p>SSC 可以全轮询，也可以用中断；实时从站一般打开 PDI 中断和 SYNC0 中断，邮箱这类不紧急的事留给主循环。谁拷输出、谁调应用，取决于 1C32/1C33 的同步类型（Free-run、SM 同步、DC SYNC0，见 u4-l2）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>上下文</th><th>触发</th><th>做什么</th></tr>
+        <tr><td><code>MainLoop</code></td><td>main() 里无限循环</td><td>处理 AL Control 事件（状态转换）、邮箱收发与 SDO；未开中断时也在这里轮询过程数据</td></tr>
+        <tr><td><code>PDI_Isr</code></td><td>ESC 的 PDI 中断（AL 事件，如 SM2 被写）</td><td>SM2 事件时调 PDO_OutputMapping → <code>APPL_OutputMapping</code> 取走输出；SM 同步模式下还接着调应用与输入拷贝</td></tr>
+        <tr><td><code>Sync0_Isr</code></td><td>ESC 的 SYNC0 引脚</td><td>DC 同步模式下调 <code>APPL_Application</code> 与 PDO_InputMapping → <code>APPL_InputMapping</code>，把新输入放进 SM3</td></tr>
+        <tr><td><code>ECAT_CheckTimer</code></td><td>约 1 ms 的定时器</td><td>LED、状态转换超时、看门狗检查等计时类工作（具体内容以 SSC 版本为准）</td></tr>
+      </table>
+    </div>
+
+    <h3>ESM 回调</h3>
+    <p>协议层在每次状态转换时先做规范要求的检查，再调对应的 APPL_ 回调。回调返回 0（ALSTATUSCODE_NOERROR）表示同意；返回一个 AL 状态码则转换失败，协议层把该码写进 0x0134 并置 0x0130 的错误位。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>转换</th><th>回调</th><th>应用在里面做什么</th></tr>
+        <tr><td>INIT → PREOP</td><td><code>APPL_StartMailboxHandler</code></td><td>准备邮箱相关资源</td></tr>
+        <tr><td>PREOP → INIT</td><td><code>APPL_StopMailboxHandler</code></td><td>释放邮箱相关资源</td></tr>
+        <tr><td>PREOP → SAFEOP</td><td><code>APPL_StartInputHandler</code></td><td>检查映射与同步设置，开始采集输入（6041/6064 开始有效）</td></tr>
+        <tr><td>SAFEOP → PREOP</td><td><code>APPL_StopInputHandler</code></td><td>停止输入更新</td></tr>
+        <tr><td>SAFEOP → OP</td><td><code>APPL_StartOutputHandler</code></td><td>允许输出生效，此后 6040/607A 才被执行</td></tr>
+        <tr><td>OP → SAFEOP</td><td><code>APPL_StopOutputHandler</code></td><td>输出置安全值（如禁止使能、停车）</td></tr>
+      </table>
+    </div>
+    <p>此外还有 <code>APPL_GenerateMapping</code>（按 1C12/1C13 算出输入输出长度）和 <code>APPL_AckErrorInd</code>（主站确认错误时调用）；这两个名字与签名以 SSC 版本为准。</p>
+
+    <h3>对象字典表与自研最小集</h3>
+    <p>SSC 的对象字典是一张由 SSC Tool 从 Excel 或 ESI 生成的静态表：每行给出索引、名称、各子索引的数据类型/位长/访问权限，以及一个指向 C 变量的指针。SDO 读 6041 时，CoE 服务查表找到指针，把变量内容拷进应答；PDO 映射到 6040 时，输出拷贝直接写这个变量。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>索引</th><th>名称</th><th>类型 / 位长</th><th>访问</th><th>指向的变量（示意）</th></tr>
+        <tr><td><code>0x6040</code></td><td>Controlword</td><td>UNSIGNED16 / 16</td><td>RW，可映射 RxPDO</td><td><code>Obj0x6040</code></td></tr>
+        <tr><td><code>0x6041</code></td><td>Statusword</td><td>UNSIGNED16 / 16</td><td>RO，可映射 TxPDO</td><td><code>Obj0x6041</code></td></tr>
+        <tr><td><code>0x607A</code></td><td>Target position</td><td>INTEGER32 / 32</td><td>RW，可映射 RxPDO</td><td><code>Obj0x607A</code></td></tr>
+        <tr><td><code>0x1C12</code></td><td>SM2 PDO 分配</td><td>数组，子索引 0 为个数</td><td>RW（PREOP）</td><td><code>sRxPDOassign</code></td></tr>
+      </table>
+    </div>
+    <p>表的结构体名（如 TOBJECT）和变量名是 SSC Tool 的生成约定，以 SSC 版本为准。不用 SSC 自己写协议栈时，下面是能通过主站配置、进 OP 并稳定运行的必备最小集。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>必备项</th><th>对应规范机制</th></tr>
+        <tr><td>ESM：响应 0x0120，更新 0x0130/0x0134，支持错误确认</td><td>u3-l1</td></tr>
+        <tr><td>转换检查：SM0–SM3 配置、同步类型与 1C32/1C33 是否合法</td><td>u2-l2、u4-l2</td></tr>
+        <tr><td>邮箱 + CoE SDO 上传/下载（至少快速传输），含 abort code</td><td>u3-l2</td></tr>
+        <tr><td>对象字典：1000、1018、1C00、1C12、1C13、1600/1A00 及应用对象</td><td>u3-l3</td></tr>
+        <tr><td>过程数据拷贝：SM2 → 变量，变量 → SM3</td><td>u3-l3</td></tr>
+        <tr><td>看门狗到期处理：输出置安全值、退回 SAFEOP 报 0x001B</td><td>u2-l2</td></tr>
+        <tr><td>SII 内容与 ESI 一致（厂商号、产品号、邮箱与 SM 默认值）</td><td>u2-l4</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 04 主从对照 -->
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>写 0x0120 请求状态，然后轮询 0x0130，直到到达或出现错误位。</li>
+          <li>在 PREOP 通过邮箱写 SDO（1C12/1C13、映射、6060 等）。</li>
+          <li>SAFEOP 前配好 SM2/SM3、FMMU、DC；OP 后每周期发一帧 LRW。</li>
+          <li>看到错误位时读 0x0134，写 0x0120 的 bit4 确认。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站固件做什么</h3>
+        <ul>
+          <li>ESM 读到 0x0120 变化，做检查并调 APPL_Start/Stop 回调，结果写 0x0130/0x0134。</li>
+          <li>MainLoop 取 SM0 邮箱，CoE 查对象字典应答，写入 SM1。</li>
+          <li>PDI_Isr 拷输出，Sync0_Isr 跑控制周期并拷输入。</li>
+          <li>输出 SM 看门狗到期：停输出，退 SAFEOP，报 0x001B。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 在真机上看 -->
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>SSC 本身没有统一的日志格式。最实用的做法是在每个 APPL_ 回调入口打一行串口日志，再从主站侧改变状态，对照日志与 AL 寄存器。</p>
+    <pre><code>/* 从站固件：在回调里打日志（函数签名以所用 SSC 版本生成的代码为准） */
+UINT16 APPL_StartInputHandler(UINT16 *pIntMask)
+{
+    printf("[ESM] PREOP->SAFEOP\r\n");
+    return ALSTATUSCODE_NOERROR;
+}
+UINT16 APPL_StartOutputHandler(void)
+{
+    printf("[ESM] SAFEOP->OP\r\n");
+    return ALSTATUSCODE_NOERROR;
+}</code></pre>
+    <pre><code># 主站侧（不运行应用程序时）
+ethercat states -p0 SAFEOP
+ethercat reg_read -p0 0x0130 2      # AL Status
+ethercat reg_read -p0 0x0134 2      # AL Status Code
+# 运行 u6-l1 的程序进 OP 后，Ctrl+C 停掉它，再读：
+ethercat reg_read -p0 0x0130 2
+ethercat reg_read -p0 0x0134 2
+ethercat reg_read -p0 0x0440 2      # SM 看门狗状态（过程数据）</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>串口日志</td><td>[ESM] PREOP-&gt;SAFEOP</td><td>states SAFEOP 之后出现；没出现说明检查在回调之前就失败了，看 0x0134</td></tr>
+        <tr><td>0x0130</td><td>0x0004</td><td>SAFEOP，无错误位</td></tr>
+        <tr><td>0x0130（停主站后）</td><td>0x0014</td><td>SAFEOP + bit4 错误指示</td></tr>
+        <tr><td>0x0134（停主站后）</td><td>0x001B</td><td>Sync Manager 看门狗</td></tr>
+        <tr><td>0x0440 bit0</td><td>0</td><td>0 = 过程数据看门狗已到期，1 = 正常或未启用</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 06 自测 -->
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "主站请求 PREOP→SAFEOP 时，SSC 会调用哪个应用回调？", "options": ["<code>APPL_StartMailboxHandler</code>", "<code>APPL_StartInputHandler</code>", "<code>APPL_StartOutputHandler</code>"], "answer": 1, "explain": "SAFEOP 的含义是输入有效、输出忽略，所以进 SAFEOP 时启动的是输入处理；输出处理在 SAFEOP→OP 时启动。"},
+  {"q": "SDO 请求（比如读 6041）在 SSC 里通常由哪个上下文处理？", "options": ["Sync0_Isr", "PDI_Isr", "MainLoop"], "answer": 2, "explain": "邮箱不紧急，放在主循环里处理；中断只做过程数据这类周期性、有时限的工作。"},
+  {"q": "APPL_StartOutputHandler 返回了一个非零 AL 状态码，主站会看到什么？", "options": ["从站照样进 OP", "从站留在 SAFEOP，0x0130 错误位置 1，0x0134 为该码", "从站回到 INIT 且无错误码"], "answer": 1, "explain": "回调返回非零表示拒绝转换，协议层把码写进 0x0134 并置错误指示位，状态停在原状态 SAFEOP。"},
+  {"q": "主站程序崩溃，不再发周期帧。几十到几百毫秒后从站的 AL 状态最可能是？", "options": ["0x0130 = 0x0008，0x0134 = 0x0000", "0x0130 = 0x0014，0x0134 = 0x001B", "0x0130 = 0x0001，0x0134 = 0x0011"], "answer": 1, "explain": "输出 SM 不再被写，看门狗到期，协议层把从站退回 SAFEOP（0x04）并置错误位（0x10），状态码 0x001B 表示 Sync Manager 看门狗。"}
+]
+    </script>
+  </section>
+
+  <!-- 07 误区与关联 -->
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>ESC 芯片自己会处理 SDO 和状态转换。<br><strong>实际上：</strong>ESC 只提供 SM 缓冲和 AL 寄存器；读 0x0120、决定能否转换、回 SDO 都是 MCU 固件的工作。固件卡死时，0x0130 会停在旧状态不再变化。</li>
+      <li><strong>误区：</strong>在 PDI 中断或 SYNC0 中断里处理邮箱、打印大量日志。<br><strong>实际上：</strong>中断里只做有时限的过程数据拷贝和控制计算；邮箱与日志放主循环，否则会挤占控制周期，引起 0x001A 同步错误之类的问题。</li>
+      <li><strong>误区：</strong>看门狗报 0x001B 就是从站固件有问题。<br><strong>实际上：</strong>最常见的原因是主站停发或周期抖动过大，先查主站程序和 WKC。</li>
+    </ul>
+    <p>关联：ESM 规范见 u3-l1；邮箱与 SDO 见 u3-l2；同步类型 1C32/1C33 见 u4-l2；从站进 OP 后应用层执行的 CiA402 与电机控制见 u5-l1、u6-l3。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '主站已把从站带到 PREOP；右侧 SSC 三层暂时淡化，下面是四个执行上下文。', apply: function () {} },
+    { title: 'ESC 驱动层', text: '最底层只会通过 PDI（SPI、并行或片上）读写 ESC 地址，换 MCU 或换 ESC 就改这一层。',
+      apply: function (svg) { Academy.fx(svg).undim('u62-l-hw'); } },
+    { title: '协议层', text: 'ESM、邮箱、CoE、对象字典、过程数据拷贝都在这一层，由 SSC Tool 生成，一般不改。',
+      apply: function (svg) { Academy.fx(svg).undim('u62-l-proto'); } },
+    { title: '应用层', text: '你写的 APPL_ 回调：状态转换钩子、输入输出映射、控制算法。',
+      apply: function (svg) { Academy.fx(svg).undim('u62-l-app'); } },
+    { title: 'MainLoop 处理邮箱', text: '主循环发现 SM0 有新邮件，交给邮箱与 CoE，CoE 查对象字典后把应答写进 SM1。',
+      apply: function (svg) { Academy.fx(svg).show('u62-p-mbx').flow('u62-p-mbx').hot('u62-c-main'); } },
+    { title: '主站请求 SAFEOP', text: '主站写 0x0120 = 4；ESM 检查 SM 与同步设置后调 APPL_StartInputHandler，成功则 0x0130 = 4。',
+      apply: function (svg) {
+        Academy.fx(svg).show('u62-g-trans').text('u62-m-cmd', '0x0120 ← 4').text('u62-alc', '0x0004')
+          .text('u62-als', '0x0004').text('u62-alname', 'SAFEOP');
+      } },
+    { title: 'SYNC0 中断触发控制周期', text: 'SYNC0 脉冲进 Sync0_Isr：跑 APPL_Application，再用 APPL_InputMapping 把 6041/6064 写进 SM3。',
+      apply: function (svg) { Academy.fx(svg).show(['u62-p-sync', 'u62-p-in']).flow('u62-p-sync').hot('u62-c-sync'); } },
+    { title: '主站请求 OP', text: '主站写 0x0120 = 8；ESM 调 APPL_StartOutputHandler 通过，0x0130 = 8，从站进 OP。',
+      apply: function (svg) {
+        Academy.fx(svg).text('u62-m-cmd', '0x0120 ← 8').text('u62-alc', '0x0008').text('u62-als', '0x0008').text('u62-alname', 'OP');
+      } },
+    { title: 'PDI 中断收输出', text: '周期帧每次写入 SM2 都触发 PDI_Isr，APPL_OutputMapping 取走 6040/607A。',
+      apply: function (svg) {
+        Academy.fx(svg).show('u62-p-out').flow('u62-p-out').hot('u62-c-pdi').flow('u62-cable').text('u62-m-cmd', '周期 LRW');
+      } },
+    { title: '看门狗到期', text: '主站停发，SM2 不再被写；看门狗到期后协议层停输出、退回 SAFEOP 并报 0x001B。',
+      apply: function (svg) {
+        Academy.fx(svg).flow(['u62-cable', 'u62-p-out'], false).dim('u62-p-out').fault('u62-wdbox')
+          .text('u62-m-cmd', '停止发帧').text('u62-wd', '0 = 已到期')
+          .text('u62-als', '0x0014').text('u62-alcode', '0x001B').text('u62-alname', 'SAFEOP + 错误').cls('u62-alname', 't-fault');
+      } }
+  ]);
+  Academy.init('u6-l2');
+})();
+</script>
+</body>
+</html>

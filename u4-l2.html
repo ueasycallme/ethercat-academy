@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>同步模式与主站周期 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u4-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">同步模式与主站周期</h1>
+    <p class="lesson-lede">有了 DC 时钟，驱动器还要决定"应用周期由谁触发"：自己的定时器、帧的到达，还是 SYNC0。选了 DC 同步后，主站的发帧时刻就必须对准 SYNC0 并留出余量，否则从站报同步错误。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>区分 Free Run、SM 同步、DC 同步三种模式：各由什么事件触发应用周期。</li>
+          <li>解释主站周期如何与 DC 系统时间锁相，以及 IgH 里对应的几个调用。</li>
+          <li>说出抖动来源，以及抖动吃掉安全余量后从站会报什么。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 460" role="img" aria-label="主动画：主站发帧时间线与三种同步模式的从站时间线并排，演示 Free Run、SM 同步、DC 同步和帧晚到导致同步错误">
+        <!-- 周期网格 -->
+        <path class="stroke-line sw-1 dashed fill-none" d="M220 44 V372 M400 44 V372 M580 44 V372 M760 44 V372 M940 44 V372"/>
+        <text class="t-small t-mono t-muted t-mid" x="220" y="392">0</text>
+        <text class="t-small t-mono t-muted t-mid" x="400" y="392">1 ms</text>
+        <text class="t-small t-mono t-muted t-mid" x="580" y="392">2 ms</text>
+        <text class="t-small t-mono t-muted t-mid" x="760" y="392">3 ms</text>
+        <text class="t-small t-mono t-muted t-mid" x="930" y="392">4 ms</text>
+
+        <!-- 主站行 -->
+        <text class="t-bold t-bus" x="16" y="72">主站发帧</text>
+        <text class="t-small t-muted" x="16" y="90">周期 1 ms，有抖动</text>
+        <line class="stroke-bus sw-2" x1="220" y1="82" x2="940" y2="82"/>
+        <rect class="fill-bus" x="224" y="62" width="14" height="20" rx="2"/>
+        <rect class="fill-bus" x="410" y="62" width="14" height="20" rx="2"/>
+        <rect class="fill-bus" x="768" y="62" width="14" height="20" rx="2"/>
+
+        <!-- Free Run 行 -->
+        <text class="t-bold" x="16" y="162">Free Run</text>
+        <text class="t-small t-mono t-muted" x="16" y="180">1C32:01 = 0</text>
+        <line class="stroke-muted sw-1" x1="220" y1="172" x2="940" y2="172"/>
+        <g id="u42-fr" class="is-hidden">
+          <path class="stroke-drive sw-3 fill-none" d="M300 172 v-26 M472 172 v-26 M644 172 v-26 M816 172 v-26"/>
+          <text class="t-small t-drive" x="306" y="146">本地定时器</text>
+          <text class="t-small t-muted" x="480" y="198">与帧到达无关：周期、相位都不跟主站</text>
+        </g>
+
+        <!-- SM 同步行 -->
+        <text class="t-bold" x="16" y="252">SM 同步</text>
+        <text class="t-small t-mono t-muted" x="16" y="270">1C32:01 = 1</text>
+        <line class="stroke-muted sw-1" x1="220" y1="262" x2="940" y2="262"/>
+        <g id="u42-sm" class="is-hidden">
+          <circle class="fill-bus" cx="242" cy="262" r="5"/><circle class="fill-bus" cx="428" cy="262" r="5"/><circle class="fill-bus" cx="786" cy="262" r="5"/>
+          <path class="stroke-drive sw-3 fill-none" d="M242 262 v-26 M428 262 v-26 M786 262 v-26"/>
+          <text class="t-small t-drive" x="248" y="236">SM2 事件</text>
+          <text class="t-small t-muted" x="480" y="288">帧一到就触发：主站抖动原样传给应用</text>
+        </g>
+
+        <!-- DC 同步行 -->
+        <text class="t-bold" x="16" y="342">DC 同步</text>
+        <text class="t-small t-mono t-muted" x="16" y="360">1C32:01 = 2</text>
+        <line class="stroke-muted sw-1" x1="220" y1="352" x2="940" y2="352"/>
+        <g id="u42-dc" class="is-hidden">
+          <path class="stroke-power sw-3 fill-none" d="M340 352 v-30 M520 352 v-30 M700 352 v-30 M880 352 v-30"/>
+          <text class="t-small t-power" x="346" y="324">SYNC0</text>
+          <circle class="fill-bus" cx="240" cy="352" r="5"/><circle class="fill-bus" cx="426" cy="352" r="5"/><circle class="fill-bus" cx="784" cy="352" r="5"/>
+          <text class="t-small t-muted" x="226" y="370">帧先到（蓝点），SYNC0 再触发</text>
+        </g>
+
+        <!-- 安全余量 -->
+        <g id="u42-margin" class="is-hidden">
+          <path class="stroke-bus sw-2 fill-none" d="M602 330 v-8 H700 v8"/>
+          <text class="t-small t-bus t-mid" x="651" y="314">安全余量</text>
+        </g>
+
+        <!-- 第 3 帧：会晚到的那一帧 -->
+        <g id="u42-f3">
+          <rect class="fill-bus" x="586" y="62" width="14" height="20" rx="2"/>
+          <g id="u42-sm3" class="is-hidden">
+            <circle class="fill-bus" cx="604" cy="262" r="5"/>
+            <path class="stroke-drive sw-3 fill-none" d="M604 262 v-26"/>
+          </g>
+          <circle id="u42-dca3" class="fill-bus is-hidden" cx="602" cy="352" r="5"/>
+        </g>
+        <text id="u42-late" class="t-small t-fault t-bold is-hidden" x="712" y="56">主站晚发 → 帧晚于 SYNC0</text>
+
+        <!-- 同步错误 -->
+        <g id="u42-err" class="is-hidden">
+          <rect class="box-fault" x="480" y="408" width="460" height="40" rx="6"/>
+          <text class="t-fault t-bold" x="494" y="433">从站：OP → SAFEOP + ERR，AL 状态码 0x001A 同步错误</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>三种同步模式</h3>
+    <p>同步模式说的是"从站应用（控制周期、采样、输出生效）由什么事件触发"。驱动器通过对象 <code>0x1C32</code>（输出侧）与 <code>0x1C33</code>（输入侧）的子索引 1 声明当前模式，主站在 PREOP 可写入。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>1C32:01</th><th>模式</th><th>触发事件</th><th>应用周期的抖动来自</th><th>适合</th></tr>
+        <tr><td><code>0</code></td><td>Free Run</td><td>从站本地定时器</td><td>与主站无关，但相位也不对齐</td><td>慢速 IO、不关心同步</td></tr>
+        <tr><td><code>1</code></td><td>SM 同步</td><td>输出 SM（通常 SM2）写入事件，即帧到达</td><td>主站发帧抖动 + 网络</td><td>单轴、周期要求不高</td></tr>
+        <tr><td><code>2</code></td><td>DC 同步 SYNC0</td><td>ESC 的 SYNC0 脉冲</td><td>几乎只剩 DC 本身的误差</td><td>多轴插补、CSP/CSV/CST</td></tr>
+        <tr><td><code>3</code></td><td>DC 同步 SYNC1</td><td>ESC 的 SYNC1 脉冲</td><td>同上</td><td>需要第二个时刻的设备</td></tr>
+      </table>
+    </div>
+    <p>驱动器支持哪些模式看子索引 4（支持的同步类型位图）与 ESI；其余取值和细节以 ETG.1020 为准。</p>
+
+    <h3>0x1C32 / 0x1C33 关键子索引</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>子索引</th><th>名称</th><th>用途</th></tr>
+        <tr><td><code>01</code></td><td>Synchronization Type</td><td>上表的模式</td></tr>
+        <tr><td><code>02</code></td><td>Cycle Time</td><td>应用周期，ns；DC 模式下应与 SYNC0 周期一致</td></tr>
+        <tr><td><code>03</code></td><td>Shift Time</td><td>相关事件到动作（如输出生效）的时间，ns；具体语义以 ETG.1020 为准</td></tr>
+        <tr><td><code>04</code></td><td>Synchronization Types Supported</td><td>支持的模式位图</td></tr>
+        <tr><td><code>0B</code> / <code>0C</code></td><td>SM-Event Missed / Cycle Time Too Small</td><td>错误计数，驱动器不一定实现</td></tr>
+        <tr><td><code>20</code></td><td>Sync Error</td><td>同步错误标志，驱动器不一定实现</td></tr>
+      </table>
+    </div>
+    <p>注意：IgH <code>ecrt_slave_config_dc</code> 里的 <code>sync0_shift</code> 是主站配置 SYNC0 相位用的，和 1C32:03 不是同一个量。</p>
+
+    <h3>主站周期怎么对准 SYNC0</h3>
+    <p>DC 模式下，SYNC0 的起始时间由主站根据自己的"应用时间"算出并写进 0x0990，所以 SYNC0 天然落在主站周期网格上再加 <code>sync0_shift</code>。之后只要主站周期与参考时钟不相对漂移，帧就总在 SYNC0 前到达；IgH 有两种做法：让参考时钟跟主站（<code>ecrt_master_sync_reference_clock</code> 把应用时间写给参考时钟），或让主站跟参考时钟（读 <code>ecrt_master_reference_clock_time</code> 调整自己的唤醒时刻）。</p>
+    <figure>
+      <div class="fig-scroll">
+        <svg viewBox="0 0 960 170" role="img" aria-label="一个主站周期内的调用顺序：唤醒、接收、处理、写应用时间、同步时钟、发送，之后帧到达从站，再过余量到 SYNC0">
+          <line class="stroke-muted sw-1" x1="20" y1="110" x2="940" y2="110"/>
+          <rect class="box-bus" x="20" y="40" width="130" height="50" rx="6"/><text class="t-small t-mid" x="85" y="62">唤醒</text><text class="t-small t-mono t-mid t-muted" x="85" y="80">clock_nanosleep</text>
+          <rect class="box-bus" x="156" y="40" width="130" height="50" rx="6"/><text class="t-small t-mid" x="221" y="62">收帧 + 处理域</text><text class="t-small t-mono t-mid t-muted" x="221" y="80">receive · process</text>
+          <rect class="box" x="292" y="40" width="110" height="50" rx="6"/><text class="t-small t-mid" x="347" y="62">算控制</text><text class="t-small t-mono t-mid t-muted" x="347" y="80">写 607A</text>
+          <rect class="box-mail" x="408" y="40" width="180" height="50" rx="6"/><text class="t-small t-mid" x="498" y="62">应用时间 + 同步时钟</text><text class="t-small t-mono t-mid t-muted" x="498" y="80">application_time · sync_*</text>
+          <rect class="box-bus" x="594" y="40" width="110" height="50" rx="6"/><text class="t-small t-mid" x="649" y="62">发帧</text><text class="t-small t-mono t-mid t-muted" x="649" y="80">queue · send</text>
+          <circle class="fill-bus" cx="740" cy="110" r="6"/><text class="t-small t-bus t-mid" x="740" y="134">帧到从站</text>
+          <path class="stroke-power sw-3" d="M880 110 v-36"/><text class="t-small t-power t-mid" x="880" y="134">SYNC0</text>
+          <path class="stroke-bus sw-2 fill-none" d="M740 100 v-6 H880 v6"/><text class="t-small t-bus t-mid" x="810" y="86">安全余量</text>
+          <text class="t-small t-muted" x="20" y="160">唤醒时刻的抖动会平移后面所有方框；余量必须大于"最坏唤醒延迟 + 处理时间 + 线上传输"。</text>
+        </svg>
+      </div>
+      <figcaption>IgH 周期里 DC 相关调用的位置；完整周期任务见 u6-l1。</figcaption>
+    </figure>
+    <pre><code>/* 配置阶段（activate 之前） */
+ecrt_slave_config_dc(sc, 0x0300,      /* assign_activate：常见值，以 ESI 为准 */
+                     1000000, 400000, /* sync0_cycle 1 ms, sync0_shift（示例） */
+                     0, 0);           /* 不用 SYNC1 */
+
+/* 周期里 */
+clock_gettime(CLOCK_MONOTONIC, &amp;now);
+ecrt_master_application_time(master, TIMESPEC2NS(now));
+ecrt_master_sync_reference_clock(master);
+ecrt_master_sync_slave_clocks(master);
+ecrt_domain_queue(domain);
+ecrt_master_send(master);</code></pre>
+    <p><code>assign_activate</code> 写进 0x0980：<code>0x0300</code> 即 0x0981 = 0x03（周期运行 + SYNC0），是很多驱动器的值，但因厂商而异，按 ESI 里 <code>AssignActivate</code> 取。</p>
+
+    <h3>抖动从哪来</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>来源</th><th>在哪一层</th><th>怎么压</th></tr>
+        <tr><td>周期线程唤醒延迟</td><td>实时周期循环 / OS</td><td>PREEMPT_RT、SCHED_FIFO、<code>mlockall</code>、CPU 隔离</td></tr>
+        <tr><td>周期内计算时间波动</td><td>规划器、实时循环</td><td>把重计算移出周期线程</td></tr>
+        <tr><td>网卡驱动与中断</td><td>网卡驱动</td><td>IgH 原生驱动（如 igb、e1000e）替代 generic</td></tr>
+        <tr><td>线上传输</td><td>网线与 ESC</td><td>从站多时帧往返更长，余量按最远一台算</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>PREOP 时用 SDO 写 1C32/1C33（或交给驱动器按 ESI 默认），并用 <code>ecrt_slave_config_dc</code> 配 SYNC0 周期与相位。</li>
+          <li>每周期调用 <code>ecrt_master_application_time</code>、同步时钟、再发帧，保持周期与参考时钟锁相。</li>
+          <li>保证最坏情况下帧也在 SYNC0 之前到达最远的从站。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>按 1C32:01 选择触发源：本地定时器、SM2 事件或 SYNC0 中断。</li>
+          <li>DC 模式下在 SYNC0 中断里取用最新的输出、采样输入。</li>
+          <li>发现 SYNC0 到来时新数据没到（或 SM 事件丢失）达到阈值，退回 SAFEOP 并报 AL 码；阈值因厂商而异。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>先量主站周期线程的唤醒延迟（与主站程序同优先级、同周期）：</p>
+    <pre><code>sudo cyclictest -m -S -p 90 -i 1000 -l 100000 -q</code></pre>
+    <p>再看驱动器选的同步模式和从站状态：</p>
+    <pre><code>ethercat upload -p0 --type uint16 0x1C32 1
+ethercat upload -p0 --type uint32 0x1C32 2
+ethercat slaves
+ethercat reg_read -p0 0x0134 2</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>cyclictest Max</td><td>明显小于安全余量</td><td>PREEMPT_RT 上常见几十 µs 量级，因硬件与负载而异</td></tr>
+        <tr><td>1C32:01</td><td>0x0002</td><td>DC SYNC0 模式；0x0001 为 SM 同步</td></tr>
+        <tr><td>1C32:02</td><td>1000000</td><td>与 SYNC0 周期（0x09A0）一致，单位 ns</td></tr>
+        <tr><td>域 WKC</td><td>每周期恒等于期望值</td><td>应用里打印 <code>ecrt_domain_state</code> 的 <code>working_counter</code>，偶发变小说明丢帧或晚到</td></tr>
+        <tr><td>slaves 状态列</td><td>OP，标志 <code>+</code></td><td>SAFEOP 且标志 <code>E</code> 时读 0x0134</td></tr>
+        <tr><td>0x0134</td><td>0x0000</td><td>0x001A 同步错误；0x002C 致命同步错误；0x0030 DC 同步配置无效</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "哪种同步模式会把主站发帧的抖动原样传给驱动器的控制周期？", "options": ["Free Run", "SM 同步", "DC 同步 SYNC0", "三种都不会"], "answer": 1, "explain": "SM 同步由输出 SM 的写入事件（即帧到达）触发应用，帧早一点晚一点，应用周期就跟着早晚。DC 同步由 SYNC0 触发，与帧到达时刻解耦。"},
+  {"q": "DC 同步模式下，一帧过程数据必须满足什么？", "options": ["在 SYNC0 之后到达", "在 SYNC0 之前到达最远的从站，并留有余量", "与 SYNC0 同时到达", "只要在同一个毫秒内到达"], "answer": 1, "explain": "SYNC0 触发时从站取用最新输出；帧晚于 SYNC0 到达，这个周期用的就是旧数据，累计到阈值会报同步错误。"},
+  {"q": "在 IgH 中，调节\"帧到达与 SYNC0 之间余量\"的主要参数是？", "options": ["<code>assign_activate</code>", "<code>sync0_shift</code>", "<code>sync1_cycle</code>", "0x0928"], "answer": 1, "explain": "SYNC0 起点按主站应用时间的周期网格再加 sync0_shift 计算，shift 越大，SYNC0 相对主站发帧越靠后，余量越大（也意味着延迟更大）。"},
+  {"q": "系统负载高时从站间歇性报 AL <code>0x001A</code>，最先该查什么？", "options": ["ESI 里的厂商号", "主站周期线程的唤醒延迟（如 cyclictest）与安全余量", "SII EEPROM 内容", "网线长度是否超过 100 m"], "answer": 1, "explain": "0x001A 是同步错误。负载相关的间歇错误最常见的原因是主站唤醒抖动吃掉了余量，使帧晚于 SYNC0 到达。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>ESC 支持 DC，驱动器就一定工作在 DC 同步模式。<br><strong>实际上：</strong>模式由 1C32:01 决定，还要主站配置并激活 SYNC0；没激活时很多驱动器会拒绝进 SAFEOP/OP。</li>
+      <li><strong>误区：</strong>sync0_shift 设成 0 最好，延迟最小。<br><strong>实际上：</strong>shift 太小时帧可能晚于 SYNC0，偶发同步错误；shift 要大于最坏抖动加处理与传输时间。</li>
+      <li><strong>误区：</strong><code>0x0300</code> 是所有驱动器通用的 assign_activate。<br><strong>实际上：</strong>它只是常见值，要用 SYNC1 或厂商另有要求时取值不同，以 ESI 为准。</li>
+    </ul>
+    <p>关联：u6-l1 把这些调用放进完整的主站周期任务；u6-l2 看从站固件的 SYNC0 中断；u7-l2 的"间歇性 0x001A"案例用到本课。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '三条并排时间线', text: '上面是主站每 1 ms 发一帧（带抖动），下面三行是同一台驱动器在三种同步模式下的应用触发时刻。', apply: function () {} },
+    { title: 'Free Run：本地定时器自跑', text: '从站用自己的定时器触发应用周期，既不等帧也不对齐主站，周期和相位都会慢慢错开。',
+      apply: function (svg) { Academy.fx(svg).show('u42-fr'); } },
+    { title: 'SM 同步：帧到即触发', text: '输出 SM 被写入（帧到达）时触发应用，主站发帧早晚多少，应用周期就跟着抖多少。',
+      apply: function (svg) { Academy.fx(svg).show(['u42-sm', 'u42-sm3']); } },
+    { title: 'DC 同步：SYNC0 触发', text: '应用由等间隔的 SYNC0 脉冲触发，帧必须在 SYNC0 之前到达，应用只取用已经到的数据。',
+      apply: function (svg) { Academy.fx(svg).show(['u42-dc', 'u42-dca3']); } },
+    { title: '主站周期留出安全余量', text: '主站周期锁到 DC 系统时间，发帧时刻比 SYNC0 提前一段余量（由 sync0_shift 决定），吸收抖动。',
+      apply: function (svg) { Academy.fx(svg).show('u42-margin'); } },
+    { title: '抖动过大，帧晚到', text: '某个周期主站线程被推迟唤醒，这一帧晚于 SYNC0 到达，从站这一周期只能用旧数据。',
+      apply: function (svg) { Academy.fx(svg).move('u42-f3', 120, 0).cls('u42-dca3', 'fill-fault').fault('u42-dca3').show('u42-late'); } },
+    { title: '从站报 0x001A 同步错误', text: '晚到或丢失的次数超过驱动器的阈值后，从站退到 SAFEOP 并置错误位，AL 状态码 0x001A。',
+      apply: function (svg) { Academy.fx(svg).show('u42-err'); } }
+  ]);
+  Academy.init('u4-l2');
+})();
+</script>
+</body>
+</html>

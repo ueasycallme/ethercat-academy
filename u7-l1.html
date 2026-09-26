@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>诊断工具箱 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .cmd-table td:first-child { font-family: var(--font-mono); white-space: nowrap; font-size: .86rem; }
+.lesson .cmd-table td:last-child { font-family: var(--font-mono); font-size: .8rem; white-space: pre; color: var(--muted); }
+.lesson .cmd-table tr.is-core td:first-child { color: var(--bus); font-weight: 600; }
+.lesson .filter-table td:first-child { font-family: var(--font-mono); font-size: .86rem; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u7-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">诊断工具箱</h1>
+    <p class="lesson-lede">把 IgH 的 ethercat 命令和 Wireshark 过滤器按"它看的是哪一层"排好，出问题时先选对工具，再读对数字。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>会用 ethercat CLI 的 12 个常用命令，并说出每条命令读的是主站缓存、ESC 寄存器还是从站对象字典。</li>
+          <li>会写 Wireshark 显示过滤器，按命令、地址、WKC 筛出想看的数据报。</li>
+          <li>会用三处读数（ESM 状态、域 WKC、6041）判断故障在哪一层。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 440" role="img" aria-label="主动画：六条 ethercat 命令各自走到哪一层取数：slaves 看 ESM，states 写 AL Control，upload 走邮箱，pdos 看映射，reg_read 读 ESC 寄存器，domains 看主站域的 WKC">
+        <text class="t-small t-muted" x="20" y="26">主站 PC</text>
+        <text class="t-small t-muted t-mid" x="545" y="26">网线</text>
+        <text class="t-small t-muted t-end" x="940" y="26">从站</text>
+
+        <!-- 终端 -->
+        <rect class="box-muted" x="20" y="40" width="300" height="330" rx="8"/>
+        <text class="t-small t-muted t-mono" x="36" y="64">$ ethercat …</text>
+        <g><rect id="u71-c1" class="box" x="32" y="78" width="276" height="36" rx="5"/><text class="t-mono" x="44" y="101">slaves</text></g>
+        <g><rect id="u71-c2" class="box" x="32" y="124" width="276" height="36" rx="5"/><text class="t-mono" x="44" y="147">states -p0 OP</text></g>
+        <g><rect id="u71-c3" class="box" x="32" y="170" width="276" height="36" rx="5"/><text class="t-mono" x="44" y="193">upload -p0 0x6041 0</text></g>
+        <g><rect id="u71-c4" class="box" x="32" y="216" width="276" height="36" rx="5"/><text class="t-mono" x="44" y="239">pdos -p0 / cstruct</text></g>
+        <g><rect id="u71-c5" class="box" x="32" y="262" width="276" height="36" rx="5"/><text class="t-mono" x="44" y="285">reg_read -p0 0x0130 2</text></g>
+        <g><rect id="u71-c6" class="box" x="32" y="308" width="276" height="36" rx="5"/><text class="t-mono" x="44" y="331">domains</text></g>
+
+        <!-- 主站模块 -->
+        <rect class="box-bus" x="340" y="40" width="150" height="330" rx="8"/>
+        <text class="t-title t-mid" x="415" y="68">IgH 主站</text>
+        <text class="t-small t-muted t-mid" x="415" y="88">ec_master 模块</text>
+        <text class="t-small t-muted t-mid" x="415" y="106">/dev/EtherCAT0</text>
+        <g><rect id="u71-domain" class="box" x="352" y="296" width="126" height="60" rx="6"/>
+          <text class="t-small t-mid" x="415" y="320">Domain0</text>
+          <text class="t-small t-mid t-mono" x="415" y="340">WKC 3/3</text></g>
+
+        <!-- 网线 -->
+        <line id="u71-cable" class="wire-bus" x1="490" y1="205" x2="600" y2="205"/>
+
+        <!-- 从站分层 -->
+        <rect class="box-drive" x="600" y="40" width="340" height="330" rx="8"/>
+        <text class="t-title t-mid" x="770" y="66">ESC + 从站固件</text>
+        <g><rect id="u71-l1" class="box" x="616" y="80" width="308" height="44" rx="6"/><text x="630" y="107">ESM 状态 · AL 0x0120 / 0x0130</text></g>
+        <g><rect id="u71-l2" class="box" x="616" y="134" width="308" height="44" rx="6"/><text x="630" y="161">邮箱 SM0/SM1 → CoE 对象字典</text></g>
+        <g><rect id="u71-l3" class="box" x="616" y="188" width="308" height="44" rx="6"/><text x="630" y="215">PDO 映射 1C12/1C13 · 1600/1A00</text></g>
+        <g><rect id="u71-l4" class="box" x="616" y="242" width="308" height="44" rx="6"/><text x="630" y="269">ESC 寄存器 0x0000–0x0FFF</text></g>
+        <g><rect id="u71-l5" class="box" x="616" y="296" width="308" height="60" rx="6"/><text x="630" y="321">SM2/SM3 过程数据</text><text class="t-small t-muted" x="630" y="342">经 FMMU 映射到逻辑地址</text></g>
+
+        <!-- 每条命令的取数路径 -->
+        <polyline id="u71-p1" class="wire stroke-mail is-hidden" points="308,96 415,96 415,205 600,205 616,102"/>
+        <polyline id="u71-p2" class="wire stroke-mail is-hidden" points="308,142 415,142 415,205 600,205 616,102"/>
+        <polyline id="u71-p3" class="wire stroke-mail is-hidden" points="308,188 415,188 415,205 600,205 616,156"/>
+        <polyline id="u71-p4" class="wire stroke-mail is-hidden" points="308,234 415,234 415,205 600,205 616,210"/>
+        <polyline id="u71-p5" class="wire stroke-mail is-hidden" points="308,280 415,280 415,205 600,205 616,264"/>
+        <polyline id="u71-p6" class="wire stroke-mail is-hidden" points="308,326 352,326"/>
+
+        <!-- 输出条 -->
+        <rect class="box-muted" x="20" y="384" width="920" height="40" rx="6"/>
+        <text class="t-small t-muted" x="34" y="409">输出（示意）</text>
+        <text id="u71-out" class="t-mono" x="130" y="409">选一条命令，看它把问题问到哪一层</text>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>ethercat CLI 命令对照</h3>
+    <p>ethercat 是 IgH 主站自带的命令行工具，通过 <code>/dev/EtherCATx</code> 的 ioctl 向内核主站模块提问。它从不自己发帧：寄存器读写、SDO 都排进主站状态机，由主站在空闲时插进总线。下表以 IgH 1.5/1.6 为准，<code>-p</code> 选从站位置，<code>-m</code> 选主站号，示例输出为示意，字段以你手上版本的 <code>ethercat &lt;命令&gt; --help</code> 为准。</p>
+    <div class="table-wrap">
+      <table class="cmd-table">
+        <tr><th>命令</th><th>作用</th><th>看哪一层</th><th>示例输出（示意）</th></tr>
+        <tr class="is-core"><td>master</td><td>主站阶段、网卡链路、收发帧计数、丢帧</td><td>主站栈、网卡</td><td>Phase: Operation
+Link: UP  Lost frames: 0</td></tr>
+        <tr class="is-core"><td>slaves [-v]</td><td>列出从站：位置、别名、ESM 状态、错误标志；-v 显示 ID、端口、DC</td><td>ESM（主站扫描缓存）</td><td>0  0:0  OP  +  Servo Drive</td></tr>
+        <tr class="is-core"><td>states -p0 OP</td><td>请求从站进入 INIT/PREOP/BOOT/SAFEOP/OP</td><td>ESM（写 AL Control）</td><td>（无输出，再看 slaves）</td></tr>
+        <tr class="is-core"><td>upload -p0 IDX SUB</td><td>SDO 上传，读对象字典；可加 --type uint16</td><td>邮箱 · CoE</td><td>0x0237 567</td></tr>
+        <tr class="is-core"><td>download -p0 IDX SUB V</td><td>SDO 下载，写对象字典</td><td>邮箱 · CoE</td><td>（成功无输出，失败打印 abort）</td></tr>
+        <tr class="is-core"><td>sdos -p0</td><td>列出从站对象字典（需从站支持 SDO 信息服务）</td><td>邮箱 · CoE</td><td>SDO 0x6041, "Statusword"</td></tr>
+        <tr class="is-core"><td>pdos -p0</td><td>SM 与 PDO 分配、映射项</td><td>PDO 映射</td><td>SM2: PhysAddr 0x1100 …
+  RxPDO 0x1600
+    PDO entry 0x6040:00, 16 bit</td></tr>
+        <tr class="is-core"><td>cstruct -p0</td><td>把映射输出成 C 结构（ec_pdo_entry_info_t 等）</td><td>PDO 映射 → 主站程序</td><td>ec_pdo_entry_info_t slave_0_pdo_entries[] = …</td></tr>
+        <tr class="is-core"><td>reg_read -p0 ADDR [LEN]</td><td>读 ESC 寄存器或用户 RAM</td><td>ESC</td><td>0x08 0x00</td></tr>
+        <tr><td>reg_write -p0 ADDR DATA</td><td>写 ESC 寄存器（慎用，会绕过主站状态机的认知）</td><td>ESC</td><td>（无输出）</td></tr>
+        <tr class="is-core"><td>domains [-v]</td><td>域的逻辑地址、大小、WKC 当前/期望；-v 列 FMMU 与数据</td><td>过程数据通路</td><td>Domain0: LogBaseAddr 0x00000000,
+  Size 12, WorkingCounter 3/3</td></tr>
+        <tr class="is-core"><td>config [-v]</td><td>应用程序创建的从站配置及是否已挂上真实从站</td><td>主站程序配置</td><td>Alias/Position、Vendor、Product、
+Attached、State</td></tr>
+        <tr><td>data</td><td>把域的原始过程数据写到标准输出</td><td>过程数据通路</td><td>（二进制，配 hexdump -C）</td></tr>
+        <tr class="is-core"><td>sii_read -p0</td><td>读出 SII（EEPROM）原始内容</td><td>ESC · SII</td><td>（二进制，配 hexdump -C）</td></tr>
+        <tr><td>sii_write -p0 FILE</td><td>写入 SII 映像（会改变从站身份，慎用）</td><td>ESC · SII</td><td>（无输出）</td></tr>
+        <tr><td>xml -p0</td><td>由 SII 生成 ESI 风格的 XML</td><td>ESC · SII</td><td>&lt;EtherCATInfo&gt; …</td></tr>
+        <tr><td>alias -p0 N</td><td>把站别名写进 SII（下次上电生效）</td><td>ESC · SII</td><td>（无输出）</td></tr>
+        <tr><td>foe_read / foe_write</td><td>经 FoE 读写文件，常用于 BOOT 状态下升级固件</td><td>邮箱 · FoE</td><td>（文件内容）</td></tr>
+        <tr><td>debug N</td><td>设置主站内核日志等级，输出进 dmesg</td><td>主站栈</td><td>（无输出，看 dmesg）</td></tr>
+        <tr><td>graph</td><td>以 Graphviz dot 格式输出拓扑</td><td>拓扑、端口</td><td>digraph bus { … }</td></tr>
+        <tr><td>rescan</td><td>让主站重新扫描总线</td><td>主站栈</td><td>（无输出）</td></tr>
+        <tr><td>version</td><td>打印主站版本</td><td>主站栈</td><td>IgH EtherCAT master 1.5.x</td></tr>
+      </table>
+    </div>
+    <p>另有 eoe、ip、soe_read/soe_write 等命令对应 EoE、SoE，关节驱动器调试中较少用到。标蓝的 12 条是本课要求会用的。</p>
+
+    <h3>Wireshark：抓哪里、怎么过滤</h3>
+    <p>EtherCAT 帧的 EtherType 是 0x88A4，Wireshark 自带 ecat 解析器会逐个展开数据报。IgH 原生网卡驱动会把网卡从 Linux 协议栈拿走，此时在主站本机抓包通常看不到帧；用 generic 驱动，或在网线中间接交换机镜像口或 TAP。下表字段名取自 Wireshark 的 ecat 解析器，不同版本可能有出入，最稳的做法是在包详情里右键字段选"作为过滤器应用"。</p>
+    <div class="table-wrap">
+      <table class="filter-table">
+        <tr><th>过滤器</th><th>筛出什么</th><th>对应课</th></tr>
+        <tr><td>eth.type == 0x88a4</td><td>所有 EtherCAT 帧（不依赖解析器）</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+        <tr><td>ecat</td><td>ecat 解析器识别出的所有帧</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+        <tr><td>ecat.cmd == 12</td><td>命令码为 LRW 的数据报（周期过程数据）</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+        <tr><td>ecat.cmd == 4 &amp;&amp; ecat.ado == 0x0130</td><td>FPRD 读 AL Status 的数据报</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+        <tr><td>ecat.adp == 0x03e9</td><td>地址字段 ADP 为某值（站地址寻址时即站地址）</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+        <tr><td>ecat.cnt == 0</td><td>WKC 为 0 的数据报：没有任何从站处理它</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+      </table>
+    </div>
+    <p>在主站网卡上，同一帧会出现两次：发出时 WKC 为 0，返回时 WKC 已被从站累加。比较这两次，就能看出哪一个数据报少了从站的应答。</p>
+
+    <h3>三处读数定层</h3>
+    <p>任何现象先读三个数：ESM 状态、域 WKC、6041。它们分别属于总线状态机、过程数据通路和驱动器状态机，从左到右依次排除。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 190" role="img" aria-label="三处读数定层：ESM 状态看总线状态机，域 WKC 看过程数据通路，6041 看 CiA402 状态机；前一处不正常就不用看后一处">
+        <rect class="box-mail" x="20" y="30" width="270" height="120" rx="8"/>
+        <text class="t-title" x="36" y="58">① ESM 状态</text>
+        <text class="t-small t-mono" x="36" y="84">ethercat slaves</text>
+        <text class="t-small t-mono" x="36" y="104">reg_read 0x0130 / 0x0134</text>
+        <text class="t-small t-muted" x="36" y="130">总线状态机：OP 且无 E？</text>
+        <rect class="box-bus" x="345" y="30" width="270" height="120" rx="8"/>
+        <text class="t-title" x="361" y="58">② 域 WKC</text>
+        <text class="t-small t-mono" x="361" y="84">ethercat domains</text>
+        <text class="t-small t-mono" x="361" y="104">ecrt_domain_state()</text>
+        <text class="t-small t-muted" x="361" y="130">过程数据通路：当前 = 期望？</text>
+        <rect class="box-drive" x="670" y="30" width="270" height="120" rx="8"/>
+        <text class="t-title" x="686" y="58">③ 6041 状态字</text>
+        <text class="t-small t-mono" x="686" y="84">upload -p0 0x6041 0</text>
+        <text class="t-small t-mono" x="686" y="104">或 PDO 里的 6041</text>
+        <text class="t-small t-muted" x="686" y="130">驱动器状态机：Op Enabled？</text>
+        <line class="wire" x1="290" y1="90" x2="345" y2="90"/>
+        <line class="wire" x1="615" y1="90" x2="670" y2="90"/>
+        <text class="t-small t-muted t-mid" x="317" y="80">是</text>
+        <text class="t-small t-muted t-mid" x="642" y="80">是</text>
+        <text class="t-small t-muted" x="20" y="178">任一处"否"就停在那一层查；三处都正常，问题在运动模式、映射内容或电机控制层（见 u7-l2 决策树）。</text>
+      </svg>
+      </div>
+      <figcaption>三处读数的顺序就是从底到顶：总线没到 OP，WKC 和 6041 都没有意义。</figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table>
+        <tr><th>ESC 诊断寄存器</th><th>含义</th><th>读法</th></tr>
+        <tr><td><code>0x0110</code></td><td>DL Status：bit4–7 端口 0–3 物理链路，bit8–15 各端口回环/通信</td><td><code>reg_read -p0 0x0110 2</code></td></tr>
+        <tr><td><code>0x0130</code> / <code>0x0134</code></td><td>AL Status（bit0–3 状态、bit4 错误）/ AL Status Code</td><td><code>reg_read -p0 0x0130 2</code></td></tr>
+        <tr><td><code>0x0300</code>–<code>0x0307</code></td><td>各端口 RX 错误计数（无效帧、物理层错误）</td><td><code>reg_read -p0 0x0300 8</code></td></tr>
+        <tr><td><code>0x0310</code>–<code>0x0313</code></td><td>各端口丢链计数</td><td><code>reg_read -p0 0x0310 4</code></td></tr>
+        <tr><td><code>0x0440</code></td><td>SM 看门狗状态（过程数据看门狗）</td><td><code>reg_read -p0 0x0440 2</code></td></tr>
+        <tr><td><code>0x092C</code></td><td>DC 系统时间差（本地与参考时钟之差）</td><td><code>reg_read -p0 0x092C 4</code></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>CLI 通过 ioctl 把请求交给主站模块；slaves、config、domains 读的是主站内存里的缓存与计数。</li>
+          <li>reg_read、upload、states 被排进主站状态机，在周期帧之外另发数据报，应用运行中也能用。</li>
+          <li>主站记录丢帧数、每个域的 WKC 当前/期望值，并把详细日志写进 dmesg（用 <code>ethercat debug</code> 调级别）。</li>
+          <li>Wireshark 只看到线上的帧，看不到主站内部状态；两者要对照着看。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>寄存器读写由 ESC 硬件在帧经过时应答，不需要固件参与，所以固件死机时 reg_read 仍能读到 0x0130。</li>
+          <li>SDO 要固件从 SM0 取请求、查对象字典、写 SM1 应答；固件忙或卡住就表现为超时。</li>
+          <li>状态切换由固件检查配置后把新状态写进 0x0130，失败就置 bit4 并在 0x0134 写原因码。</li>
+          <li>ESC 自己统计端口错误和丢链次数（0x0300 起），这是查网线和接头的第一手证据。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>按"主站 → ESM → 通路 → 驱动器"的顺序跑一遍，每条都和期望值对照：</p>
+<pre><code>ethercat master                      # 主站阶段与丢帧
+ethercat slaves -v                   # 每台从站 ID、状态、端口、DC
+ethercat reg_read -p0 0x0130 2       # AL Status
+ethercat reg_read -p0 0x0134 2       # AL Status Code
+ethercat domains                     # WKC 当前/期望
+ethercat upload -p0 --type uint16 0x6041 0
+ethercat pdos -p0
+ethercat reg_read -p0 0x0300 8       # 端口 RX 错误计数</code></pre>
+<pre><code># Wireshark（抓镜像口或 generic 驱动网卡）
+eth.type == 0x88a4
+ecat.cmd == 12
+ecat.cnt == 0</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>master: Phase</td><td>Operation</td><td>应用已 activate；Idle 表示没有应用程序占用主站</td></tr>
+        <tr><td>master: Lost frames</td><td>0 且不增长</td><td>增长说明帧没回来：网线、网卡或实时性</td></tr>
+        <tr><td>slaves</td><td>全部 OP 且为 +</td><td>E 表示该从站置了 AL 错误位</td></tr>
+        <tr><td>0x0130</td><td>0x08 0x00</td><td>低 4 位 8 = OP，bit4 = 0 无错</td></tr>
+        <tr><td>0x0134</td><td>0x00 0x00</td><td>无 AL 错误码</td></tr>
+        <tr><td>domains: WorkingCounter</td><td>当前 = 期望</td><td>IgH 期望值：每台有输出 +2，有输入 +1</td></tr>
+        <tr><td>0x6041</td><td>低位匹配 0x0027（掩码 0x006F）</td><td>Operation Enabled</td></tr>
+        <tr><td>0x0300–0x0307</td><td>全 0 或长期不增长</td><td>持续增长查网线、屏蔽、接头</td></tr>
+        <tr><td>Wireshark ecat.cnt == 0</td><td>周期 LRW 不应出现</td><td>出现说明整段逻辑地址没有从站处理</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "从站固件卡死在一个死循环里，下面哪条命令最可能仍然给出正常读数？", "options": ["<code>ethercat upload -p0 0x6041 0</code>", "<code>ethercat reg_read -p0 0x0130 2</code>", "<code>ethercat sdos -p0</code>", "<code>ethercat download -p0 0x6060 0 8</code>"], "answer": 1, "explain": "寄存器读由 ESC 硬件在帧经过时应答，不需要固件；upload、sdos、download 都走邮箱，要固件处理，固件卡死会超时。"},
+  {"q": "<code>ethercat domains</code> 显示 <code>WorkingCounter 5/6</code>，两台从站各有输出和输入。最先怀疑什么？", "options": ["某台从站的输入那一段没被处理（少了 +1）", "主站 CPU 太快", "SDO 配置失败导致对象字典为空", "Wireshark 过滤器写错"], "answer": 0, "explain": "IgH 的期望 WKC 按每台输出 +2、输入 +1 累加，2 台共 6；少 1 正好是一个输入段没被计数。下一步看 slaves 和 domains -v 找是哪一台。"},
+  {"q": "想在 Wireshark 里只看周期过程数据的 LRW 数据报，最合适的过滤器是？", "options": ["<code>tcp.port == 88a4</code>", "<code>ecat.cmd == 12</code>", "<code>ecat.cnt == 12</code>", "<code>ip.proto == 0x88a4</code>"], "answer": 1, "explain": "LRW 的命令码是 12，ecat.cmd 是数据报命令字段。EtherCAT 不走 IP/TCP，ecat.cnt 是 WKC。"},
+  {"q": "IgH 用原生网卡驱动（如 ec_e1000e）时，在主站本机对该网卡用 Wireshark 抓不到 EtherCAT 帧，最合理的解释是？", "options": ["EtherCAT 帧是加密的", "原生驱动把网卡从 Linux 网络协议栈接管，抓包点看不到这些帧", "Wireshark 不支持 0x88A4", "从站把帧吞掉了"], "answer": 1, "explain": "原生驱动绕过内核网络栈直接收发，抓包工具挂不上；可改用 generic 驱动，或用交换机镜像口、TAP 在线上抓。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong><code>ethercat states -p0 OP</code> 之后驱动器就能转了。<br><strong>实际上：</strong>这只切换总线状态机 ESM；驱动器还要靠 6040 走 CiA402 状态机到 Operation Enabled，而且没有应用程序周期发帧，从站很快会因看门狗退出 OP。</li>
+      <li><strong>误区：</strong>用 <code>reg_write</code> 或 <code>sii_write</code> 快速"修好"从站。<br><strong>实际上：</strong>这两条命令绕过主站状态机直接改硬件或身份信息，主站缓存不会同步；只在明确知道后果时使用，改 SII 前先 <code>sii_read</code> 备份。</li>
+      <li><strong>误区：</strong><code>ethercat slaves</code> 的状态就是此刻线上的状态。<br><strong>实际上：</strong>它显示主站状态机最近一次读到的值；快速变化的故障要配合 <code>reg_read</code> 或 Wireshark 看。</li>
+    </ul>
+    <p>关联：WKC 规则见 <a href="u1-l3.html">u1-l3</a>，AL 状态码见 <a href="u3-l1.html">u3-l1</a>，SDO abort code 见 <a href="u3-l2.html">u3-l2</a>，6041 解码见 <a href="u5-l1.html">u5-l1</a>。下一课把这些工具串成决策树。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function pick(svg, k, out) {
+    var f = Academy.fx(svg);
+    for (var i = 1; i <= 6; i++) {
+      if (i === k) continue;
+      f.cool('u71-c' + i).hide('u71-p' + i);
+    }
+    f.cool(['u71-l1', 'u71-l2', 'u71-l3', 'u71-l4', 'u71-l5', 'u71-domain']);
+    f.hot('u71-c' + k).show('u71-p' + k).flow('u71-p' + k).text('u71-out', out);
+    return f;
+  }
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '左边终端里 6 条命令，右边从站按层排开；每条命令问的是不同的一层。', apply: function () {} },
+    { title: 'slaves：看 ESM', text: 'ethercat slaves 列出每台从站的 ESM 状态和错误标志，数据来自主站扫描到的 AL Status。',
+      apply: function (svg) { pick(svg, 1, '0  0:0  PREOP  +  Servo Drive').hot('u71-l1'); } },
+    { title: 'states：切状态', text: 'ethercat states -p0 OP 让主站向该从站的 AL Control 0x0120 请求 OP。',
+      apply: function (svg) { pick(svg, 2, '（无输出；再运行 slaves 应看到 OP）').hot('u71-l1'); } },
+    { title: 'upload：走邮箱', text: 'upload 是一次 SDO 上传：请求进 SM0，从站固件查对象字典，应答从 SM1 回来。',
+      apply: function (svg) { pick(svg, 3, '0x0237 567').hot('u71-l2'); } },
+    { title: 'pdos / cstruct：看映射', text: 'pdos 显示 SM 分配和每个 PDO 的映射项，cstruct 把它们直接输出成 C 结构。',
+      apply: function (svg) { pick(svg, 4, 'SM2 … RxPDO 0x1600 … PDO entry 0x6040:00, 16 bit').hot('u71-l3'); } },
+    { title: 'reg_read：读 ESC', text: 'reg_read 直接读 ESC 寄存器，由硬件应答，不经过从站固件；0x0130 = 0x08 就是 OP。',
+      apply: function (svg) { pick(svg, 5, '0x08 0x00').hot('u71-l4'); } },
+    { title: 'domains：看 WKC', text: 'domains 不去问从站，而是读主站里域的统计：WKC 当前值等于期望值，过程数据通路才完整。',
+      apply: function (svg) { pick(svg, 6, 'Domain0: LogBaseAddr 0x00000000, Size 12, WorkingCounter 3/3').hot('u71-domain'); } }
+  ]);
+  Academy.init('u7-l1');
+})();
+</script>
+</body>
+</html>

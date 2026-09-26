@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>运行模式：PP/PV/TQ/HM/CSP/CSV/CST · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .pager a, .lesson .next-card { overflow-wrap: anywhere; }
+  .lesson .u52-blk rect { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u52-blk.u52-on rect { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 3; }
+  .lesson .u52-mblk.u52-on rect { fill: var(--bus-soft); stroke: var(--bus); stroke-width: 3; }
+  .lesson .u52-reg rect { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u52-reg.u52-warn rect { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 3; }
+  .lesson .u52-arrow { fill: none; stroke: var(--muted); stroke-width: 2; marker-end: url(#u52-ah); }
+  .lesson .u52-feed { fill: none; stroke: var(--bus); stroke-width: 3; marker-end: url(#u52-ah-bus); }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u5-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">运行模式：PP/PV/TQ/HM/CSP/CSV/CST</h1>
+    <p class="lesson-lede">同一个"转到 90°"，换一个 6060 取值，轨迹规划和各级闭环就在主站和驱动器之间换一次位置。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>列出常用运行模式及其 6060 取值，会读 6502 支持模式位图。</li>
+          <li>说出每种模式下主站给什么对象、驱动器闭哪几个环。</li>
+          <li>解释 CSP 下为什么轨迹插补由主站负责，以及每周期的点为什么必须可达。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 450" role="img" aria-label="主动画：左侧主站的规划器和外环，中间网线上传递的目标对象，右侧驱动器的轨迹发生器、位置环、速度环、转矩环；切换 6060 模式时，目标从不同层级进入驱动器">
+        <defs>
+          <marker id="u52-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="fill-muted" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u52-ah-bus" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path class="fill-bus" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+
+        <!-- 主站侧 -->
+        <text class="t-title t-mid" x="155" y="28">主站</text>
+        <g id="u52-m-plan" class="u52-blk u52-mblk"><rect x="30" y="46" width="250" height="60" rx="8"/><text class="t-mid t-bold" x="155" y="72">轨迹规划 / 插补</text><text class="t-mid t-small t-muted" x="155" y="94">每周期算一个目标</text></g>
+        <g id="u52-m-pos" class="u52-blk u52-mblk"><rect x="30" y="126" width="250" height="60" rx="8"/><text class="t-mid t-bold" x="155" y="152">位置环（主站侧）</text><text class="t-mid t-small t-muted" x="155" y="174">用 6064 实际位置闭环</text></g>
+        <g id="u52-m-vel" class="u52-blk u52-mblk"><rect x="30" y="206" width="250" height="60" rx="8"/><text class="t-mid t-bold" x="155" y="232">速度环（主站侧）</text><text class="t-mid t-small t-muted" x="155" y="254">用 606C 实际速度闭环</text></g>
+        <path id="u52-ma1" class="u52-arrow" d="M155 106 V124"/>
+        <path id="u52-ma2" class="u52-arrow" d="M155 186 V204"/>
+        <g class="u52-reg"><rect x="30" y="286" width="250" height="56" rx="8"/><text id="u52-6060" class="t-mid t-mono t-bold" x="155" y="320">6060 = 0（无模式）</text></g>
+        <g id="u52-m-fb" class="u52-blk u52-mblk"><rect x="30" y="360" width="250" height="56" rx="8"/><text class="t-mid t-bold" x="155" y="384">读实际值</text><text class="t-mid t-small t-muted t-mono" x="155" y="404">6064 · 606C · 6077</text></g>
+
+        <!-- 主站出口（按模式显示一条） -->
+        <path id="u52-x-plan" class="wire-bus is-hidden" d="M280 76 H292 V170"/>
+        <path id="u52-x-pos" class="wire-bus is-hidden" d="M280 156 H292 V170"/>
+        <path id="u52-x-vel" class="wire-bus is-hidden" d="M280 236 H292 V170"/>
+
+        <!-- 网线 -->
+        <text class="t-mid t-small t-muted" x="451" y="126">同一目标：关节转到 90°</text>
+        <path id="u52-w-out" class="wire-bus" d="M292 170 H606"/>
+        <g id="u52-obj"><rect class="box-bus" x="356" y="138" width="190" height="64" rx="8"/><text id="u52-obj-name" class="t-mid t-bold" x="451" y="164">目标：？</text><text id="u52-obj-sub" class="t-mid t-small t-muted" x="451" y="188">尚未选择模式</text></g>
+        <path id="u52-w-fb" class="u52-feed" d="M640 388 H284"/>
+        <text class="t-mid t-small t-muted" x="460" y="378">TxPDO：6064 · 606C · 6077 实际值</text>
+
+        <!-- 驱动器入口（按模式显示一条） -->
+        <path id="u52-e-gen" class="u52-feed is-hidden" d="M606 170 V133 H636"/>
+        <path id="u52-e-pos" class="u52-feed is-hidden" d="M606 170 V195 H636"/>
+        <path id="u52-e-vel" class="u52-feed is-hidden" d="M606 170 V257 H636"/>
+        <path id="u52-e-trq" class="u52-feed is-hidden" d="M606 170 V319 H636"/>
+
+        <!-- 从站侧：驱动器 -->
+        <rect class="box stroke-drive" x="620" y="40" width="320" height="400" rx="10"/>
+        <text class="t-title t-mid t-drive" x="780" y="28">驱动器</text>
+        <g id="u52-6061b" class="u52-reg"><rect x="636" y="52" width="288" height="44" rx="8"/><text id="u52-6061" class="t-mid t-mono t-bold" x="780" y="80">6061 = 0（无模式）</text></g>
+        <g id="u52-s-gen" class="u52-blk"><rect x="640" y="108" width="280" height="50" rx="8"/><text id="u52-gen-t" class="t-mid t-bold" x="780" y="138">轨迹发生器</text></g>
+        <g id="u52-s-pos" class="u52-blk"><rect x="640" y="170" width="280" height="50" rx="8"/><text class="t-mid t-bold" x="780" y="200">位置环</text></g>
+        <g id="u52-s-vel" class="u52-blk"><rect x="640" y="232" width="280" height="50" rx="8"/><text class="t-mid t-bold" x="780" y="262">速度环</text></g>
+        <g id="u52-s-trq" class="u52-blk"><rect x="640" y="294" width="280" height="50" rx="8"/><text class="t-mid t-bold" x="780" y="324">转矩 / 电流环</text></g>
+        <g id="u52-s-mot"><rect class="box-power" x="640" y="360" width="280" height="56" rx="8"/><text class="t-mid t-bold" x="780" y="393">功率级 → 电机 + 编码器</text></g>
+        <path id="u52-a1" class="u52-arrow" d="M780 158 V168"/>
+        <path id="u52-a2" class="u52-arrow" d="M780 220 V230"/>
+        <path id="u52-a3" class="u52-arrow" d="M780 282 V292"/>
+        <path id="u52-a4" class="u52-arrow" d="M780 344 V358"/>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>模式编号：6060 请求、6061 生效、6502 能力</h3>
+    <p>主站写 6060 Modes of operation 请求一种模式，驱动器切换完成后在 6061 Modes of operation display 里回显，只有 6061 才代表当前真正生效的模式。6502 Supported drive modes 是 32 位位图，告诉主站这台驱动器支持哪些模式；6060 的负值留给厂商自定义模式。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>模式</th><th>6060</th><th>6502 位</th><th>主站给什么</th><th>驱动器负责</th></tr>
+        <tr><td>PP 轮廓位置</td><td>1</td><td>bit0</td><td><code>607A</code> 终点、<code>6081</code> 轮廓速度、<code>6083</code>/<code>6084</code> 加减速，6040 bit4 触发</td><td>规划轨迹，闭全部环</td></tr>
+        <tr><td>VL 速度（变频器式）</td><td>2</td><td>bit1</td><td><code>6042</code> 目标速度</td><td>多见于变频器，伺服少用</td></tr>
+        <tr><td>PV 轮廓速度</td><td>3</td><td>bit2</td><td><code>60FF</code> 目标速度、<code>6083</code>/<code>6084</code></td><td>按斜坡加减速到目标速度</td></tr>
+        <tr><td>TQ 轮廓转矩</td><td>4</td><td>bit3</td><td><code>6071</code> 目标转矩、<code>6087</code> 转矩斜率</td><td>按斜率到目标转矩</td></tr>
+        <tr><td>HM 回零</td><td>6</td><td>bit5</td><td><code>6098</code> 回零方法、<code>6099</code> 速度、<code>609A</code> 加速度，6040 bit4 启动</td><td>执行回零程序</td></tr>
+        <tr><td>IP 插补位置</td><td>7</td><td>bit6</td><td><code>60C1</code> 插补数据</td><td>较早的周期位置模式，EtherCAT 伺服多用 CSP</td></tr>
+        <tr><td>CSP 周期同步位置</td><td>8</td><td>bit7</td><td>每周期 <code>607A</code>，可加 <code>60B1</code>/<code>60B2</code> 前馈</td><td>位置、速度、转矩环</td></tr>
+        <tr><td>CSV 周期同步速度</td><td>9</td><td>bit8</td><td>每周期 <code>60FF</code>，可加 <code>60B2</code> 前馈</td><td>速度、转矩环</td></tr>
+        <tr><td>CST 周期同步转矩</td><td>10</td><td>bit9</td><td>每周期 <code>6071</code></td><td>转矩（电流）环</td></tr>
+      </table>
+    </div>
+
+    <h3>谁闭哪个环</h3>
+    <p>模式的本质是在"轨迹生成 → 位置环 → 速度环 → 转矩环"这条链上划一条分界线：线左边归主站，线右边归驱动器。Profile 类模式（PP/PV/TQ）和 HM 把整条链都交给驱动器，周期同步类模式（CSP/CSV/CST）把分界线逐级往右推。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 330" role="img" aria-label="各运行模式下轨迹生成、位置环、速度环、转矩环分别由主站还是驱动器负责">
+        <text class="t-bold t-mid" x="287" y="30">轨迹生成</text>
+        <text class="t-bold t-mid" x="472" y="30">位置环</text>
+        <text class="t-bold t-mid" x="657" y="30">速度环</text>
+        <text class="t-bold t-mid" x="842" y="30">转矩 / 电流环</text>
+
+        <text class="t-bold" x="20" y="68">PP（1）</text>
+        <rect class="box-drive" x="200" y="48" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="68">驱动器</text>
+        <rect class="box-drive" x="385" y="48" width="175" height="30" rx="5"/><text class="t-small t-mid" x="472" y="68">驱动器</text>
+        <rect class="box-drive" x="570" y="48" width="175" height="30" rx="5"/><text class="t-small t-mid" x="657" y="68">驱动器</text>
+        <rect class="box-drive" x="755" y="48" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="68">驱动器</text>
+
+        <text class="t-bold" x="20" y="106">PV（3）</text>
+        <rect class="box-drive" x="200" y="86" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="106">驱动器（速度斜坡）</text>
+        <rect class="box-muted" x="385" y="86" width="175" height="30" rx="5"/><text class="t-small t-mid t-muted" x="472" y="106">不闭位置环</text>
+        <rect class="box-drive" x="570" y="86" width="175" height="30" rx="5"/><text class="t-small t-mid" x="657" y="106">驱动器</text>
+        <rect class="box-drive" x="755" y="86" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="106">驱动器</text>
+
+        <text class="t-bold" x="20" y="144">TQ（4）</text>
+        <rect class="box-drive" x="200" y="124" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="144">驱动器（转矩斜率）</text>
+        <rect class="box-muted" x="385" y="124" width="175" height="30" rx="5"/><text class="t-small t-mid t-muted" x="472" y="144">不闭</text>
+        <rect class="box-muted" x="570" y="124" width="175" height="30" rx="5"/><text class="t-small t-mid t-muted" x="657" y="144">不闭</text>
+        <rect class="box-drive" x="755" y="124" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="144">驱动器</text>
+
+        <text class="t-bold" x="20" y="182">HM（6）</text>
+        <rect class="box-drive" x="200" y="162" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="182">驱动器（回零程序）</text>
+        <rect class="box-drive" x="385" y="162" width="175" height="30" rx="5"/><text class="t-small t-mid" x="472" y="182">驱动器</text>
+        <rect class="box-drive" x="570" y="162" width="175" height="30" rx="5"/><text class="t-small t-mid" x="657" y="182">驱动器</text>
+        <rect class="box-drive" x="755" y="162" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="182">驱动器</text>
+
+        <text class="t-bold" x="20" y="220">CSP（8）</text>
+        <rect class="box-bus" x="200" y="200" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="220">主站</text>
+        <rect class="box-drive" x="385" y="200" width="175" height="30" rx="5"/><text class="t-small t-mid" x="472" y="220">驱动器</text>
+        <rect class="box-drive" x="570" y="200" width="175" height="30" rx="5"/><text class="t-small t-mid" x="657" y="220">驱动器</text>
+        <rect class="box-drive" x="755" y="200" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="220">驱动器</text>
+
+        <text class="t-bold" x="20" y="258">CSV（9）</text>
+        <rect class="box-bus" x="200" y="238" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="258">主站</text>
+        <rect class="box-bus" x="385" y="238" width="175" height="30" rx="5"/><text class="t-small t-mid" x="472" y="258">主站（需要定位时）</text>
+        <rect class="box-drive" x="570" y="238" width="175" height="30" rx="5"/><text class="t-small t-mid" x="657" y="258">驱动器</text>
+        <rect class="box-drive" x="755" y="238" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="258">驱动器</text>
+
+        <text class="t-bold" x="20" y="296">CST（10）</text>
+        <rect class="box-bus" x="200" y="276" width="175" height="30" rx="5"/><text class="t-small t-mid" x="287" y="296">主站</text>
+        <rect class="box-bus" x="385" y="276" width="175" height="30" rx="5"/><text class="t-small t-mid" x="472" y="296">主站（需要时）</text>
+        <rect class="box-bus" x="570" y="276" width="175" height="30" rx="5"/><text class="t-small t-mid" x="657" y="296">主站（需要时）</text>
+        <rect class="box-drive" x="755" y="276" width="175" height="30" rx="5"/><text class="t-small t-mid" x="842" y="296">驱动器</text>
+      </svg>
+      </div>
+      <figcaption>蓝 = 主站负责，绿 = 驱动器负责，灰 = 该模式不闭这个环。CSV/CST 下主站外环是否存在取决于应用（例如力控可以不闭位置环）。</figcaption>
+    </figure>
+
+    <h3>CSP 为什么要主站插补</h3>
+    <p>CSP 下驱动器不再规划轨迹，它把每个周期收到的 607A 当成"下一个周期末应该到的位置"，在两点之间细分后交给位置环。所以轨迹的平滑性、速度和加速度约束全部由主站负责：相邻两点的差除以周期就是隐含速度，一步给太远，驱动器会产生速度尖峰或报跟随误差。插补周期写在 60C2（数值 × 10 的指数次方秒），应与主站周期一致。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 280" role="img" aria-label="CSP 插补示意：主站每个周期给一个位置点，驱动器在两点之间细分；一步跳得太远会造成速度尖峰">
+        <circle class="fill-bus" cx="100" cy="16" r="6"/><text class="t-small" x="112" y="20">主站每周期发的 607A</text>
+        <line class="stroke-drive sw-2" x1="300" y1="16" x2="330" y2="16"/><circle class="fill-drive" cx="315" cy="16" r="2.5"/><text class="t-small" x="338" y="20">驱动器在两点之间细分（细分周期因厂商而异）</text>
+        <line class="stroke-muted sw-1" x1="80" y1="30" x2="80" y2="230"/>
+        <line class="stroke-muted sw-1" x1="80" y1="230" x2="930" y2="230"/>
+        <text class="t-small t-muted" x="26" y="134">位置</text>
+        <text class="t-small t-muted t-end" x="930" y="272">主站周期 k（每格 1 ms）</text>
+        <g class="t-small t-muted">
+          <text class="t-small t-muted t-mid" x="100" y="248">0</text><text class="t-small t-muted t-mid" x="200" y="248">1</text><text class="t-small t-muted t-mid" x="300" y="248">2</text>
+          <text class="t-small t-muted t-mid" x="400" y="248">3</text><text class="t-small t-muted t-mid" x="500" y="248">4</text><text class="t-small t-muted t-mid" x="600" y="248">5</text>
+          <text class="t-small t-muted t-mid" x="700" y="248">6</text><text class="t-small t-muted t-mid" x="800" y="248">7</text><text class="t-small t-muted t-mid" x="900" y="248">8</text>
+        </g>
+        <polyline class="fill-none stroke-drive sw-2" points="100,220 200,212 300,190 400,155 500,115 600,82 700,62 800,54 900,52"/>
+        <circle class="fill-drive" cx="125" cy="218" r="2.5"/><circle class="fill-drive" cx="150" cy="216" r="2.5"/><circle class="fill-drive" cx="175" cy="214" r="2.5"/><circle class="fill-drive" cx="225" cy="206.5" r="2.5"/><circle class="fill-drive" cx="250" cy="201" r="2.5"/><circle class="fill-drive" cx="275" cy="195.5" r="2.5"/><circle class="fill-drive" cx="325" cy="181.25" r="2.5"/><circle class="fill-drive" cx="350" cy="172.5" r="2.5"/><circle class="fill-drive" cx="375" cy="163.75" r="2.5"/><circle class="fill-drive" cx="425" cy="145" r="2.5"/><circle class="fill-drive" cx="450" cy="135" r="2.5"/><circle class="fill-drive" cx="475" cy="125" r="2.5"/><circle class="fill-drive" cx="525" cy="106.75" r="2.5"/><circle class="fill-drive" cx="550" cy="98.5" r="2.5"/><circle class="fill-drive" cx="575" cy="90.25" r="2.5"/><circle class="fill-drive" cx="625" cy="77" r="2.5"/><circle class="fill-drive" cx="650" cy="72" r="2.5"/><circle class="fill-drive" cx="675" cy="67" r="2.5"/><circle class="fill-drive" cx="725" cy="60" r="2.5"/><circle class="fill-drive" cx="750" cy="58" r="2.5"/><circle class="fill-drive" cx="775" cy="56" r="2.5"/><circle class="fill-drive" cx="825" cy="53.5" r="2.5"/><circle class="fill-drive" cx="850" cy="53" r="2.5"/><circle class="fill-drive" cx="875" cy="52.5" r="2.5"/>
+        <circle class="fill-bus" cx="100" cy="220" r="6"/><circle class="fill-bus" cx="200" cy="212" r="6"/><circle class="fill-bus" cx="300" cy="190" r="6"/>
+        <circle class="fill-bus" cx="400" cy="155" r="6"/><circle class="fill-bus" cx="500" cy="115" r="6"/><circle class="fill-bus" cx="600" cy="82" r="6"/>
+        <circle class="fill-bus" cx="700" cy="62" r="6"/><circle class="fill-bus" cx="800" cy="54" r="6"/><circle class="fill-bus" cx="900" cy="52" r="6"/>
+        <line class="stroke-fault sw-2 dashed" x1="500" y1="115" x2="600" y2="40"/>
+        <circle class="fill-none stroke-fault sw-2" cx="600" cy="40" r="7"/>
+        <text class="t-small t-fault" x="614" y="44">若一步跳到这里：速度尖峰或跟随误差</text>
+      </svg>
+      </div>
+      <figcaption>相邻两点的差 ÷ 周期 = 驱动器看到的速度；主站必须保证每一步都在电机能力之内。</figcaption>
+    </figure>
+
+    <h3>模式相关的控制位和状态位</h3>
+    <p>6040 的 bit4–6、bit8 和 6041 的 bit10、bit12–13 在不同模式下含义不同，读 6041 之前先看 6061。PP 模式用 bit4 New set-point 与 bit12 Set-point acknowledge 做握手：主站写好 607A 后把 bit4 从 0 置 1，驱动器接收后置 bit12，主站再清 bit4。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>模式</th><th>6040 bit4</th><th>6040 bit5</th><th>6040 bit6</th><th>6041 bit10</th><th>6041 bit12</th><th>6041 bit13</th></tr>
+        <tr><td>PP</td><td>New set-point</td><td>Change set immediately</td><td>0 绝对 / 1 相对</td><td>Target reached</td><td>Set-point acknowledge</td><td>Following error</td></tr>
+        <tr><td>PV</td><td>保留</td><td>保留</td><td>保留</td><td>Target reached</td><td>Speed（1 = 速度为 0）</td><td>Max slippage error</td></tr>
+        <tr><td>HM</td><td>Homing operation start</td><td>保留</td><td>保留</td><td>Target reached</td><td>Homing attained</td><td>Homing error</td></tr>
+        <tr><td>CSP</td><td>保留</td><td>保留</td><td>保留</td><td>因厂商而异</td><td>1 = 驱动器跟随目标值</td><td>Following error</td></tr>
+        <tr><td>CSV / CST</td><td>保留</td><td>保留</td><td>保留</td><td>因厂商而异</td><td>1 = 驱动器跟随目标值</td><td>保留</td></tr>
+      </table>
+    </div>
+    <p>6040 bit8 Halt 在 PP/PV/HM 等模式下让电机按 605D 停住但不离开运行使能。CSP 等模式的 bit12 在不同手册里名称不同（如 "Target position ignored" 或 "Drive follows the command value"），以 1 表示正在跟随为准，具体以驱动器手册为准。</p>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>PREOP 用 SDO 或 OP 用 PDO 写 6060，等 6061 回显相同值后再按新模式发目标。</li>
+          <li>CSP/CSV/CST：每周期算一个新目标（插补），保证相邻两点在速度、加速度上可达。</li>
+          <li>CSV/CST：用 6064、606C 反馈自己闭外环。</li>
+          <li>PP/HM：写好参数，用 6040 bit4 上升沿启动，看 6041 bit12、bit10 完成握手。</li>
+          <li>切到 CSP 前把 607A 设成当前 6064，避免使能瞬间跳位。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>读 6060，在允许时切换内部控制结构，并把生效模式写到 6061。</li>
+          <li>按模式把 607A、60FF 或 6071 接到对应的环入口。</li>
+          <li>CSP 下在两个总线周期之间细分插补，细分周期因厂商而异。</li>
+          <li>通过 6041 bit10、bit12、bit13 报告到位、应答、跟随误差等模式相关状态。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>主站程序不运行时用 SDO 查看和切换模式。若 6060 已映射进 RxPDO，主站程序运行时 SDO 写入会被 PDO 覆盖，应在程序里改 PDO 变量。</p>
+    <pre><code>ethercat upload   -p0 0x6502 0 --type uint32   # 支持哪些模式
+ethercat upload   -p0 0x6061 0 --type int8     # 当前生效模式
+ethercat download -p0 0x6060 0 8 --type int8   # 请求 CSP
+ethercat upload   -p0 0x6061 0 --type int8     # 应读回 8
+ethercat upload   -p0 0x60C2 1 --type uint8    # 插补周期数值
+ethercat upload   -p0 0x60C2 2 --type int8     # 插补周期指数
+ethercat upload   -p0 0x6064 0 --type int32    # 实际位置
+ethercat pdos -p0                              # 看 6060/607A/60FF/6071 是否已映射</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值（示例）</th><th>说明</th></tr>
+        <tr><td>6502</td><td><code>0x000003AD</code></td><td>bit0、2、3、5、7、8、9 为 1：支持 PP、PV、TQ、HM、CSP、CSV、CST；实际位图因产品而异</td></tr>
+        <tr><td>6061（写 6060 = 8 后）</td><td>8</td><td>切换已生效；若仍是旧值，说明驱动器在当前状态不允许切换或未完成</td></tr>
+        <tr><td>60C2:01 / 60C2:02</td><td>1 / -3</td><td>1 × 10<sup>-3</sup> s = 1 ms，应等于主站周期；部分驱动器改从 1C32 取周期，因厂商而异</td></tr>
+        <tr><td>6064</td><td>随电机转动变化</td><td>单位为编码器 counts（或经 6091/6092 换算的用户单位），切 CSP 前拷给 607A</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "要让驱动器进入周期同步位置模式，6060 应写多少？", "options": ["1", "6", "8", "9"], "answer": 2, "explain": "CSP = 8。1 是 PP，6 是 HM，9 是 CSV。"},
+  {"q": "CSV 模式下，如果应用要求精确定位，位置环由谁闭？", "options": ["驱动器", "主站", "不需要位置环", "ESC 硬件"], "answer": 1, "explain": "CSV 下驱动器只闭速度环和转矩环；主站每周期读 6064，自己算位置误差并给出 <code>60FF</code>。"},
+  {"q": "主站写完 6060 = 8，立刻在下一周期按 CSP 写 607A。最可能的问题是什么？", "options": ["607A 会被驱动器拒绝写入", "6061 可能还没变成 8，驱动器仍按旧模式执行", "ESM 会退回 SAFEOP", "6502 会被清零"], "answer": 1, "explain": "6060 只是请求，6061 才是生效模式。正确做法是等 6061 = 8 后再按 CSP 发目标。"},
+  {"q": "读到 6502 = <code>0x000000A1</code>，这台驱动器支持哪些模式？", "options": ["PP、HM、CSP", "PP、PV、CSP", "PP、HM、CSV", "VL、HM、CSP"], "answer": 0, "explain": "<code>0xA1</code> = bit0 + bit5 + bit7，对应 PP、HM、CSP。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>切到 CSP 并使能时 607A 还是 0 或上次的旧值。<br><strong>实际上：</strong>驱动器会立刻把 607A 当成目标，电机猛冲到那里甚至报跟随误差；使能前先让 607A = 6064。</li>
+      <li><strong>误区：</strong>读 6060 判断当前模式。<br><strong>实际上：</strong>6060 是请求，6061 才是生效模式，模式相关位（6041 bit10、bit12、bit13）也要按 6061 解释。</li>
+      <li><strong>误区：</strong>PP 模式下反复改 607A 电机就会跟着动。<br><strong>实际上：</strong>PP 需要 6040 bit4 New set-point 上升沿触发，并等 6041 bit12 应答，否则新目标不会被接收。</li>
+    </ul>
+    <p>关联：状态机和控制字见 u5-l1；停车与故障时模式如何影响停车方式见 u5-l3；位置、速度、电流环本身与插补细节见 u6-l3。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var MODES = {
+    pp:  { v: 1,  tag: 'PP',  m: [],                    x: 'plan', obj: '607A 终点 + 速度、加速度', sub: '只发一次，6040 bit4 上升沿触发', e: 'gen', s: ['gen', 'pos', 'vel', 'trq'], gen: '轨迹发生器', cyc: false },
+    hm:  { v: 6,  tag: 'HM',  m: [],                    x: null,   obj: '6098 回零方法',            sub: '6040 bit4 上升沿启动回零',       e: 'gen', s: ['gen', 'pos', 'vel', 'trq'], gen: '回零程序（按 6098）', cyc: false },
+    csp: { v: 8,  tag: 'CSP', m: ['plan'],              x: 'plan', obj: '607A 目标位置',            sub: '每个周期一个新点',               e: 'pos', s: ['pos', 'vel', 'trq'],        gen: '轨迹发生器（闲置）', cyc: true },
+    csv: { v: 9,  tag: 'CSV', m: ['plan', 'pos'],       x: 'pos',  obj: '60FF 目标速度',            sub: '每个周期一个新值',               e: 'vel', s: ['vel', 'trq'],               gen: '轨迹发生器（闲置）', cyc: true },
+    cst: { v: 10, tag: 'CST', m: ['plan', 'pos', 'vel'], x: 'vel', obj: '6071 目标转矩',            sub: '每个周期一个新值',               e: 'trq', s: ['trq'],                      gen: '轨迹发生器（闲置）', cyc: true }
+  };
+  function mode(svg, key) {
+    var c = MODES[key], f = Academy.fx(svg);
+    ['plan', 'pos', 'vel'].forEach(function (k) {
+      var on = key === 'pp' ? k === 'plan' : c.m.indexOf(k) >= 0;
+      f.cls('u52-m-' + k, 'u52-on', on);
+      if (on) f.undim('u52-m-' + k); else f.dim('u52-m-' + k);
+    });
+    f.cls('u52-ma1', 'is-dim', c.m.indexOf('pos') < 0).cls('u52-ma2', 'is-dim', c.m.indexOf('vel') < 0);
+    f.hide(['u52-x-plan', 'u52-x-pos', 'u52-x-vel']);
+    if (c.x) f.show('u52-x-' + c.x);
+    f.hide(['u52-e-gen', 'u52-e-pos', 'u52-e-vel', 'u52-e-trq']).show('u52-e-' + c.e);
+    ['gen', 'pos', 'vel', 'trq'].forEach(function (k) {
+      var on = c.s.indexOf(k) >= 0;
+      f.cls('u52-s-' + k, 'u52-on', on);
+      if (on) f.undim('u52-s-' + k); else f.dim('u52-s-' + k);
+    });
+    f.cls('u52-a1', 'is-dim', c.s.indexOf('gen') < 0)
+     .cls('u52-a2', 'is-dim', c.s.indexOf('pos') < 0)
+     .cls('u52-a3', 'is-dim', c.s.indexOf('vel') < 0);
+    var label = c.v + '（' + c.tag + '）';
+    f.text('u52-6060', '6060 = ' + label).text('u52-6061', '6061 = ' + label)
+     .text('u52-obj-name', c.obj).text('u52-obj-sub', c.sub).text('u52-gen-t', c.gen)
+     .flow('u52-w-out', c.cyc);
+  }
+
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始：同一目标，尚未选模式', text: '目标都是"关节转到 90°"。左边主站能做规划和外环，右边驱动器有轨迹发生器和三级环；谁干哪一段由 6060 决定，现在是 0。', apply: function () {} },
+    { title: 'PP 轮廓位置（6060 = 1）', text: '主站只发一次终点 607A 和速度、加速度，用 6040 bit4 上升沿触发；驱动器自己规划轨迹并闭全部环。', apply: function (svg) { mode(svg, 'pp'); } },
+    { title: 'HM 回零（6060 = 6）', text: '主站只选回零方法 6098 并用 bit4 启动；驱动器自己去找原点开关或零位，完成后 6041 bit12 Homing attained 置 1。', apply: function (svg) { mode(svg, 'hm'); } },
+    { title: 'CSP 周期同步位置（6060 = 8）', text: '轨迹规划移到主站，每个周期发一个新的 607A；驱动器的轨迹发生器闲置，只闭位置、速度、转矩三级环。', apply: function (svg) { mode(svg, 'csp'); } },
+    { title: 'CSV 周期同步速度（6060 = 9）', text: '分界线右移一格：主站自己闭位置环，每周期发 60FF 目标速度；驱动器闭速度环和转矩环。', apply: function (svg) { mode(svg, 'csv'); } },
+    { title: 'CST 周期同步转矩（6060 = 10）', text: '分界线再右移：主站闭位置环和速度环，每周期发 6071 目标转矩；驱动器只剩转矩（电流）环。', apply: function (svg) { mode(svg, 'cst'); } },
+    { title: '反馈原路返回', text: '主站每周期从 TxPDO 读 6064、606C、6077；CST 下主站的两个外环全靠这条反馈闭合，一个周期的延迟就是环路延迟。', apply: function (svg) { Academy.fx(svg).flow('u52-w-fb').cls('u52-m-fb', 'u52-on', true); } },
+    { title: '6061 才是生效模式', text: '主站把 6060 改成 9，但 6061 仍显示 10：切换尚未生效，驱动器仍按 CST 执行；主站要等 6061 = 9 才能改发 60FF。', apply: function (svg) { Academy.fx(svg).text('u52-6060', '6060 = 9（CSV）').cls('u52-6061b', 'u52-warn', true); } }
+  ]);
+
+  Academy.init('u5-l2');
+})();
+</script>
+</body>
+</html>

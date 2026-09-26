@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>主站程序：IgH 架构与周期任务 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .u61-code text { font-family: var(--font-mono); font-size: 13px; }
+  .lesson .u61-code .ln { fill: var(--muted); text-anchor: end; }
+  .lesson .u61-code .kw { fill: var(--mail); }
+  .lesson .u61-code .fn { fill: var(--bus); font-weight: 600; }
+  .lesson .u61-code .cm { fill: var(--muted); }
+  .lesson .u61-hl { fill: var(--bus-soft); stroke: var(--bus); stroke-width: 1.5; }
+  .lesson .u61-cyc { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 1.5; }
+  .lesson pre.u61-src { max-height: 560px; }
+  .lesson .q-opt code, .lesson .q-text code { white-space: normal; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u6-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">主站程序：IgH 架构与周期任务</h1>
+    <p class="lesson-lede">一个 IgH 主站程序分两段：先把"要什么从站、要哪些 PDO、放在哪里"一次配好并激活，然后每个周期固定地收、处理、读、算、写、排队、发。</p>
+  </header>
+
+  <!-- 01 定位 -->
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>画出 IgH 架构：应用、libethercat 用户库、ec_master 内核模块、网卡驱动各在哪一层。</li>
+          <li>按顺序写出程序生命周期：request_master 到 activate 的配置阶段，以及 activate 之后的运行阶段。</li>
+          <li>说出周期任务六步，以及 DC 同步调用和 WKC 检查放在哪里。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 主动画 -->
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 560" role="img" aria-label="主动画：左侧 IgH 主站程序逐行高亮，中间是 IgH 主站内部创建的对象，右侧是从站；逐步演示配置阶段九个调用和周期任务">
+        <!-- 左：应用代码 -->
+        <text class="t-title" x="20" y="28">应用程序 main.c（节选）</text>
+        <rect class="box-muted" x="16" y="40" width="564" height="480" rx="8"/>
+        <rect id="u61-cyc" class="u61-cyc is-hidden" x="24" y="247" width="548" height="243" rx="5"/>
+        <rect id="u61-hl" class="u61-hl is-hidden" x="24" y="49" width="548" height="21" rx="4"/>
+        <text id="u61-cyc-tag" class="t-small t-drive t-bold t-end is-hidden" x="566" y="240">每周期（如 1 ms）执行一次</text>
+        <g class="u61-code">
+          <text class="ln" x="44" y="64">1</text><text x="56" y="64">master = <tspan class="fn">ecrt_request_master</tspan>(0);</text>
+          <text class="ln" x="44" y="86">2</text><text x="56" y="86">domain = <tspan class="fn">ecrt_master_create_domain</tspan>(master);</text>
+          <text class="ln" x="44" y="108">3</text><text x="56" y="108">sc = <tspan class="fn">ecrt_master_slave_config</tspan>(master, 0, 0, VID, PID);</text>
+          <text class="ln" x="44" y="130">4</text><text x="56" y="130"><tspan class="fn">ecrt_slave_config_pdos</tspan>(sc, EC_END, syncs);</text>
+          <text class="ln" x="44" y="152">5</text><text x="56" y="152"><tspan class="fn">ecrt_domain_reg_pdo_entry_list</tspan>(domain, regs);</text>
+          <text class="ln" x="44" y="174">6</text><text x="56" y="174"><tspan class="fn">ecrt_slave_config_dc</tspan>(sc, 0x0300, PERIOD_NS, 0, 0, 0);</text>
+          <text class="ln" x="44" y="196">7</text><text x="56" y="196"><tspan class="fn">ecrt_master_activate</tspan>(master);</text>
+          <text class="ln" x="44" y="218">8</text><text x="56" y="218">pd = <tspan class="fn">ecrt_domain_data</tspan>(domain);</text>
+          <text class="ln" x="44" y="240">9</text><text x="56" y="240"><tspan class="kw">while</tspan> (run) {</text>
+          <text class="ln" x="44" y="262">10</text><text x="56" y="262">  clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &amp;t, NULL);</text>
+          <text class="ln" x="44" y="284">11</text><text x="56" y="284">  <tspan class="fn">ecrt_master_receive</tspan>(master);</text>
+          <text class="ln" x="44" y="306">12</text><text x="56" y="306">  <tspan class="fn">ecrt_domain_process</tspan>(domain);</text>
+          <text class="ln" x="44" y="328">13</text><text x="56" y="328">  sw = EC_READ_U16(pd + off_stat);   <tspan class="cm">/* 读 */</tspan></text>
+          <text class="ln" x="44" y="350">14</text><text x="56" y="350">  cw = cia402_next(sw, cw);          <tspan class="cm">/* 算 */</tspan></text>
+          <text class="ln" x="44" y="372">15</text><text x="56" y="372">  EC_WRITE_U16(pd + off_ctrl, cw);   <tspan class="cm">/* 写 */</tspan></text>
+          <text class="ln" x="44" y="394">16</text><text x="56" y="394">  <tspan class="fn">ecrt_domain_queue</tspan>(domain);</text>
+          <text class="ln" x="44" y="416">17</text><text x="56" y="416">  <tspan class="fn">ecrt_master_application_time</tspan>(master, t_ns);</text>
+          <text class="ln" x="44" y="438">18</text><text x="56" y="438">  <tspan class="fn">ecrt_master_sync_reference_clock</tspan>(master);</text>
+          <text class="ln" x="44" y="460">19</text><text x="56" y="460">  <tspan class="fn">ecrt_master_sync_slave_clocks</tspan>(master);</text>
+          <text class="ln" x="44" y="482">20</text><text x="56" y="482">  <tspan class="fn">ecrt_master_send</tspan>(master);</text>
+          <text class="ln" x="44" y="504">21</text><text x="56" y="504">}</text>
+        </g>
+
+        <!-- 中：IgH 主站内部 -->
+        <text class="t-title" x="596" y="28">IgH 主站</text>
+        <rect class="box-bus" x="596" y="44" width="170" height="40" rx="6"/>
+        <text class="t-small t-mid" x="681" y="61">libethercat 用户库</text>
+        <text class="t-small t-mid t-muted t-mono" x="681" y="77">ioctl /dev/EtherCAT0</text>
+        <line class="wire dashed" x1="590" y1="94" x2="772" y2="94"/>
+        <text class="t-small t-muted" x="596" y="110">↑ 用户态　↓ 内核</text>
+        <rect class="box" x="596" y="118" width="170" height="306" rx="6"/>
+        <text class="t-small t-bold" x="604" y="136">ec_master 内核模块</text>
+        <g id="u61-o-master" class="is-hidden">
+          <rect class="box-bus" x="604" y="146" width="154" height="30" rx="4"/>
+          <text class="t-small t-mid" x="681" y="166">master 0（本进程独占）</text>
+        </g>
+        <g id="u61-o-domain" class="is-hidden">
+          <rect class="box-bus" x="604" y="182" width="154" height="30" rx="4"/>
+          <text class="t-small t-mid" x="681" y="202">domain 0（空）</text>
+        </g>
+        <g id="u61-o-sc" class="is-hidden">
+          <rect class="box-mail" x="604" y="218" width="154" height="30" rx="4"/>
+          <text class="t-small t-mid" x="681" y="238">sc：位置 0:0 + VID/PID</text>
+        </g>
+        <g id="u61-o-pdos" class="is-hidden">
+          <rect class="box-mail" x="604" y="254" width="154" height="30" rx="4"/>
+          <text class="t-small t-mid t-mono" x="681" y="274">SM2←1600 SM3←1A00</text>
+        </g>
+        <g id="u61-o-regs" class="is-hidden">
+          <rect class="box-bus" x="604" y="290" width="154" height="30" rx="4"/>
+          <text class="t-small t-mid" x="681" y="310">4 项入域 → off_* 已填</text>
+        </g>
+        <g id="u61-o-dc" class="is-hidden">
+          <rect class="box-mail" x="604" y="326" width="154" height="30" rx="4"/>
+          <text class="t-small t-mid" x="681" y="346">DC：SYNC0 周期 1 ms</text>
+        </g>
+        <text class="t-small" x="604" y="380">阶段：</text>
+        <text id="u61-phase" class="t-small t-bold t-bus" x="640" y="380">Idle（空闲扫描）</text>
+        <text id="u61-wkc" class="t-small t-mono t-muted" x="604" y="408">域 WKC：—</text>
+        <rect class="box-muted" x="596" y="434" width="170" height="36" rx="6"/>
+        <text class="t-small t-mid" x="681" y="457">网卡驱动 ec_generic / 原生</text>
+        <g id="u61-o-pd" class="is-hidden">
+          <rect class="box-drive" x="596" y="480" width="170" height="36" rx="6"/>
+          <text class="t-small t-mid" x="681" y="503">pd → 域内存 12 字节</text>
+        </g>
+
+        <!-- 中间网线 -->
+        <line id="u61-cable" class="wire-bus" x1="766" y1="452" x2="816" y2="452"/>
+
+        <!-- 右：从站 -->
+        <text class="t-title" x="816" y="28">从站 0:0</text>
+        <rect id="u61-slave" class="box-drive" x="816" y="44" width="128" height="472" rx="8"/>
+        <text class="t-small" x="826" y="70">CiA402 驱动器</text>
+        <text class="t-small t-muted" x="826" y="104">ESM 状态</text>
+        <text id="u61-esm" class="t-big t-bold t-drive" x="826" y="130">PREOP</text>
+        <text id="u61-esm-note" class="t-small t-muted" x="826" y="152">主站空闲时已扫描</text>
+        <text class="t-small t-muted" x="826" y="190">收到的周期帧</text>
+        <text id="u61-frames" class="t-small t-bold" x="826" y="212">无</text>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <!-- 03 机制拆解 -->
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>IgH 的四层</h3>
+    <p>应用程序只和 libethercat 打交道；libethercat 把每个 <code>ecrt_*</code> 调用变成对字符设备 <code>/dev/EtherCAT0</code> 的 ioctl。真正的主站状态机、域、从站配置都在内核模块 ec_master 里，它通过专用网卡驱动直接收发以太网帧，不经过 TCP/IP 协议栈。</p>
+    <div class="fig-scroll">
+      <figure>
+        <svg viewBox="0 0 960 250" role="img" aria-label="IgH 架构分层：应用、libethercat、ec_master 内核模块、网卡驱动、网卡">
+          <rect class="box" x="20" y="16" width="520" height="40" rx="6"/>
+          <text class="t-mid" x="280" y="41">应用程序（你的 main.c，实时线程）</text>
+          <rect class="box-bus" x="20" y="66" width="520" height="40" rx="6"/>
+          <text class="t-mid" x="280" y="91">libethercat（用户库，ecrt.h）</text>
+          <line class="wire dashed" x1="10" y1="118" x2="560" y2="118"/>
+          <text class="t-small t-muted" x="566" y="122">用户态 / 内核边界（ioctl）</text>
+          <rect class="box-bus" x="20" y="130" width="520" height="40" rx="6"/>
+          <text class="t-mid" x="280" y="155">ec_master 内核模块：主站状态机、域、从站配置、邮箱</text>
+          <rect class="box-muted" x="20" y="180" width="250" height="40" rx="6"/>
+          <text class="t-small t-mid" x="145" y="205">ec_generic（任意网卡，走内核网络设备）</text>
+          <rect class="box-muted" x="290" y="180" width="250" height="40" rx="6"/>
+          <text class="t-small t-mid" x="415" y="205">原生驱动（如 ec_e1000e、ec_r8169）</text>
+          <rect class="box" x="600" y="180" width="140" height="40" rx="6"/>
+          <text class="t-small t-mid" x="670" y="205">网卡</text>
+          <line class="wire-bus" x1="740" y1="200" x2="940" y2="200"/>
+          <text class="t-small t-bus" x="760" y="192">EtherType 0x88A4</text>
+          <line class="wire" x1="540" y1="200" x2="600" y2="200"/>
+        </svg>
+        <figcaption>原生驱动列表随版本变化，以所装 IgH 版本的 devices/ 目录为准；ec_generic 兼容性最好，原生驱动时延更低。</figcaption>
+      </figure>
+    </div>
+
+    <h3>两个阶段：配置期与运行期</h3>
+    <p>从 <code>ecrt_request_master</code> 到 <code>ecrt_master_activate</code> 之前只是在内核里登记"期望的配置"，并不立即访问从站。<code>activate</code> 之后主站状态机在后台把从站配到 OP，此后不能再改 PDO、域、DC 等配置。要改配置，只能 <code>ecrt_master_deactivate</code> 或释放主站后重来。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>阶段</th><th>调用</th><th>作用</th></tr>
+        <tr><td rowspan="6">配置期</td><td><code>ecrt_request_master(0)</code></td><td>独占 0 号主站，返回 <code>ec_master_t *</code></td></tr>
+        <tr><td><code>ecrt_master_create_domain</code></td><td>建一个域：一块过程映像，对应周期帧里的一段逻辑地址</td></tr>
+        <tr><td><code>ecrt_master_slave_config(master, alias, position, vendor_id, product_code)</code></td><td>声明"这个位置上应该是这个型号"，不符则不配置它</td></tr>
+        <tr><td><code>ecrt_slave_config_pdos(sc, EC_END, syncs)</code></td><td>声明 SM 与 PDO 的分配和映射，激活后由主站通过 SDO 写到从站</td></tr>
+        <tr><td><code>ecrt_domain_reg_pdo_entry_list(domain, regs)</code></td><td>把 PDO 条目登记进域，并返回每项在域里的字节偏移</td></tr>
+        <tr><td><code>ecrt_slave_config_dc(sc, assign_activate, sync0_cycle, sync0_shift, sync1_cycle, sync1_shift)</code></td><td>启用该从站的 SYNC0/SYNC1；assign_activate 取 ESI 中的 AssignActivate</td></tr>
+        <tr><td rowspan="2">切换</td><td><code>ecrt_master_activate</code></td><td>冻结配置，计算域布局，主站开始把从站推进到 OP</td></tr>
+        <tr><td><code>ecrt_domain_data</code></td><td>取域内存指针 <code>pd</code>，之后用 <code>EC_READ_*/EC_WRITE_*(pd + 偏移)</code> 访问</td></tr>
+        <tr><td>运行期</td><td>周期任务（见下节）</td><td>只读写过程数据，不再改配置</td></tr>
+      </table>
+    </div>
+
+    <h3>周期六步与 DC 调用位置</h3>
+    <p>每个周期先收回上一周期发出的帧，再解析，然后应用读输入、算、写输出，再把新数据排队、发出。DC 相关的三个调用放在 queue 之后、send 之前，这样它们的数据报会和过程数据挤在同一次发送里。</p>
+    <div class="fig-scroll">
+      <figure>
+        <svg viewBox="0 0 960 170" role="img" aria-label="周期任务时间线：receive、domain_process、读算写、domain_queue、DC 同步、send，然后睡到下一周期">
+          <line class="wire" x1="20" y1="120" x2="940" y2="120"/>
+          <rect class="box-bus" x="20" y="30" width="120" height="60" rx="6"/>
+          <text class="t-small t-mid t-bold" x="80" y="55">① receive</text>
+          <text class="t-small t-mid" x="80" y="75">取回上周期的帧</text>
+          <rect class="box-bus" x="150" y="30" width="130" height="60" rx="6"/>
+          <text class="t-small t-mid t-bold" x="215" y="55">② domain_process</text>
+          <text class="t-small t-mid" x="215" y="75">拷入域、算 WKC</text>
+          <rect class="box-drive" x="290" y="30" width="170" height="60" rx="6"/>
+          <text class="t-small t-mid t-bold" x="375" y="55">③ 读 · 算 · 写</text>
+          <text class="t-small t-mid" x="375" y="75">EC_READ / EC_WRITE</text>
+          <rect class="box-bus" x="470" y="30" width="120" height="60" rx="6"/>
+          <text class="t-small t-mid t-bold" x="530" y="55">④ domain_queue</text>
+          <text class="t-small t-mid" x="530" y="75">域数据报入队</text>
+          <rect class="box-mail" x="600" y="30" width="170" height="60" rx="6"/>
+          <text class="t-small t-mid t-bold" x="685" y="55">⑤ DC 同步</text>
+          <text class="t-small t-mid" x="685" y="75">app_time · ref · slaves</text>
+          <rect class="box-bus" x="780" y="30" width="80" height="60" rx="6"/>
+          <text class="t-small t-mid t-bold" x="820" y="55">⑥ send</text>
+          <text class="t-small t-mid" x="820" y="75">发出</text>
+          <text class="t-small t-muted" x="870" y="65">→ 睡眠</text>
+          <text class="t-small t-muted" x="20" y="145">周期开始（clock_nanosleep 醒来）</text>
+          <text class="t-small t-muted t-end" x="940" y="145">下一周期</text>
+        </svg>
+        <figcaption>"读算写"算一步时共六步；把读、算、写拆开数就是附录里的七个动作。DC 三个调用只有启用了 DC 的从站才需要。</figcaption>
+      </figure>
+    </div>
+    <p><code>ecrt_domain_state(domain, &amp;ds)</code> 在 process 之后调用，给出 <code>ds.working_counter</code>（本周期实际 WKC）和 <code>ds.wc_state</code>：<code>EC_WC_ZERO</code> 没有从站交换数据，<code>EC_WC_INCOMPLETE</code> 部分交换，<code>EC_WC_COMPLETE</code> 全部交换。只有 <code>EC_WC_COMPLETE</code> 时读到的输入才可信。</p>
+  </section>
+
+  <!-- 04 主从对照 -->
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站程序做什么</h3>
+        <ul>
+          <li>配置期：只登记期望的从站、PDO 映射、域条目和 DC 参数，不直接碰从站。</li>
+          <li><code>activate</code> 后：内核主站状态机经 SDO 写 1C12/1C13 与映射，配 SM、FMMU、DC，再请求 SAFEOP、OP。</li>
+          <li>运行期：每周期 receive → process → 读算写 → queue → DC 同步 → send，检查 <code>wc_state</code>。</li>
+          <li>CSP 下使能前把目标位置设成实际位置，使能后每周期只给可达的增量。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站看到什么</h3>
+        <ul>
+          <li>主站空闲（Idle）阶段：被扫描、读 SII，被带到 PREOP。</li>
+          <li><code>activate</code> 后：收到 SDO 写映射、SM/FMMU/DC 寄存器写入，AL Control 依次请求 SAFEOP、OP。</li>
+          <li>运行期：每周期一帧 LRW 经过，从输出 SM 取 6040/607A，往输入 SM 填 6041/6064，WKC 加 3。</li>
+          <li>主站程序停止发帧：输出 SM 看门狗到期，退回 SAFEOP 并报 0x001B。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 在真机上看 -->
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>下面是单从站 CSP 的最小主站程序。<code>VENDOR_ID</code>、<code>PRODUCT_CODE</code> 是占位值，必须换成 <code>ethercat slaves -v</code> 读出的 Vendor Id 与 Product code；1600/1A00 的映射内容要该驱动器支持（有的驱动器固定映射，按其 ESI 调整）。</p>
+    <pre><code>ethercat slaves -v        # 抄下 Vendor Id、Product code；看 DC 是否支持
+ethercat pdos -p0         # 核对驱动器默认的 1600/1A00 映射</code></pre>
+    <pre class="u61-src"><code>/* min_csp.c —— 单从站 CSP 最小主站（IgH EtherCAT Master 1.5.x / 1.6 用户态 API）
+ * 编译：gcc -O2 -Wall min_csp.c -o min_csp -I/opt/etherlab/include -L/opt/etherlab/lib -lethercat
+ *       （头文件与库路径取决于安装前缀）
+ * 运行：sudo ./min_csp          Ctrl+C 退出
+ */
+#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;signal.h&gt;
+#include &lt;time.h&gt;
+#include &lt;sched.h&gt;
+#include &lt;sys/mman.h&gt;
+#include &lt;ecrt.h&gt;
+
+/* 占位值：从 `ethercat slaves -v` 读取后替换 */
+#define VENDOR_ID     0x00000000
+#define PRODUCT_CODE  0x00000000
+#define SLAVE_POS     0, 0                 /* alias, position */
+#define PERIOD_NS     1000000L             /* 1 ms */
+#define NSEC_PER_SEC  1000000000L
+
+static volatile sig_atomic_t run = 1;
+static void on_sig(int s) { (void)s; run = 0; }
+
+/* 1600（RxPDO，主站→从站）与 1A00（TxPDO，从站→主站）的映射 */
+static ec_pdo_entry_info_t rx_entries[] = {
+    {0x6040, 0x00, 16},                    /* 控制字 */
+    {0x607A, 0x00, 32},                    /* 目标位置 */
+};
+static ec_pdo_entry_info_t tx_entries[] = {
+    {0x6041, 0x00, 16},                    /* 状态字 */
+    {0x6064, 0x00, 32},                    /* 实际位置 */
+};
+static ec_pdo_info_t rx_pdos[] = { {0x1600, 2, rx_entries} };
+static ec_pdo_info_t tx_pdos[] = { {0x1A00, 2, tx_entries} };
+static ec_sync_info_t syncs[] = {
+    {0, EC_DIR_OUTPUT, 0, NULL,    EC_WD_DISABLE},   /* SM0 邮箱出 */
+    {1, EC_DIR_INPUT,  0, NULL,    EC_WD_DISABLE},   /* SM1 邮箱入 */
+    {2, EC_DIR_OUTPUT, 1, rx_pdos, EC_WD_ENABLE},    /* SM2 输出，开看门狗 */
+    {3, EC_DIR_INPUT,  1, tx_pdos, EC_WD_DISABLE},   /* SM3 输入 */
+    {0xff}
+};
+
+/* 域内字节偏移，由 ecrt_domain_reg_pdo_entry_list 填写 */
+static unsigned int off_ctrl, off_tgt, off_stat, off_pos;
+static const ec_pdo_entry_reg_t regs[] = {
+    {SLAVE_POS, VENDOR_ID, PRODUCT_CODE, 0x6040, 0, &amp;off_ctrl},
+    {SLAVE_POS, VENDOR_ID, PRODUCT_CODE, 0x607A, 0, &amp;off_tgt},
+    {SLAVE_POS, VENDOR_ID, PRODUCT_CODE, 0x6041, 0, &amp;off_stat},
+    {SLAVE_POS, VENDOR_ID, PRODUCT_CODE, 0x6064, 0, &amp;off_pos},
+    {}
+};
+
+/* CiA402：按状态字决定下一拍的控制字（掩码见 u5-l1） */
+static uint16_t cia402_next(uint16_t sw, uint16_t last_cw)
+{
+    if ((sw &amp; 0x004F) == 0x0008)                        /* Fault */
+        return (last_cw &amp; 0x0080) ? 0x0000 : 0x0080;    /* 0 与 0x80 交替，制造上升沿复位 */
+    if ((sw &amp; 0x004F) == 0x0040) return 0x0006;         /* Switch On Disabled → Shutdown */
+    if ((sw &amp; 0x006F) == 0x0021) return 0x0007;         /* Ready to Switch On → Switch On */
+    if ((sw &amp; 0x006F) == 0x0023) return 0x000F;         /* Switched On → Enable Operation */
+    if ((sw &amp; 0x006F) == 0x0027) return 0x000F;         /* Operation Enabled：保持 */
+    return 0x0000;                                      /* 其他状态：回到 Switch On Disabled 重走 */
+}
+
+static uint64_t ts_ns(const struct timespec *t)
+{
+    return (uint64_t)t-&gt;tv_sec * NSEC_PER_SEC + (uint64_t)t-&gt;tv_nsec;
+}
+
+int main(void)
+{
+    struct sched_param sp = { .sched_priority = 80 };
+    struct timespec wake;
+    ec_domain_state_t ds;
+    uint8_t *pd;
+    uint16_t cw = 0;
+    int32_t target = 0;
+    uint32_t n = 0;
+
+    /* 锁定内存，避免运行中缺页 */
+    if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) { perror("mlockall"); return 1; }
+    signal(SIGINT, on_sig);
+    signal(SIGTERM, on_sig);
+
+    /* ---------- 配置期 ---------- */
+    ec_master_t *master = ecrt_request_master(0);
+    if (!master) return 1;
+    ec_domain_t *domain = ecrt_master_create_domain(master);
+    if (!domain) return 1;
+    ec_slave_config_t *sc = ecrt_master_slave_config(master, SLAVE_POS, VENDOR_ID, PRODUCT_CODE);
+    if (!sc) return 1;
+    if (ecrt_slave_config_pdos(sc, EC_END, syncs)) return 1;
+    if (ecrt_slave_config_sdo8(sc, 0x6060, 0, 8)) return 1;      /* PREOP 时写 6060 = 8（CSP） */
+    if (ecrt_domain_reg_pdo_entry_list(domain, regs)) return 1;
+    /* 0x0300：启用 SYNC0 的常见 AssignActivate 值，以该从站 ESI 的 &lt;AssignActivate&gt; 为准 */
+    ecrt_slave_config_dc(sc, 0x0300, PERIOD_NS, 0, 0, 0);
+
+    clock_gettime(CLOCK_MONOTONIC, &amp;wake);
+    ecrt_master_application_time(master, ts_ns(&amp;wake));        /* 激活前先给一次应用时间 */
+    if (ecrt_master_activate(master)) return 1;                  /* 此后不能再改配置 */
+    if (!(pd = ecrt_domain_data(domain))) return 1;
+
+    /* 实时调度：SCHED_FIFO，优先级按系统规划 */
+    if (sched_setscheduler(0, SCHED_FIFO, &amp;sp) == -1) perror("sched_setscheduler");
+
+    /* ---------- 运行期 ---------- */
+    while (run) {
+        wake.tv_nsec += PERIOD_NS;
+        while (wake.tv_nsec &gt;= NSEC_PER_SEC) { wake.tv_nsec -= NSEC_PER_SEC; wake.tv_sec++; }
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &amp;wake, NULL);
+
+        ecrt_master_receive(master);                 /* ① 收 */
+        ecrt_domain_process(domain);                 /* ② 解析，更新 WKC */
+        ecrt_domain_state(domain, &amp;ds);
+        if (ds.wc_state != EC_WC_COMPLETE &amp;&amp; n % 1000 == 0)   /* 演示用；正式程序别在实时循环里 printf */
+            fprintf(stderr, "WKC %u, wc_state %d\n", ds.working_counter, ds.wc_state);
+
+        uint16_t sw  = EC_READ_U16(pd + off_stat);   /* ③ 读 */
+        int32_t  act = EC_READ_S32(pd + off_pos);
+
+        if ((sw &amp; 0x006F) != 0x0027)                  /*    算：未使能时目标跟随实际，避免使能瞬间跳变 */
+            target = act;
+        /* else target += 每周期可达的增量;  在此接入你的插补器 */
+        cw = cia402_next(sw, cw);
+
+        EC_WRITE_U16(pd + off_ctrl, cw);             /*    写 */
+        EC_WRITE_S32(pd + off_tgt, target);
+
+        ecrt_domain_queue(domain);                   /* ④ 排队 */
+        ecrt_master_application_time(master, ts_ns(&amp;wake));   /* ⑤ DC：应用时间 */
+        ecrt_master_sync_reference_clock(master);    /*    参考时钟对齐到应用时间 */
+        ecrt_master_sync_slave_clocks(master);       /*    其他从站对齐到参考时钟 */
+        ecrt_master_send(master);                    /* ⑥ 发 */
+        n++;
+    }
+
+    ecrt_release_master(master);
+    return 0;
+}</code></pre>
+    <pre><code>sudo ./min_csp &amp;
+ethercat master           # Phase 应为 Operation
+ethercat slaves           # 位置 0 应为 OP
+ethercat domains          # WorkingCounter 实际/期望</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>ethercat master</td><td>Phase: Operation</td><td>应用已 activate；未运行程序时是 Idle</td></tr>
+        <tr><td>ethercat slaves</td><td>0  0:0  OP  +</td><td>"+" 表示配置成功；E 表示有错误</td></tr>
+        <tr><td>ethercat domains</td><td>Size 12，WorkingCounter 3/3</td><td>2+4+2+4 字节；一台从站读写都命中，LRW 的 WKC 为 3</td></tr>
+        <tr><td>6041（EC_READ）</td><td>低 7 位 0x27 模式</td><td>即 <code>(sw &amp; 0x6F) == 0x27</code>，Operation Enabled</td></tr>
+        <tr><td>wc_state</td><td>EC_WC_COMPLETE</td><td>拔网线或从站掉 SAFEOP 时变 INCOMPLETE 或 ZERO</td></tr>
+      </table>
+    </div>
+    <p class="note">程序退出后不再发周期帧，从站的输出 SM 看门狗到期、退回 SAFEOP 并报 0x001B。这是正常现象，不是程序 bug。</p>
+  </section>
+
+  <!-- 06 自测 -->
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "程序已调用 <code>ecrt_master_activate</code>，此时想再加一个 PDO 条目，应该怎么做？", "options": ["直接再调一次 <code>ecrt_domain_reg_pdo_entry_list</code>", "用 <code>ecrt_master_deactivate</code> 或释放主站后重新配置，再 activate", "在周期里用 <code>EC_WRITE</code> 写 0x1600 即可"], "answer": 1, "explain": "activate 冻结配置并计算域布局，之后配置类调用不再生效。要改配置只能 deactivate 或释放主站后从头来过。"},
+  {"q": "周期任务里 <code>ecrt_domain_process</code> 应该放在哪里？", "options": ["<code>ecrt_master_send</code> 之后", "<code>ecrt_master_receive</code> 之后、读过程数据之前", "<code>ecrt_domain_queue</code> 之后"], "answer": 1, "explain": "receive 取回帧，process 把数据拷进域内存并统计 WKC，之后读到的输入才是本周期的新值。"},
+  {"q": "<code>ecrt_master_sync_reference_clock</code> 和 <code>ecrt_master_sync_slave_clocks</code> 通常放在哪？", "options": ["配置期，activate 之前各调一次", "每周期 domain_queue 之后、send 之前，前面先调 application_time", "每周期 receive 之前"], "answer": 1, "explain": "它们只是把 DC 数据报排进发送队列，要在 send 之前调用才会随本周期的帧一起发出；application_time 先提供本周期的时间基准。"},
+  {"q": "单从站 CSP，<code>ethercat domains</code> 显示 WorkingCounter 0/3，最可能是什么情况？", "options": ["从站在 OP，一切正常", "从站没进 SAFEOP/OP 或链路断开，过程数据没被交换", "PDO 映射多了一项"], "answer": 1, "explain": "期望 3 表示这台从站的读和写都应命中。实际为 0 说明没有从站处理这段逻辑地址，典型原因是从站不在 SAFEOP/OP 或链路断开，此时 wc_state 为 EC_WC_ZERO。"}
+]
+    </script>
+  </section>
+
+  <!-- 07 误区与关联 -->
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>调用 <code>ecrt_master_slave_config</code> 时主站就去配置从站了。<br><strong>实际上：</strong>配置期只在内核里登记期望配置，真正的 SDO 下载、SM/FMMU 写入在 <code>activate</code> 之后由主站状态机在后台完成。</li>
+      <li><strong>误区：</strong>从站进了 OP 就说明周期数据没问题。<br><strong>实际上：</strong>要每周期看 <code>ecrt_domain_state</code> 的 <code>wc_state</code>；WKC 不完整时读到的输入可能是旧值。</li>
+      <li><strong>误区：</strong>用相对睡眠 <code>usleep(1000)</code> 做周期。<br><strong>实际上：</strong>相对睡眠会累积误差；要用 <code>clock_nanosleep</code>（<code>CLOCK_MONOTONIC</code> + <code>TIMER_ABSTIME</code>）按绝对时刻唤醒，并配合 mlockall 与 SCHED_FIFO。</li>
+    </ul>
+    <p>关联：PDO 与域偏移见 u3-l3；DC 与 SYNC0 见 u4-l1、u4-l2；控制字状态机见 u5-l1；程序停止后从站为何停在 SAFEOP，见 u7-l2 的案例。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var LH = 22; // 代码行高
+  function line(svg, n) { Academy.fx(svg).show('u61-hl').move('u61-hl', 0, (n - 1) * LH); }
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '左边是应用代码，中间是 IgH 主站内部，右边是从站；主站空闲时已把从站扫到 PREOP。', apply: function () {} },
+    { title: 'ecrt_request_master(0)', text: '第 1 行：独占 0 号主站，拿到 master 句柄。',
+      apply: function (svg) { line(svg, 1); Academy.fx(svg).show('u61-o-master'); } },
+    { title: 'ecrt_master_create_domain', text: '第 2 行：建一个空域，它将是周期帧里的一段过程映像。',
+      apply: function (svg) { line(svg, 2); Academy.fx(svg).show('u61-o-domain'); } },
+    { title: 'ecrt_master_slave_config', text: '第 3 行：声明位置 0:0 应该是 VID/PID 这个型号，此时还没碰从站。',
+      apply: function (svg) { line(svg, 3); Academy.fx(svg).show('u61-o-sc'); } },
+    { title: 'ecrt_slave_config_pdos', text: '第 4 行：登记 SM2 用 1600、SM3 用 1A00 及其映射内容。',
+      apply: function (svg) { line(svg, 4); Academy.fx(svg).show('u61-o-pdos'); } },
+    { title: 'ecrt_domain_reg_pdo_entry_list', text: '第 5 行：把 6040/607A/6041/6064 登记进域，各项字节偏移写回 off_* 变量；域内存要到 activate 才分配。',
+      apply: function (svg) { line(svg, 5); Academy.fx(svg).show('u61-o-regs'); } },
+    { title: 'ecrt_slave_config_dc', text: '第 6 行：登记该从站启用 SYNC0，周期 1 ms。',
+      apply: function (svg) { line(svg, 6); Academy.fx(svg).show('u61-o-dc'); } },
+    { title: 'ecrt_master_activate', text: '第 7 行：配置冻结，主站进入 Operation 阶段并在后台把从站推进到 OP。',
+      apply: function (svg) { line(svg, 7); Academy.fx(svg).text('u61-phase', 'Operation（冻结）'); } },
+    { title: 'ecrt_domain_data', text: '第 8 行：拿到域内存指针 pd，之后按偏移读写过程数据。',
+      apply: function (svg) { line(svg, 8); Academy.fx(svg).show('u61-o-pd'); } },
+    { title: '周期帧上线', text: '第 10–20 行每周期执行：收、处理、读算写、排队、DC 同步、发，周期帧开始在网线上跑。',
+      apply: function (svg) {
+        Academy.fx(svg).hide('u61-hl').show(['u61-cyc', 'u61-cyc-tag']).flow('u61-cable').text('u61-frames', '每 1 ms 一帧 LRW');
+      } },
+    { title: '从站进 OP', text: '主站状态机的数据报随周期帧发出，把从站经 SAFEOP 推进到 OP。',
+      apply: function (svg) { Academy.fx(svg).text('u61-esm', 'OP').text('u61-esm-note', '周期帧驱动'); } },
+    { title: 'WKC 变为 3/3', text: 'ecrt_domain_state 报告 WKC 3/3、EC_WC_COMPLETE：这台从站的读和写都命中，输入可信。',
+      apply: function (svg) { Academy.fx(svg).text('u61-wkc', '域 WKC：3/3 COMPLETE'); } }
+  ]);
+  Academy.init('u6-l1');
+})();
+</script>
+</body>
+</html>

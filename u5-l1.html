@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CiA402 状态机与控制字、状态字 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .pager a, .lesson .next-card { overflow-wrap: anywhere; }
+  .lesson .u51-big { font-family: var(--font-mono); font-size: 26px; font-weight: 600; }
+  .lesson .u51-st rect { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u51-st.u51-cur rect { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 3.5; }
+  .lesson .u51-st.u51-cur-f rect { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 3.5; }
+  .lesson .u51-tr { fill: none; stroke: var(--muted); stroke-width: 1.6; marker-end: url(#u51-ah); }
+  .lesson .u51-tr.u51-on { stroke: var(--drive); stroke-width: 3.5; marker-end: url(#u51-ah-on); }
+  .lesson .u51-tr.u51-on-f { stroke: var(--fault); stroke-width: 3.5; marker-end: url(#u51-ah-f); }
+  .lesson .u51-tn { font-family: var(--font-mono); font-size: 12px; fill: var(--muted); }
+  .lesson .u51-dec { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 10px 14px; margin: 12px 0; }
+  .lesson .u51-dec label { font-weight: 700; margin-right: 8px; }
+  .lesson .u51-dec input {
+    font-family: var(--font-mono); font-size: 1rem; width: 8em; padding: 4px 8px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+  }
+  .lesson .u51-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .lesson .u51-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lesson .u51-presets button {
+    font-family: var(--font-mono); font-size: .8rem; border: 1px solid var(--line); background: var(--panel);
+    border-radius: 999px; padding: 1px 10px; cursor: pointer;
+  }
+  .lesson .u51-presets button:hover { border-color: var(--bus); color: var(--bus); }
+  .lesson .u51-out { margin: .5em 0 .2em; }
+  .lesson .u51-out .u51-verdict { font-weight: 700; color: var(--drive); }
+  .lesson .u51-out .u51-bad { font-weight: 700; color: var(--fault); }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u5-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">CiA402 状态机与控制字、状态字</h1>
+    <p class="lesson-lede">驱动器里有第二台状态机：主站只能写 6040 控制字、读 6041 状态字，一步一步把电机从断电带到运行使能。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>画出 CiA402 的 8 个状态和 0–16 号转换。</li>
+          <li>用掩码 0x004F / 0x006F 从 6041 判定状态，用 6040 发出正确的命令。</li>
+          <li>解释 6041 bit4 Voltage enabled 与 bit9 Remote 的含义。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 540" role="img" aria-label="主动画：左侧主站写 6040、读 6041，右侧驱动器内的 CiA402 状态机从上电走到运行使能，再经快速停止、故障和复位回到禁止接通">
+        <defs>
+          <marker id="u51-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="fill-muted" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u51-ah-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="fill-drive" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u51-ah-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="fill-fault" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u51-ah-bus" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="fill-bus" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+
+        <!-- 主站侧 -->
+        <text class="t-title t-mid" x="135" y="30">主站</text>
+        <rect class="box-bus" x="20" y="48" width="230" height="180" rx="8"/>
+        <text class="t-mid t-bold" x="135" y="74">写 6040 控制字</text>
+        <text id="u51-cw-val" class="t-mid u51-big" x="135" y="116">----</text>
+        <text id="u51-cw-name" class="t-mid" x="135" y="150">（尚未写入）</text>
+        <text id="u51-cw-bits" class="t-mid t-mono t-small t-muted" x="135" y="178">bit7…0 = ---- ----</text>
+        <text class="t-mid t-small t-muted" x="135" y="210">RxPDO，每周期发送</text>
+
+        <rect class="box" x="20" y="262" width="230" height="200" rx="8"/>
+        <text class="t-mid t-bold" x="135" y="288">读 6041 状态字</text>
+        <text id="u51-sw-val" class="t-mid u51-big" x="135" y="330">----</text>
+        <text id="u51-sw-state" class="t-mid t-bold t-drive" x="135" y="364">（未上电）</text>
+        <text id="u51-sw-bits" class="t-mid t-mono t-small t-muted" x="135" y="392">bit7…0 = ---- ----</text>
+        <text id="u51-sw-mask" class="t-mid t-mono t-small t-muted" x="135" y="418">掩码判定 —</text>
+        <text class="t-mid t-small t-muted" x="135" y="446">TxPDO，每周期返回</text>
+
+        <!-- 网线 -->
+        <path id="u51-w-cw" class="wire-bus" d="M250 136 H296" marker-end="url(#u51-ah-bus)"/>
+        <path id="u51-w-sw" class="wire" d="M300 356 H254" marker-end="url(#u51-ah)"/>
+
+        <!-- 从站侧：驱动器 -->
+        <rect class="box stroke-drive" x="300" y="4" width="652" height="524" rx="10"/>
+        <text class="t-title t-end t-drive" x="940" y="28">从站 · 驱动器内的 CiA402 状态机</text>
+
+        <g id="u51-s-nr" class="u51-st"><rect x="400" y="40" width="190" height="56" rx="8"/><text class="t-mid t-bold" x="495" y="64">未就绪</text><text class="t-mid t-small t-muted" x="495" y="84">Not ready to switch on</text></g>
+        <g id="u51-s-sod" class="u51-st"><rect x="400" y="140" width="190" height="56" rx="8"/><text class="t-mid t-bold" x="495" y="164">禁止接通</text><text class="t-mid t-small t-muted" x="495" y="184">Switch on disabled</text></g>
+        <g id="u51-s-rtso" class="u51-st"><rect x="400" y="240" width="190" height="56" rx="8"/><text class="t-mid t-bold" x="495" y="264">准备接通</text><text class="t-mid t-small t-muted" x="495" y="284">Ready to switch on</text></g>
+        <g id="u51-s-so" class="u51-st"><rect x="400" y="340" width="190" height="56" rx="8"/><text class="t-mid t-bold" x="495" y="364">已接通</text><text class="t-mid t-small t-muted" x="495" y="384">Switched on</text></g>
+        <g id="u51-s-oe" class="u51-st"><rect x="400" y="440" width="190" height="56" rx="8"/><text class="t-mid t-bold" x="495" y="464">运行使能</text><text class="t-mid t-small t-muted" x="495" y="484">Operation enabled</text></g>
+        <g id="u51-s-qsa" class="u51-st"><rect x="650" y="440" width="170" height="56" rx="8"/><text class="t-mid t-bold" x="735" y="464">快速停止</text><text class="t-mid t-small t-muted" x="735" y="484">Quick stop active</text></g>
+        <g id="u51-s-fra" class="u51-st"><rect x="650" y="40" width="170" height="56" rx="8"/><text class="t-mid t-bold t-fault" x="735" y="64">故障反应</text><text class="t-mid t-small t-muted" x="735" y="84">Fault reaction active</text></g>
+        <g id="u51-s-fault" class="u51-st"><rect x="650" y="140" width="170" height="56" rx="8"/><text class="t-mid t-bold t-fault" x="735" y="164">故障</text><text class="t-mid t-small t-muted" x="735" y="184">Fault</text></g>
+
+        <!-- 转换 -->
+        <path id="u51-t0" class="u51-tr" d="M495 10 V36"/><text class="u51-tn" x="505" y="28">0 上电</text>
+        <path id="u51-t1" class="u51-tr" d="M465 96 V136"/><text class="u51-tn t-end" x="455" y="121">1</text>
+        <path id="u51-t2" class="u51-tr" d="M465 196 V236"/><text class="u51-tn t-end" x="455" y="221">2</text>
+        <path id="u51-t7" class="u51-tr" d="M525 240 V200"/><text class="u51-tn" x="535" y="224">7</text>
+        <path id="u51-t3" class="u51-tr" d="M465 296 V336"/><text class="u51-tn t-end" x="455" y="321">3</text>
+        <path id="u51-t6" class="u51-tr" d="M525 340 V300"/><text class="u51-tn" x="535" y="324">6</text>
+        <path id="u51-t4" class="u51-tr" d="M465 396 V436"/><text class="u51-tn t-end" x="455" y="421">4</text>
+        <path id="u51-t5" class="u51-tr" d="M525 440 V400"/><text class="u51-tn" x="535" y="424">5</text>
+        <path id="u51-t8" class="u51-tr" d="M400 462 H370 V272 H396"/><text class="u51-tn" x="374" y="370">8</text>
+        <path id="u51-t10" class="u51-tr" d="M400 362 H344 V180 H396"/><text class="u51-tn" x="348" y="262">10</text>
+        <path id="u51-t9" class="u51-tr" d="M400 484 H318 V160 H396"/><text class="u51-tn" x="322" y="302">9</text>
+        <path id="u51-t11" class="u51-tr" d="M590 458 H646"/><text class="u51-tn t-mid" x="618" y="450">11</text>
+        <path id="u51-t16" class="u51-tr dashed" d="M650 482 H594"/><text class="u51-tn t-mid" x="622" y="502">16</text>
+        <path id="u51-t12" class="u51-tr" d="M735 440 V222 H615 V186 H594"/><text class="u51-tn" x="743" y="330">12</text>
+        <path id="u51-t13" class="u51-tr" d="M944 68 H824"/><text class="u51-tn t-mid" x="882" y="90">13 任意状态出错</text>
+        <path id="u51-t14" class="u51-tr" d="M735 96 V136"/><text class="u51-tn" x="745" y="121">14</text>
+        <path id="u51-t15" class="u51-tr" d="M650 160 H594"/><text class="u51-tn t-mid" x="622" y="152">15</text>
+
+        <text class="t-small t-muted" x="318" y="518">填色框 = 当前状态　粗线 = 刚发生的转换　虚线 16 为可选转换</text>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>八个状态：怎么从 6041 认出来</h3>
+    <p>6041 的 bit0–3、bit5、bit6 共同编码当前状态，其余位（电压、警告、远程、模式相关、厂商位）会随工况变化，所以必须先与掩码再比较。表里 x 表示不关心的位；bit5 Quick stop 是低有效，0 才表示正在快停。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>状态</th><th>6041 位型（bit7…0）</th><th>掩码</th><th>掩码后等于</th><th>功率级 / 电机</th></tr>
+        <tr><td>Not ready to switch on 未就绪</td><td><code>x0xx 0000</code></td><td><code>0x004F</code></td><td><code>0x0000</code></td><td>自检中，不出力</td></tr>
+        <tr><td>Switch on disabled 禁止接通</td><td><code>x1xx 0000</code></td><td><code>0x004F</code></td><td><code>0x0040</code></td><td>不出力；母线可能已带电（看 bit4）</td></tr>
+        <tr><td>Ready to switch on 准备接通</td><td><code>x01x 0001</code></td><td><code>0x006F</code></td><td><code>0x0021</code></td><td>不出力</td></tr>
+        <tr><td>Switched on 已接通</td><td><code>x01x 0011</code></td><td><code>0x006F</code></td><td><code>0x0023</code></td><td>功率级就绪但驱动功能未使能</td></tr>
+        <tr><td>Operation enabled 运行使能</td><td><code>x01x 0111</code></td><td><code>0x006F</code></td><td><code>0x0027</code></td><td>出力，电机受控</td></tr>
+        <tr><td>Quick stop active 快速停止</td><td><code>x00x 0111</code></td><td><code>0x006F</code></td><td><code>0x0007</code></td><td>出力，按 605A 停车</td></tr>
+        <tr><td>Fault reaction active 故障反应</td><td><code>x0xx 1111</code></td><td><code>0x004F</code></td><td><code>0x000F</code></td><td>按 605E 执行故障反应</td></tr>
+        <tr><td>Fault 故障</td><td><code>x0xx 1000</code></td><td><code>0x004F</code></td><td><code>0x0008</code></td><td>驱动功能关闭</td></tr>
+      </table>
+    </div>
+    <p>另外两位常被问到：bit4 Voltage enabled = 1 表示高压（直流母线）已加到驱动器，它不参与状态判定；bit9 Remote = 1 表示控制字正在被执行，为 0 时驱动器处于本地控制（例如被调试软件接管），主站写 6040 不起作用。bit7 Warning 是警告不是故障，bit8、bit14、bit15 为厂商定义，bit10–13 的含义随运行模式变化（见 u5-l2）。</p>
+
+    <h3>十七个转换编号</h3>
+    <p>转换 0、1、13、14 由驱动器自己触发，12 在停车完成后也可自动发生，其余都由主站写 6040 触发。同一条命令在不同状态下对应不同转换，例如 Shutdown 可以是 2、6 或 8。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>编号</th><th>从 → 到</th><th>触发</th><th>6040 典型值</th></tr>
+        <tr><td>0</td><td>上电 / 复位 → 未就绪</td><td>自动</td><td>—</td></tr>
+        <tr><td>1</td><td>未就绪 → 禁止接通</td><td>自检完成，自动</td><td>—</td></tr>
+        <tr><td>2</td><td>禁止接通 → 准备接通</td><td>Shutdown</td><td><code>0x0006</code></td></tr>
+        <tr><td>3</td><td>准备接通 → 已接通</td><td>Switch on</td><td><code>0x0007</code></td></tr>
+        <tr><td>4</td><td>已接通 → 运行使能</td><td>Enable operation</td><td><code>0x000F</code></td></tr>
+        <tr><td>5</td><td>运行使能 → 已接通</td><td>Disable operation（按 605C 停车）</td><td><code>0x0007</code></td></tr>
+        <tr><td>6</td><td>已接通 → 准备接通</td><td>Shutdown</td><td><code>0x0006</code></td></tr>
+        <tr><td>7</td><td>准备接通 → 禁止接通</td><td>Disable voltage 或 Quick stop</td><td><code>0x0000</code> / <code>0x0002</code></td></tr>
+        <tr><td>8</td><td>运行使能 → 准备接通</td><td>Shutdown（按 605B 停车）</td><td><code>0x0006</code></td></tr>
+        <tr><td>9</td><td>运行使能 → 禁止接通</td><td>Disable voltage（功率级立即关断，电机自由停转）</td><td><code>0x0000</code></td></tr>
+        <tr><td>10</td><td>已接通 → 禁止接通</td><td>Disable voltage 或 Quick stop</td><td><code>0x0000</code> / <code>0x0002</code></td></tr>
+        <tr><td>11</td><td>运行使能 → 快速停止</td><td>Quick stop（按 605A 停车）</td><td><code>0x0002</code></td></tr>
+        <tr><td>12</td><td>快速停止 → 禁止接通</td><td>605A = 0…4 时停车完成自动发生；或 Disable voltage</td><td><code>0x0000</code></td></tr>
+        <tr><td>13</td><td>任意状态 → 故障反应</td><td>驱动器检测到故障</td><td>—</td></tr>
+        <tr><td>14</td><td>故障反应 → 故障</td><td>故障反应完成，自动</td><td>—</td></tr>
+        <tr><td>15</td><td>故障 → 禁止接通</td><td>Fault reset：bit7 上升沿</td><td><code>0x0000</code> → <code>0x0080</code></td></tr>
+        <tr><td>16</td><td>快速停止 → 运行使能</td><td>Enable operation（可选，仅 605A = 5…8 时有意义）</td><td><code>0x000F</code></td></tr>
+      </table>
+    </div>
+
+    <h3>控制字 6040：五个位组成的命令</h3>
+    <p>6040 的 bit0 Switch on、bit1 Enable voltage、bit2 Quick stop（低有效）、bit3 Enable operation、bit7 Fault reset 组合成命令；bit4–6、bit9 随模式定义，bit8 为 Halt，bit11–15 为厂商定义。x 表示该命令不看这一位，所以 Disable voltage 只要 bit1 = 0 就成立。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>命令</th><th>bit7</th><th>bit3</th><th>bit2</th><th>bit1</th><th>bit0</th><th>常用值</th><th>对应转换</th></tr>
+        <tr><td>Shutdown</td><td>0</td><td>x</td><td>1</td><td>1</td><td>0</td><td><code>0x0006</code></td><td>2、6、8</td></tr>
+        <tr><td>Switch on</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td><code>0x0007</code></td><td>3</td></tr>
+        <tr><td>Switch on + Enable operation</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td><code>0x000F</code></td><td>3 后自动 4</td></tr>
+        <tr><td>Disable voltage</td><td>0</td><td>x</td><td>x</td><td>0</td><td>x</td><td><code>0x0000</code></td><td>7、9、10、12</td></tr>
+        <tr><td>Quick stop</td><td>0</td><td>x</td><td>0</td><td>1</td><td>x</td><td><code>0x0002</code></td><td>7、10、11</td></tr>
+        <tr><td>Disable operation</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td><code>0x0007</code></td><td>5</td></tr>
+        <tr><td>Enable operation</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td><code>0x000F</code></td><td>4、16</td></tr>
+        <tr><td>Fault reset</td><td>0 → 1</td><td>x</td><td>x</td><td>x</td><td>x</td><td><code>0x0080</code></td><td>15</td></tr>
+      </table>
+    </div>
+
+    <h3>逐位解码器</h3>
+    <p>输入一个十六进制值，下面的表按位展开（高位在左），并给出判定结果。可以直接把真机上读到的 6041 贴进来。</p>
+    <div class="u51-dec">
+      <div class="u51-row">
+        <label for="u51-in-sw">6041 状态字</label>
+        <input id="u51-in-sw" type="text" value="0x0237" spellcheck="false" autocomplete="off" inputmode="text">
+        <div class="u51-presets" data-target="u51-in-sw">
+          <button type="button">0x0250</button><button type="button">0x0231</button><button type="button">0x0233</button>
+          <button type="button">0x0237</button><button type="button">0x0217</button><button type="button">0x021F</button>
+          <button type="button">0x0218</button><button type="button">0x1637</button>
+        </div>
+      </div>
+      <p class="u51-out" id="u51-out-sw" aria-live="polite"></p>
+      <div id="u51-tbl-sw"></div>
+    </div>
+    <div class="u51-dec">
+      <div class="u51-row">
+        <label for="u51-in-cw">6040 控制字</label>
+        <input id="u51-in-cw" type="text" value="0x000F" spellcheck="false" autocomplete="off" inputmode="text">
+        <div class="u51-presets" data-target="u51-in-cw">
+          <button type="button">0x0006</button><button type="button">0x0007</button><button type="button">0x000F</button>
+          <button type="button">0x0002</button><button type="button">0x0000</button><button type="button">0x0080</button>
+          <button type="button">0x010F</button>
+        </div>
+      </div>
+      <p class="u51-out" id="u51-out-cw" aria-live="polite"></p>
+      <div id="u51-tbl-cw"></div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>每个周期在 RxPDO 里写 6040，在 TxPDO 里读 6041。</li>
+          <li>先用掩码判定当前状态，再按状态选下一条命令，一次只走一步：0x0006 → 0x0007 → 0x000F。</li>
+          <li>复位故障时先让 bit7 = 0 至少一个周期，再写 1，制造上升沿。</li>
+          <li>把"总线在 OP"当成前提而不是结果：ESM 到 OP 之后，CiA402 状态机仍停在禁止接通。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>每个控制周期读 6040，按当前状态查转换表，只执行合法转换，不合法的命令被忽略。</li>
+          <li>自己触发转换 0、1、13、14，快停完成后按 605A 自动走 12。</li>
+          <li>把状态编码进 6041 bit0–3、5、6，同时刷新 bit4 电压、bit7 警告、bit9 远程。</li>
+          <li>执行停车选项码 605A、605B、605C、605E 规定的停车方式（u5-l3）。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>主站程序不运行时，可以用 IgH 命令行通过 SDO 读写。先确认总线状态，再读状态字：</p>
+    <pre><code>ethercat slaves                                  # 总线 ESM 状态，例如 OP 或 PREOP
+ethercat upload -p0 0x6041 0 --type uint16       # 驱动器 CiA402 状态字</code></pre>
+    <p>如果驱动器允许用 SDO 写控制字（是否允许、在哪个 ESM 状态允许因厂商而异；6040 已映射进 PDO 且主站程序在跑时，SDO 写入会被每周期的 PDO 覆盖），可以手动走一遍：</p>
+    <pre><code>ethercat download -p0 0x6040 0 0x0006 --type uint16
+ethercat upload   -p0 0x6041 0 --type uint16
+ethercat download -p0 0x6040 0 0x0007 --type uint16
+ethercat upload   -p0 0x6041 0 --type uint16</code></pre>
+    <p>主站程序里建议每周期打印状态变化，判定函数只看掩码：</p>
+    <pre><code>static const char *cia402_state(uint16_t sw)
+{
+    if ((sw &amp; 0x004F) == 0x0000) return "Not ready to switch on";
+    if ((sw &amp; 0x004F) == 0x0040) return "Switch on disabled";
+    if ((sw &amp; 0x006F) == 0x0021) return "Ready to switch on";
+    if ((sw &amp; 0x006F) == 0x0023) return "Switched on";
+    if ((sw &amp; 0x006F) == 0x0027) return "Operation enabled";
+    if ((sw &amp; 0x006F) == 0x0007) return "Quick stop active";
+    if ((sw &amp; 0x004F) == 0x000F) return "Fault reaction active";
+    if ((sw &amp; 0x004F) == 0x0008) return "Fault";
+    return "unknown";
+}</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值（典型）</th><th>说明</th></tr>
+        <tr><td>ethercat slaves</td><td>OP</td><td>总线已到 OP，但下一行 6041 仍可能是禁止接通：两台状态机互相独立</td></tr>
+        <tr><td>6041 上电后</td><td><code>0x0250</code> 或 <code>0x0240</code></td><td>禁止接通；bit4 取决于母线是否有电</td></tr>
+        <tr><td>6041 写 0x0006 后</td><td><code>0x0231</code></td><td>准备接通</td></tr>
+        <tr><td>6041 写 0x0007 后</td><td><code>0x0233</code></td><td>已接通</td></tr>
+        <tr><td>6041 写 0x000F 后</td><td><code>0x0237</code></td><td>运行使能；bit10–13 会随模式置位（如 <code>0x1637</code>），只看掩码结果</td></tr>
+        <tr><td>6041 故障时</td><td><code>0x0218</code> 或 <code>0x0238</code></td><td>故障；bit5 在故障状态不参与判定</td></tr>
+      </table>
+    </div>
+    <p class="note">高位（bit8、bit14、bit15 厂商位，bit10–13 模式相关位）因厂商和模式而异，表中只保证低 7 位的判定结论。</p>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "读到 6041 = <code>0x0237</code>，驱动器处于哪个状态？", "options": ["Switched on 已接通", "Operation enabled 运行使能", "Quick stop active 快速停止", "Fault 故障"], "answer": 1, "explain": "<code>0x0237 &amp; 0x006F = 0x0027</code>，正好是 Operation enabled 的判定值；bit9 Remote 与 bit4 电压位被掩码去掉。"},
+  {"q": "读到 6041 = <code>0x0217</code>，与 <code>0x0237</code> 只差 bit5。它是什么状态？", "options": ["Operation enabled 运行使能", "Quick stop active 快速停止", "Fault reaction active 故障反应", "Switch on disabled 禁止接通"], "answer": 1, "explain": "bit5 Quick stop 低有效：<code>0x0217 &amp; 0x006F = 0x0007</code>，是 Quick stop active，驱动器正在按 605A 停车。"},
+  {"q": "6041 的 bit9 Remote = 0 意味着什么？", "options": ["驱动器有故障", "控制字不被执行，驱动器处于本地控制", "母线没有电压", "驱动器不支持 CSP"], "answer": 1, "explain": "bit9 = 1 表示控制字由总线控制并被执行；为 0 时（例如调试软件接管）主站写 6040 不起作用。母线电压看的是 bit4。"},
+  {"q": "驱动器在 Switch on disabled，主站直接写 6040 = <code>0x000F</code>，按标准会发生什么？", "options": ["依次走 2、3、4 到运行使能", "停在禁止接通，因为该状态只接受 Shutdown", "进入故障", "进入快速停止"], "answer": 1, "explain": "禁止接通唯一的出口是转换 2，命令是 Shutdown（bit0 = 0，bit1、bit2 = 1）。<code>0x000F</code> 的 bit0 = 1，不匹配，所以状态不变。必须先写 <code>0x0006</code>。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>用 <code>sw == 0x0237</code> 判断是否已使能。<br><strong>实际上：</strong>bit7 警告、bit9 远程、bit10–13 模式位、厂商位都会变，必须 <code>(sw &amp; 0x006F) == 0x0027</code>。</li>
+      <li><strong>误区：</strong>想省事直接从禁止接通写 <code>0x000F</code>。<br><strong>实际上：</strong>标准状态机只允许逐级转换，禁止接通必须先收到 Shutdown，否则原地不动；主站程序要每周期看 6041 再决定下一条命令。</li>
+      <li><strong>误区：</strong><code>ethercat slaves</code> 显示 OP，电机就该能动了。<br><strong>实际上：</strong>OP 只说明 ESM 允许输出过程数据，CiA402 状态机还得靠 6040 一步步走到运行使能。</li>
+    </ul>
+    <p>关联：ESM 状态机见 u3-l1；6040/6041 在 PDO 里的位置见 u3-l3；停车选项码和故障复位细节在 u5-l3。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var RULES = [
+    { m: 0x004F, x: 0x0000, key: 'nr',    en: 'Not ready to switch on', zh: '未就绪' },
+    { m: 0x004F, x: 0x0040, key: 'sod',   en: 'Switch on disabled',     zh: '禁止接通' },
+    { m: 0x006F, x: 0x0021, key: 'rtso',  en: 'Ready to switch on',     zh: '准备接通' },
+    { m: 0x006F, x: 0x0023, key: 'so',    en: 'Switched on',            zh: '已接通' },
+    { m: 0x006F, x: 0x0027, key: 'oe',    en: 'Operation enabled',      zh: '运行使能' },
+    { m: 0x006F, x: 0x0007, key: 'qsa',   en: 'Quick stop active',      zh: '快速停止' },
+    { m: 0x004F, x: 0x000F, key: 'fra',   en: 'Fault reaction active',  zh: '故障反应' },
+    { m: 0x004F, x: 0x0008, key: 'fault', en: 'Fault',                  zh: '故障' }
+  ];
+  function decode6041(v) {
+    for (var i = 0; i < RULES.length; i++) if ((v & RULES[i].m) === RULES[i].x) return RULES[i];
+    return null;
+  }
+  function decode6040(v) {
+    if ((v & 0x02) === 0) return { en: 'Disable voltage', zh: '断开电压', tr: '7、9、10、12' };
+    if ((v & 0x04) === 0) return { en: 'Quick stop', zh: '快速停止', tr: '7、10、11' };
+    if ((v & 0x01) === 0) return { en: 'Shutdown', zh: '关闭', tr: '2、6、8' };
+    if ((v & 0x08) === 0) return { en: 'Switch on / Disable operation', zh: '接通 / 禁止运行', tr: '3（在准备接通）或 5（在运行使能）' };
+    return { en: 'Enable operation', zh: '使能运行', tr: '4、16；在准备接通收到时先 3 再自动 4' };
+  }
+  function bin8(v) {
+    var s = (v & 0xFF).toString(2);
+    while (s.length < 8) s = '0' + s;
+    return s.slice(0, 4) + ' ' + s.slice(4);
+  }
+
+  var STATES = ['nr', 'sod', 'rtso', 'so', 'oe', 'qsa', 'fra', 'fault'];
+  var TRS = []; for (var i = 0; i <= 16; i++) TRS.push('u51-t' + i);
+
+  // 每步把整个画面设到目标状态（先清后设），配合步进器"重放 0..i"保证可回退
+  function scene(svg, o) {
+    var f = Academy.fx(svg);
+    STATES.forEach(function (k) { f.cls('u51-s-' + k, 'u51-cur', false).cls('u51-s-' + k, 'u51-cur-f', false); });
+    TRS.forEach(function (t) { f.cls(t, 'u51-on', false).cls(t, 'u51-on-f', false); });
+    var bad = o.state === 'fra' || o.state === 'fault';
+    f.cls('u51-s-' + o.state, bad ? 'u51-cur-f' : 'u51-cur', true);
+    if (o.t != null) f.cls('u51-t' + o.t, bad ? 'u51-on-f' : 'u51-on', true);
+    if (o.cw != null) {
+      var c = decode6040(o.cw);
+      f.text('u51-cw-val', Academy.hex(o.cw, 4))
+       .text('u51-cw-name', o.cwName || c.en)
+       .text('u51-cw-bits', 'bit7…0 = ' + bin8(o.cw));
+    }
+    f.flow('u51-w-cw', o.cw != null);
+    var r = decode6041(o.sw);
+    f.text('u51-sw-val', Academy.hex(o.sw, 4))
+     .text('u51-sw-state', r ? r.en : '?')
+     .text('u51-sw-bits', 'bit7…0 = ' + bin8(o.sw))
+     .text('u51-sw-mask', r ? ('& ' + Academy.hex(r.m, 4) + ' = ' + Academy.hex(r.x, 4)) : '无匹配')
+     .cls('u51-sw-state', 't-fault', bad).cls('u51-sw-state', 't-drive', !bad)
+     .flow('u51-w-sw', true);
+  }
+
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始：驱动器未上电', text: '右边是驱动器内部的 CiA402 状态机；左边的主站只能做两件事：写 6040 控制字、读 6041 状态字。', apply: function () {} },
+    { title: '上电：转换 0', text: '驱动器上电后自动进入未就绪（Not ready to switch on），正在自检，6041 = 0x0000，主站写什么都无效。', apply: function (svg) { scene(svg, { state: 'nr', t: 0, sw: 0x0000 }); } },
+    { title: '自检完成：转换 1', text: '自检完成后驱动器自己走转换 1 到禁止接通，6041 = 0x0250：bit6 禁止接通、bit4 母线有电、bit9 远程。', apply: function (svg) { scene(svg, { state: 'sod', t: 1, sw: 0x0250 }); } },
+    { title: '主站写 0x0006 Shutdown：转换 2', text: '主站写 Shutdown（bit1、bit2 = 1，bit0 = 0），驱动器进入准备接通，6041 = 0x0231。', apply: function (svg) { scene(svg, { state: 'rtso', t: 2, cw: 0x0006, sw: 0x0231 }); } },
+    { title: '主站写 0x0007 Switch on：转换 3', text: '再置 bit0，驱动器进入已接通：功率级就绪但还不出力，6041 = 0x0233。', apply: function (svg) { scene(svg, { state: 'so', t: 3, cw: 0x0007, cwName: 'Switch on', sw: 0x0233 }); } },
+    { title: '主站写 0x000F Enable operation：转换 4', text: '再置 bit3，驱动器进入运行使能，功率级出力、电机受控，6041 = 0x0237。', apply: function (svg) { scene(svg, { state: 'oe', t: 4, cw: 0x000F, sw: 0x0237 }); } },
+    { title: '主站写 0x0002 Quick stop：转换 11', text: 'bit2 清零即快停命令（低有效），驱动器按 605A 减速，6041 bit5 变 0，读数 0x0217。', apply: function (svg) { scene(svg, { state: 'qsa', t: 11, cw: 0x0002, sw: 0x0217 }); } },
+    { title: '驱动器检测到故障：转换 13', text: '任何状态下出现故障，驱动器自己进入故障反应并按 605E 停车，6041 = 0x021F（bit3 故障位置 1）。', apply: function (svg) { scene(svg, { state: 'fra', t: 13, sw: 0x021F }); } },
+    { title: '故障反应完成：转换 14', text: '停车完成后自动进入故障，驱动功能关闭，6041 = 0x0218；主站此时仍在发 0x0002，bit7 为 0。', apply: function (svg) { scene(svg, { state: 'fault', t: 14, sw: 0x0218 }); } },
+    { title: '主站写 0x0080 Fault reset：转换 15', text: 'bit7 从 0 变 1 的上升沿触发复位，驱动器回到禁止接通（0x0250），要重新走 0x0006 → 0x0007 → 0x000F。', apply: function (svg) { scene(svg, { state: 'sod', t: 15, cw: 0x0080, cwName: 'Fault reset ↑', sw: 0x0250 }); } }
+  ]);
+
+  // ---------- 逐位解码器 ----------
+  var SW_NAMES = ['RTSO 准备接通', 'SO 已接通', 'OE 运行使能', 'Fault 故障', 'VE 电压', 'QS 快停(低有效)', 'SOD 禁止接通', 'Warning 警告',
+                  '厂商', 'Remote 远程', 'Target reached', 'Internal limit', '模式相关', '模式相关', '厂商', '厂商'];
+  var CW_NAMES = ['SO 接通', 'EV 使能电压', 'QS 快停(低有效)', 'EO 使能运行', '模式相关', '模式相关', '模式相关', 'FR 故障复位',
+                  'Halt 暂停', '模式相关', '保留', '厂商', '厂商', '厂商', '厂商', '厂商'];
+  function parseHex(s) {
+    s = String(s).trim().replace(/^0x/i, '');
+    if (!/^[0-9a-f]{1,4}$/i.test(s)) return null;
+    return parseInt(s, 16);
+  }
+  var inSw = document.getElementById('u51-in-sw'), outSw = document.getElementById('u51-out-sw'), tblSw = document.getElementById('u51-tbl-sw');
+  var inCw = document.getElementById('u51-in-cw'), outCw = document.getElementById('u51-out-cw'), tblCw = document.getElementById('u51-tbl-cw');
+  function runSw() {
+    var v = parseHex(inSw.value);
+    if (v == null) { outSw.innerHTML = '<span class="u51-bad">请输入 1–4 位十六进制数，例如 0x0237。</span>'; tblSw.innerHTML = ''; return; }
+    Academy.bitsTable(tblSw, v, SW_NAMES, 16);
+    var r = decode6041(v);
+    var extra = '；bit4 电压 ' + ((v >> 4) & 1) + '，bit7 警告 ' + ((v >> 7) & 1) + '，bit9 远程 ' + ((v >> 9) & 1) +
+      (((v >> 9) & 1) ? '' : '（控制字当前不被执行）');
+    if (r) outSw.innerHTML = Academy.hex(v, 4) + ' &amp; ' + Academy.hex(r.m, 4) + ' = ' + Academy.hex(v & r.m, 4) +
+      ' → <span class="u51-verdict">' + r.en + '（' + r.zh + '）</span>' + extra + '。';
+    else outSw.innerHTML = '<span class="u51-bad">不符合任何标准状态组合</span>：检查是否读错对象，或低 7 位被厂商另作他用' + extra + '。';
+  }
+  function runCw() {
+    var v = parseHex(inCw.value);
+    if (v == null) { outCw.innerHTML = '<span class="u51-bad">请输入 1–4 位十六进制数，例如 0x000F。</span>'; tblCw.innerHTML = ''; return; }
+    Academy.bitsTable(tblCw, v, CW_NAMES, 16);
+    var c = decode6040(v);
+    var s = '低 4 位解读为 <span class="u51-verdict">' + c.en + '（' + c.zh + '）</span>，对应转换 ' + c.tr + '。';
+    if ((v >> 7) & 1) s += ' bit7 = 1：只有上一周期 bit7 = 0 时才构成 Fault reset 上升沿（转换 15），持续为 1 不会重复复位。';
+    if ((v >> 8) & 1) s += ' bit8 Halt = 1：在支持的模式下按 605D 暂停运动。';
+    outCw.innerHTML = s;
+  }
+  inSw.addEventListener('input', runSw);
+  inCw.addEventListener('input', runCw);
+  document.querySelectorAll('.u51-presets').forEach(function (box) {
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var inp = document.getElementById(box.getAttribute('data-target'));
+      inp.value = b.textContent; inp.dispatchEvent(new Event('input'));
+    });
+  });
+  runSw(); runCw();
+
+  Academy.init('u5-l1');
+})();
+</script>
+</body>
+</html>

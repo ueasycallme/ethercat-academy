@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分布式时钟 DC · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u4-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">分布式时钟 DC</h1>
+    <p class="lesson-lede">每台 ESC 都有自己的晶振和本地时钟。DC 要做的是：量出帧在线上跑了多久、把所有时钟对到同一个"系统时间"、持续纠正漂移，最后让每台从站在同一纳秒级时刻产生 SYNC0 脉冲。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>解释参考时钟和系统时间：谁是基准，其他从站怎么跟。</li>
+          <li>用端口接收时间锁存（0x0900 起）算出传播延时，写进 0x0928。</li>
+          <li>区分一次性偏移（0x0920）和持续漂移补偿（周期读写 0x0910），说出 SYNC0 由 0x0990/0x09A0 怎么产生。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 420" role="img" aria-label="主动画：主站与三台从站，依次演示接收时间锁存、延时计算、写延时与偏移、漂移补偿、配置 SYNC0、三台从站同时产生 SYNC0">
+        <!-- 主站 -->
+        <rect id="u41-master" class="box-bus" x="16" y="60" width="200" height="150" rx="8"/>
+        <text class="t-title" x="30" y="88">主站</text>
+        <text class="t-small t-muted" x="30" y="110">IgH · 应用时间</text>
+        <text id="u41-mtext" class="t-small t-mono" x="30" y="136">等待</text>
+        <text id="u41-mtext2" class="t-small t-mono t-muted" x="30" y="156"> </text>
+
+        <!-- 网线 -->
+        <line id="u41-c0" class="wire-bus" x1="216" y1="135" x2="330" y2="135"/>
+        <line id="u41-c1" class="wire-bus" x1="520" y1="135" x2="540" y2="135"/>
+        <line id="u41-c2" class="wire-bus" x1="730" y1="135" x2="750" y2="135"/>
+        <text class="t-small t-muted t-mid" x="273" y="124">网线</text>
+
+        <!-- 帧徽标 -->
+        <g id="u41-bwr" class="is-hidden">
+          <rect class="fill-bus" x="226" y="146" width="96" height="24" rx="5"/>
+          <text class="t-small t-mono t-onfill t-mid" x="274" y="163">BWR 0x0900</text>
+        </g>
+        <g id="u41-frmw" class="is-hidden">
+          <rect class="fill-mail" x="226" y="176" width="96" height="24" rx="5"/>
+          <text class="t-small t-mono t-onfill t-mid" x="274" y="193">FRMW 0x0910</text>
+        </g>
+
+        <!-- 三台从站 -->
+        <g>
+          <rect id="u41-s1" class="box-drive" x="330" y="60" width="190" height="150" rx="8"/>
+          <text class="t-bold" x="342" y="82">从站 1 · 参考时钟</text>
+          <text class="t-small t-mono t-muted" x="334" y="130">P0</text><text class="t-small t-mono t-muted t-end" x="516" y="130">P1</text>
+          <text id="u41-clk1" class="t-small t-mono" x="342" y="104">0x0910 本地 12.004 ms</text>
+          <text id="u41-lat1" class="t-small t-mono is-hidden" x="352" y="130">锁存 0 / 1000</text>
+          <text id="u41-dly1" class="t-small t-mono t-bus is-hidden" x="342" y="152">0x0928 = 0 ns</text>
+          <text id="u41-dif1" class="t-small t-mono t-mail is-hidden" x="342" y="174">作为被读取的基准</text>
+          <text id="u41-cfg1" class="t-small t-mono t-power is-hidden" x="342" y="196">09A0 = 1 000 000</text>
+        </g>
+        <g>
+          <rect id="u41-s2" class="box-drive" x="540" y="60" width="190" height="150" rx="8"/>
+          <text class="t-bold" x="552" y="82">从站 2</text>
+          <text class="t-small t-mono t-muted" x="544" y="130">P0</text><text class="t-small t-mono t-muted t-end" x="726" y="130">P1</text>
+          <text id="u41-clk2" class="t-small t-mono" x="552" y="104">0x0910 本地 52.341 ms</text>
+          <text id="u41-lat2" class="t-small t-mono is-hidden" x="562" y="130">锁存 0 / 560</text>
+          <text id="u41-dly2" class="t-small t-mono t-bus is-hidden" x="552" y="152">0x0928 = 220 ns</text>
+          <text id="u41-dif2" class="t-small t-mono t-mail is-hidden" x="552" y="174">0x092C ≈ 20 ns</text>
+          <text id="u41-cfg2" class="t-small t-mono t-power is-hidden" x="552" y="196">09A0 = 1 000 000</text>
+        </g>
+        <g>
+          <rect id="u41-s3" class="box-drive" x="750" y="60" width="190" height="150" rx="8"/>
+          <text class="t-bold" x="762" y="82">从站 3（末端）</text>
+          <text class="t-small t-mono t-muted" x="754" y="130">P0</text>
+          <text id="u41-clk3" class="t-small t-mono" x="762" y="104">0x0910 本地 8.120 ms</text>
+          <text id="u41-lat3" class="t-small t-mono is-hidden" x="772" y="130">锁存 0 / —</text>
+          <text id="u41-dly3" class="t-small t-mono t-bus is-hidden" x="762" y="152">0x0928 = 500 ns</text>
+          <text id="u41-dif3" class="t-small t-mono t-mail is-hidden" x="762" y="174">0x092C ≈ 30 ns</text>
+          <text id="u41-cfg3" class="t-small t-mono t-power is-hidden" x="762" y="196">09A0 = 1 000 000</text>
+        </g>
+
+        <!-- 主站计算面板 -->
+        <g id="u41-calc" class="is-hidden">
+          <rect class="box-muted" x="16" y="230" width="300" height="170" rx="8"/>
+          <text class="t-bold" x="28" y="254">主站算延时（简化模型）</text>
+          <text class="t-small t-mono" x="28" y="278">环路 = P1 锁存 − P0 锁存</text>
+          <text class="t-small t-mono" x="28" y="298">从站 1：1000  从站 2：560</text>
+          <text class="t-small t-mono" x="28" y="318">从站 3：末端，按 0</text>
+          <text class="t-small t-mono" x="28" y="342">1→2：(1000 − 560) / 2 = 220</text>
+          <text class="t-small t-mono" x="28" y="362">2→3：(560 − 0) / 2 = 280</text>
+          <text class="t-small t-muted" x="28" y="386">单位 ns；真实主站还扣除转发时间</text>
+        </g>
+
+        <!-- SYNC0 时间线 -->
+        <g id="u41-tl" class="is-hidden">
+          <text class="t-bold" x="340" y="250">SYNC0（系统时间，周期 1 ms）</text>
+          <line class="stroke-line sw-1" x1="400" y1="285" x2="940" y2="285"/>
+          <line class="stroke-line sw-1" x1="400" y1="325" x2="940" y2="325"/>
+          <line class="stroke-line sw-1" x1="400" y1="365" x2="940" y2="365"/>
+          <text class="t-small" x="340" y="289">从站 1</text>
+          <text class="t-small" x="340" y="329">从站 2</text>
+          <text class="t-small" x="340" y="369">从站 3</text>
+          <path class="stroke-power sw-3 fill-none" d="M470 285 v-18 M650 285 v-18 M830 285 v-18 M470 325 v-18 M650 325 v-18 M830 325 v-18 M470 365 v-18 M650 365 v-18 M830 365 v-18"/>
+          <path class="stroke-muted sw-1 dashed fill-none" d="M470 258 V380 M650 258 V380 M830 258 V380"/>
+          <text class="t-small t-mono t-muted t-mid" x="470" y="400">T0</text>
+          <text class="t-small t-mono t-muted t-mid" x="650" y="400">T0 + 1 ms</text>
+          <text class="t-small t-mono t-muted t-mid" x="830" y="400">T0 + 2 ms</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>DC 寄存器一览</h3>
+    <p>DC 全在 ESC 的 0x0900–0x09FF 区。前半段负责"对表"（锁存、延时、偏移、漂移），后半段负责"打拍子"（周期单元与 SYNC 信号）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>地址</th><th>名称</th><th>宽度</th><th>谁写、干什么</th></tr>
+        <tr><td><code>0x0900</code>–<code>0x090F</code></td><td>端口 0–3 接收时间</td><td>各 32 位</td><td>对 0x0900 的写（通常 BWR）触发锁存：帧到达各端口时的本地时间</td></tr>
+        <tr><td><code>0x0910</code></td><td>系统时间</td><td>64 位</td><td>读：本从站的系统时间；写：与自身比较，差值送入漂移控制环</td></tr>
+        <tr><td><code>0x0918</code></td><td>处理单元接收时间（端口 0）</td><td>64 位</td><td>帧进入处理单元时的本地时间</td></tr>
+        <tr><td><code>0x0920</code></td><td>系统时间偏移</td><td>64 位</td><td>主站写：本地时间 + 偏移 = 系统时间</td></tr>
+        <tr><td><code>0x0928</code></td><td>系统时间延迟</td><td>32 位</td><td>主站写：参考时钟到本从站的传播延时</td></tr>
+        <tr><td><code>0x092C</code></td><td>系统时间差</td><td>32 位</td><td>从站报：本地系统时间与收到值的差（锁定后接近 0）</td></tr>
+        <tr><td><code>0x0930</code></td><td>速度计数器起始</td><td>16 位</td><td>漂移控制环的调节带宽</td></tr>
+        <tr><td><code>0x0980</code></td><td>周期单元控制 / 激活</td><td>16 位</td><td>0x0981 的激活位打开周期运行与 SYNC0/SYNC1；IgH 的 assign_activate 写到这里</td></tr>
+        <tr><td><code>0x0990</code></td><td>SYNC0 启动时间</td><td>32/64 位</td><td>第一个 SYNC0 的系统时间</td></tr>
+        <tr><td><code>0x09A0</code></td><td>SYNC0 周期</td><td>32 位</td><td>ns</td></tr>
+        <tr><td><code>0x09A4</code></td><td>SYNC1 周期</td><td>32 位</td><td>ns，SYNC1 相对 SYNC0 的偏移</td></tr>
+      </table>
+    </div>
+
+    <h3>传播延时怎么量</h3>
+    <p>主站发一个写 0x0900 的广播帧，每台从站在端口 0 收到它时锁存一次本地时间，帧从后面转回来经过端口 1 时再锁存一次。两次之差是"本站之后整段线的往返时间"，相邻两站的差除以 2 就是两站之间的单程延时。各从站本地时钟互不相同也没关系，因为每台只用自己的两个时间做差。</p>
+    <figure>
+      <div class="fig-scroll">
+        <svg viewBox="0 0 960 200" role="img" aria-label="延时测量：帧向右经过三台从站的端口 0，末端回环后向左经过端口 1，每台从站锁存两次">
+          <rect class="box-bus" x="16" y="40" width="130" height="120" rx="8"/><text class="t-title t-mid" x="81" y="106">主站</text>
+          <rect class="box-drive" x="250" y="40" width="160" height="120" rx="8"/><text class="t-bold t-mid" x="330" y="64">从站 1</text>
+          <rect class="box-drive" x="510" y="40" width="160" height="120" rx="8"/><text class="t-bold t-mid" x="590" y="64">从站 2</text>
+          <rect class="box-drive" x="770" y="40" width="160" height="120" rx="8"/><text class="t-bold t-mid" x="850" y="64">从站 3</text>
+          <line class="wire-bus" x1="146" y1="90" x2="760" y2="90"/><path class="fill-bus" d="M770 90 l-10 -5 v10 z"/>
+          <text class="t-small t-bus" x="160" y="84">去程：处理</text>
+          <line class="stroke-bus sw-2 dashed" x1="156" y1="130" x2="770" y2="130"/><path class="fill-bus" d="M146 130 l10 -5 v10 z"/>
+          <text class="t-small t-bus" x="160" y="148">回程：只转发</text>
+          <path class="stroke-bus sw-2 fill-none" d="M900 90 q24 20 0 40"/>
+          <circle class="fill-power" cx="262" cy="90" r="6"/><circle class="fill-power" cx="398" cy="130" r="6"/>
+          <circle class="fill-power" cx="522" cy="90" r="6"/><circle class="fill-power" cx="658" cy="130" r="6"/>
+          <circle class="fill-power" cx="782" cy="90" r="6"/>
+          <text class="t-small t-mono t-mid" x="330" y="114">环路 1000</text>
+          <text class="t-small t-mono t-mid" x="590" y="114">环路 560</text>
+          <text class="t-small t-mono t-mid" x="850" y="114">末端回环</text>
+          <text class="t-small t-muted" x="250" y="186">● 端口 0 锁存（去程）   ● 端口 1 锁存（回程）   数值为示例，单位 ns</text>
+        </svg>
+      </div>
+      <figcaption>真实主站还要考虑从站内部的转发时间和拓扑分支（端口 2、3），IgH 在扫描阶段自动完成这套计算。</figcaption>
+    </figure>
+
+    <h3>偏移、漂移与 SYNC0</h3>
+    <p>偏移（0x0920）只在启动时写一次，把各从站的时间原点对齐；但晶振有 ppm 级误差，不纠正的话几秒后就会错开。所以主站每个周期都发一次"读参考时钟 0x0910、写给其余从站 0x0910"的 ARMW/FRMW，各 ESC 用收到的值加上自己的 0x0928 延时与本地系统时间比较，微调本地时钟快慢。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>机制</th><th>多久做一次</th><th>靠什么</th><th>纠正什么</th></tr>
+        <tr><td>传播延时</td><td>启动时一次</td><td>0x0900 锁存 → 写 0x0928</td><td>帧在线上的时间</td></tr>
+        <tr><td>偏移补偿</td><td>启动时一次</td><td>写 0x0920</td><td>各本地时钟的起点不同</td></tr>
+        <tr><td>漂移补偿</td><td>启动时一批 + 之后每周期</td><td>ARMW/FRMW 0x0910，ESC 内部控制环</td><td>各晶振快慢不同</td></tr>
+        <tr><td>SYNC0</td><td>配置一次，之后硬件自动</td><td>0x0990 起始、0x09A0 周期、0x0981 激活</td><td>应用在同一时刻采样 / 输出</td></tr>
+      </table>
+    </div>
+    <p>第一台支持 DC 的从站通常被选作参考时钟。主站自己的时钟与参考时钟之间还有一层关系：要么让参考时钟跟主站（IgH 的 <code>ecrt_master_sync_reference_clock</code> 做法），要么让主站周期跟参考时钟，下一课 u4-l2 细讲。</p>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>扫描时发 BWR 0x0900，读回各端口锁存时间，按拓扑算延时，写 0x0928。</li>
+          <li>用自己的应用时间算出每台从站的偏移，写 0x0920。</li>
+          <li>选参考时钟；每周期发 FRMW/ARMW 0x0910 分发参考时间。</li>
+          <li>配置 0x0990、0x09A0（及 0x09A4），最后写 0x0980/0x0981 激活。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 硬件在帧经过各端口时锁存本地时间。</li>
+          <li>用 0x0920、0x0928 把本地时间换算成系统时间。</li>
+          <li>每收到一次写 0x0910，比较差值、调节本地时钟速度，差值体现在 0x092C。</li>
+          <li>系统时间到达启动时间后按周期产生 SYNC0/SYNC1 脉冲，固件在 SYNC0 中断里跑控制周期。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <pre><code>ethercat slaves -v -p1
+ethercat reg_read -p1 0x0928 4
+ethercat reg_read -p1 0x092C 4
+ethercat reg_read -p1 0x09A0 4</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>slaves -v: Distributed clocks</td><td>yes, 64 bit</td><td>该从站 ESC 支持 DC；no 则不能用 DC 同步</td></tr>
+        <tr><td>slaves -v: DC system time transmission delay</td><td>参考时钟为 0 ns，往后逐台增加</td><td>就是写进 0x0928 的值</td></tr>
+        <tr><td>slaves -v: 端口表 RxTime / Diff</td><td>有链路的端口有数值</td><td>来自 0x0900 起的端口接收时间锁存</td></tr>
+        <tr><td>0x0928</td><td>与上面的 transmission delay 一致</td><td>小端字节序显示，自己拼成 32 位</td></tr>
+        <tr><td>0x092C</td><td>低 31 位很小（几十 ns 内）且稳定</td><td>bit 31 是符号；持续变大说明漂移补偿没在跑</td></tr>
+        <tr><td>0x09A0</td><td>等于应用配置的 SYNC0 周期（ns）</td><td>如 1 ms 为 1 000 000 = 0x000F4240</td></tr>
+      </table>
+    </div>
+    <p>0x092C 的"很小"是多小因芯片、拓扑和主站抖动而异，建议先记下自己系统稳定运行时的量级作为基线。</p>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "主站怎样让所有从站同时锁存端口接收时间？", "options": ["逐台 FPRD 读 0x0910", "发一个写 <code>0x0900</code> 的广播（BWR），帧经过各端口时硬件锁存", "写 0x0120 进入 SAFEOP", "读 0x092C"], "answer": 1, "explain": "对 0x0900 的写访问会让 ESC 锁存帧到达每个端口时的本地时间；用 BWR 一帧就让全部从站在同一帧上锁存。"},
+  {"q": "从站 1 的端口环路时间是 1000 ns，从站 2 是 560 ns（简化模型，忽略转发时间）。两站之间单程延时约为？", "options": ["1560 ns", "440 ns", "220 ns", "780 ns"], "answer": 2, "explain": "差值 440 ns 是从站 1 与从站 2 之间那段线的往返时间，单程取一半即 220 ns。"},
+  {"q": "0x0920 系统时间偏移写好之后，为什么还要每周期读写 0x0910？", "options": ["因为 0x0920 每周期会被清零", "因为各 ESC 晶振频率略有差异，时间会慢慢漂开，需要持续漂移补偿", "为了触发端口时间锁存", "为了让从站进入 OP"], "answer": 1, "explain": "偏移只对齐起点；晶振有 ppm 级误差，必须周期性把参考时钟的系统时间分发下去，由 ESC 内部控制环修正快慢。"},
+  {"q": "让从站按 1 ms 产生 SYNC0，至少涉及哪组寄存器？", "options": ["<code>0x0990</code> 启动时间、<code>0x09A0</code> 周期、<code>0x0980/0x0981</code> 激活", "0x0928、0x092C", "0x0120、0x0130", "0x0800 起的 SM 寄存器"], "answer": 0, "explain": "启动时间决定第一个脉冲的系统时间，周期寄存器决定间隔，周期单元激活位打开 SYNC0 输出；IgH 通过 ecrt_slave_config_dc 帮你写这些。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>DC 就是主站把自己的时间广播给所有从站。<br><strong>实际上：</strong>基准是参考时钟（一台从站的 ESC），主站只是周期性地搬运它的 0x0910；主站时间与参考时钟之间是另一层关系。</li>
+      <li><strong>误区：</strong>偏移写对了就一劳永逸。<br><strong>实际上：</strong>不做周期漂移补偿，各从站的系统时间会以 ppm 级速度分开，SYNC0 逐渐错位。</li>
+      <li><strong>误区：</strong>支持 DC 的从站自动就用 DC 同步。<br><strong>实际上：</strong>ESC 支持 DC 只是硬件能力；要主站配 0x0990/0x09A0 并激活，驱动器也要选 DC 同步模式（0x1C32），见 u4-l2。</li>
+    </ul>
+    <p>关联：u4-l2 讲驱动器如何选同步模式、主站周期如何对准 SYNC0；u6-l2 讲从站固件在 SYNC0 中断里做什么。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var S = ['u41-s1', 'u41-s2', 'u41-s3'];
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '每台 ESC 有本地时钟', text: '三台从站的 0x0910 各自从上电开始计数，读数互不相同，也各自以略有差异的速度走。', apply: function () {} },
+    { title: 'BWR 0x0900 触发锁存', text: '主站广播写 0x0900，帧去程经过端口 0、回程经过端口 1，每台 ESC 各锁存一次本地时间。',
+      apply: function (svg) { Academy.fx(svg).show(['u41-bwr', 'u41-lat1', 'u41-lat2', 'u41-lat3']).flow(['u41-c0', 'u41-c1', 'u41-c2']); } },
+    { title: '主站读锁存值算延时', text: '主站读回各端口时间，用相邻从站环路时间之差的一半算出每段线的单程延时。',
+      apply: function (svg) { Academy.fx(svg).hide('u41-bwr').flow(['u41-c0', 'u41-c1', 'u41-c2'], false).show('u41-calc').text('u41-mtext', '延时：0 / 220 / 500'); } },
+    { title: '写 0x0928 传播延时', text: '主站把参考时钟到每台从站的累计延时写进各自的 0x0928。',
+      apply: function (svg) { Academy.fx(svg).hide('u41-calc').show(['u41-dly1', 'u41-dly2', 'u41-dly3']); } },
+    { title: '写 0x0920 系统时间偏移', text: '主站为每台从站写偏移，本地时间加偏移后，三台读到同一个系统时间。',
+      apply: function (svg) {
+        Academy.fx(svg).text('u41-clk1', '0x0910 系统 1000.000 ms').text('u41-clk2', '0x0910 系统 1000.000 ms')
+          .text('u41-clk3', '0x0910 系统 1000.000 ms').text('u41-mtext', '0x0920 已写').cls(['u41-clk1', 'u41-clk2', 'u41-clk3'], 't-bus');
+      } },
+    { title: '周期 FRMW 0x0910 补偿漂移', text: '每周期一帧读参考时钟 0x0910 再写给其余从站，各 ESC 比较差值微调快慢，0x092C 保持很小。',
+      apply: function (svg) { Academy.fx(svg).show(['u41-frmw', 'u41-dif1', 'u41-dif2', 'u41-dif3']).flow(['u41-c0', 'u41-c1', 'u41-c2']).text('u41-mtext', '每周期分发参考时间'); } },
+    { title: '写 0x0990、0x09A0 并激活', text: '主站写 SYNC0 启动时间 0x0990 与周期 0x09A0，再写 0x0980/0x0981 激活周期单元和 SYNC0。',
+      apply: function (svg) { Academy.fx(svg).show(['u41-cfg1', 'u41-cfg2', 'u41-cfg3']).text('u41-mtext2', '0x0990 = T0'); } },
+    { title: 'SYNC0 在同一系统时间脉冲', text: '系统时间到达 T0 后，三台从站每 1 ms 在同一时刻产生 SYNC0，各站之间的偏差通常远小于 1 µs。',
+      apply: function (svg) { Academy.fx(svg).show('u41-tl').hot(S); } }
+  ]);
+  Academy.init('u4-l1');
+})();
+</script>
+</body>
+</html>

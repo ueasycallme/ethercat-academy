@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FMMU 与逻辑地址空间 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .u23-map line { stroke: var(--mail); stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u2-l3">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">FMMU 与逻辑地址空间</h1>
+    <p class="lesson-lede">三台从站的过程数据散落在各自芯片的 0x1100、0x1180……主站却只发一条 LRW 就全部读写完。秘密是 FMMU：每台从站把自己的一段物理内存"挂"到主站规划的一条连续逻辑地址上。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>解释 FMMU 如何把一段逻辑地址映射到从站的物理地址（SM 缓冲）。</li>
+          <li>解释为什么一条 LRW 数据报能服务全部从站，并算出域的 WKC 期望值。</li>
+          <li>读懂域的过程映像布局，能用 <code>ethercat domains -v</code> 对上每一段。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 540" role="img" aria-label="左侧主站与域数组，中间逻辑地址条，右侧三台从站的 SM2 与 SM3；虚线表示 FMMU 映射，一帧 LRW 依次经过三台从站">
+        <!-- 网线：主站顶部 → 右侧竖线 → 三台从站 -->
+        <path id="u23-cable" class="wire-bus" d="M250 36 H600 V425"/>
+        <line class="wire-bus" x1="600" y1="130" x2="640" y2="130"/>
+        <line class="wire-bus" x1="600" y1="275" x2="640" y2="275"/>
+        <line class="wire-bus" x1="600" y1="420" x2="640" y2="420"/>
+
+        <!-- 主站 -->
+        <rect class="box-bus" x="20" y="20" width="230" height="500" rx="8"/>
+        <text class="t-title" x="36" y="50">主站</text>
+        <g id="u23-dom" class="is-hidden">
+          <text class="t-small t-mono" x="60" y="80">domain_data[ ]</text>
+          <rect class="box-bus" x="60" y="90" width="170" height="60" rx="3"/>
+          <text class="t-small t-mid t-mono" x="145" y="125">+0 从站1 输出</text>
+          <rect class="box-drive" x="60" y="156" width="170" height="60" rx="3"/>
+          <text class="t-small t-mid t-mono" x="145" y="191">+6 从站1 输入</text>
+          <rect class="box-bus" x="60" y="222" width="170" height="60" rx="3"/>
+          <text class="t-small t-mid t-mono" x="145" y="257">+12 从站2 输出</text>
+          <rect class="box-drive" x="60" y="288" width="170" height="60" rx="3"/>
+          <text class="t-small t-mid t-mono" x="145" y="323">+18 从站2 输入</text>
+          <rect class="box-bus" x="60" y="354" width="170" height="60" rx="3"/>
+          <text class="t-small t-mid t-mono" x="145" y="389">+24 从站3 输出</text>
+          <rect class="box-drive" x="60" y="420" width="170" height="60" rx="3"/>
+          <text class="t-small t-mid t-mono" x="145" y="455">+30 从站3 输入</text>
+          <text class="t-small t-muted" x="36" y="506">偏移 = 逻辑地址 − 域基址</text>
+          <line class="wire" x1="230" y1="120" x2="330" y2="120"/>
+          <line class="wire" x1="230" y1="450" x2="330" y2="450"/>
+        </g>
+
+        <!-- 逻辑地址条 -->
+        <g id="u23-log" class="is-hidden">
+          <text class="t-small t-bold" x="330" y="80">逻辑地址（主站规划）</text>
+          <rect id="u23-s0" class="box-bus" x="330" y="90" width="140" height="60" rx="3"/>
+          <text class="t-small t-mid" x="400" y="115">从站1 输出 6 B</text>
+          <text class="t-small t-mid t-mono" x="400" y="136">0x00–0x05</text>
+          <rect id="u23-s1" class="box-drive" x="330" y="156" width="140" height="60" rx="3"/>
+          <text class="t-small t-mid" x="400" y="181">从站1 输入 6 B</text>
+          <text class="t-small t-mid t-mono" x="400" y="202">0x06–0x0B</text>
+          <rect id="u23-s2" class="box-bus" x="330" y="222" width="140" height="60" rx="3"/>
+          <text class="t-small t-mid" x="400" y="247">从站2 输出 6 B</text>
+          <text class="t-small t-mid t-mono" x="400" y="268">0x0C–0x11</text>
+          <rect id="u23-s3" class="box-drive" x="330" y="288" width="140" height="60" rx="3"/>
+          <text class="t-small t-mid" x="400" y="313">从站2 输入 6 B</text>
+          <text class="t-small t-mid t-mono" x="400" y="334">0x12–0x17</text>
+          <rect id="u23-s4" class="box-bus" x="330" y="354" width="140" height="60" rx="3"/>
+          <text class="t-small t-mid" x="400" y="379">从站3 输出 6 B</text>
+          <text class="t-small t-mid t-mono" x="400" y="400">0x18–0x1D</text>
+          <rect id="u23-s5" class="box-drive" x="330" y="420" width="140" height="60" rx="3"/>
+          <text class="t-small t-mid" x="400" y="445">从站3 输入 6 B</text>
+          <text class="t-small t-mid t-mono" x="400" y="466">0x1E–0x23</text>
+          <text class="t-small t-muted" x="330" y="506">共 36 字节，基址 0x00000000</text>
+        </g>
+
+        <!-- FMMU 映射线 -->
+        <g id="u23-map1" class="u23-map is-hidden">
+          <line x1="470" y1="120" x2="700" y2="120"/>
+          <line x1="470" y1="186" x2="700" y2="164"/>
+          <text class="t-small t-mail" x="926" y="92" text-anchor="end">FMMU0 写 · FMMU1 读</text>
+        </g>
+        <g id="u23-map2" class="u23-map is-hidden">
+          <line x1="470" y1="252" x2="700" y2="265"/>
+          <line x1="470" y1="318" x2="700" y2="309"/>
+          <text class="t-small t-mail" x="926" y="237" text-anchor="end">FMMU0 写 · FMMU1 读</text>
+        </g>
+        <g id="u23-map3" class="u23-map is-hidden">
+          <line x1="470" y1="384" x2="700" y2="410"/>
+          <line x1="470" y1="450" x2="700" y2="454"/>
+          <text class="t-small t-mail" x="926" y="382" text-anchor="end">FMMU0 写 · FMMU1 读</text>
+        </g>
+
+        <!-- 从站 -->
+        <g>
+          <rect id="u23-sl1" class="box" x="640" y="70" width="300" height="125" rx="8"/>
+          <text class="t-bold" x="654" y="92">从站 1</text>
+          <rect id="u23-sm2-1" class="box-bus" x="700" y="102" width="226" height="36" rx="4"/>
+          <text class="t-small" x="712" y="125">SM2 输出 · 物理 0x1100 · 6 B</text>
+          <rect id="u23-sm3-1" class="box-drive" x="700" y="146" width="226" height="36" rx="4"/>
+          <text class="t-small" x="712" y="169">SM3 输入 · 物理 0x1180 · 6 B</text>
+        </g>
+        <g>
+          <rect id="u23-sl2" class="box" x="640" y="215" width="300" height="125" rx="8"/>
+          <text class="t-bold" x="654" y="237">从站 2</text>
+          <rect class="box-bus" x="700" y="247" width="226" height="36" rx="4"/>
+          <text class="t-small" x="712" y="270">SM2 输出 · 物理 0x1100 · 6 B</text>
+          <rect class="box-drive" x="700" y="291" width="226" height="36" rx="4"/>
+          <text class="t-small" x="712" y="314">SM3 输入 · 物理 0x1180 · 6 B</text>
+        </g>
+        <g>
+          <rect id="u23-sl3" class="box" x="640" y="360" width="300" height="125" rx="8"/>
+          <text class="t-bold" x="654" y="382">从站 3</text>
+          <rect class="box-bus" x="700" y="392" width="226" height="36" rx="4"/>
+          <text class="t-small" x="712" y="415">SM2 输出 · 物理 0x1100 · 6 B</text>
+          <rect class="box-drive" x="700" y="436" width="226" height="36" rx="4"/>
+          <text class="t-small" x="712" y="459">SM3 输入 · 物理 0x1180 · 6 B</text>
+        </g>
+
+        <!-- LRW 帧 -->
+        <g id="u23-frame" class="is-hidden">
+          <rect class="fill-bus" x="262" y="18" width="150" height="32" rx="5"/>
+          <text id="u23-frame-t" class="t-small t-mid t-onfill t-mono" x="337" y="39">LRW 0x00 · 36 B</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>FMMU 寄存器：每个 16 字节</h3>
+    <p>FMMU n 在 <code>0x0600 + 16×n</code>。它说的是一句话："逻辑地址 X 起的 L 字节，对应我本地物理地址 Y 起的内存，允许读或写"。下表右两列是动画里从站 1 的实际配置。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>偏移</th><th>宽度</th><th>字段</th><th>FMMU0（输出）</th><th>FMMU1（输入）</th></tr>
+        <tr><td>+0x0</td><td>4</td><td>逻辑起始地址</td><td><code>0x00000000</code></td><td><code>0x00000006</code></td></tr>
+        <tr><td>+0x4</td><td>2</td><td>长度（字节）</td><td>6</td><td>6</td></tr>
+        <tr><td>+0x6</td><td>1</td><td>逻辑起始位（bit2–0）</td><td>0</td><td>0</td></tr>
+        <tr><td>+0x7</td><td>1</td><td>逻辑结束位（bit2–0）</td><td>7</td><td>7</td></tr>
+        <tr><td>+0x8</td><td>2</td><td>物理起始地址</td><td><code>0x1100</code>（SM2）</td><td><code>0x1180</code>（SM3）</td></tr>
+        <tr><td>+0xA</td><td>1</td><td>物理起始位（bit2–0）</td><td>0</td><td>0</td></tr>
+        <tr><td>+0xB</td><td>1</td><td>类型：bit0 读映射，bit1 写映射</td><td><code>0x02</code> 写</td><td><code>0x01</code> 读</td></tr>
+        <tr><td>+0xC</td><td>1</td><td>激活：bit0</td><td>1</td><td>1</td></tr>
+        <tr><td>+0xD</td><td>3</td><td>保留</td><td>0</td><td>0</td></tr>
+      </table>
+    </div>
+    <p>物理地址 0x1100/0x1180 只是示例，实际值由该从站的 SM 配置决定（见 <code>ethercat pdos</code>）。"读""写"都是主站视角：写映射把帧里的数据写进从站，读映射把从站数据放进帧。</p>
+
+    <h3>一帧服务全部从站，WKC 怎么算</h3>
+    <p>LRW 数据报携带整段逻辑地址 0x00–0x23。每台 ESC 在帧流过时把自己 FMMU 窗口和数据报的地址范围求交集，交集内的字节即时读写，其余原样转发。每台从站按命中情况给 WKC 加数，主站拿回来和期望值比。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>命令</th><th>该从站命中情况</th><th>WKC 增量</th></tr>
+        <tr><td><code>LRD</code></td><td>读命中</td><td>+1</td></tr>
+        <tr><td><code>LWR</code></td><td>写命中</td><td>+1</td></tr>
+        <tr><td><code>LRW</code></td><td>只读命中 / 只写命中 / 读写都命中</td><td>+1 / +2 / +3</td></tr>
+        <tr><td colspan="2">本动画：3 台从站 × 读写都命中</td><td>期望 9</td></tr>
+      </table>
+    </div>
+    <p>差值能直接指向问题：比期望少 2 通常是某台的输出没被接收，少 1 是某台的输入，少 3 是整台没参与。IgH 在一个域同时含输入和输出时用 LRW，只有一个方向时用 LRD 或 LWR。</p>
+
+    <h3>位级映射</h3>
+    <p>起始位和结束位让 FMMU 能按"位"而不是按"字节"映射。这样多台只有几个位的数字 I/O 从站可以挤进同一个逻辑字节，节省帧长；伺服驱动器一般整字节映射，起始位 0、结束位 7。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 190" role="img" aria-label="位级映射示例：从站 A 的 2 位输入和从站 B 的 4 位输入映射到同一个逻辑字节的不同位">
+        <text class="t-bold" x="20" y="26">逻辑字节 0x00000010（示例）</text>
+        <g>
+          <rect class="box-muted" x="440" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="470" y="65">b7</text>
+          <rect class="box-muted" x="500" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="530" y="65">b6</text>
+          <rect class="box-bus" x="560" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="590" y="65">b5</text>
+          <rect class="box-bus" x="620" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="650" y="65">b4</text>
+          <rect class="box-bus" x="680" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="710" y="65">b3</text>
+          <rect class="box-bus" x="740" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="770" y="65">b2</text>
+          <rect class="box-mail" x="800" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="830" y="65">b1</text>
+          <rect class="box-mail" x="860" y="40" width="60" height="40"/><text class="t-small t-mid t-mono" x="890" y="65">b0</text>
+        </g>
+        <text class="t-small t-muted" x="20" y="66">高位在左</text>
+        <rect class="box-mail" x="20" y="110" width="400" height="30" rx="4"/>
+        <text class="t-small" x="32" y="130">从站 A：2 位输入 → 逻辑起始位 0，结束位 1</text>
+        <rect class="box-bus" x="440" y="110" width="400" height="30" rx="4"/>
+        <text class="t-small" x="452" y="130">从站 B：4 位输入 → 逻辑起始位 2，结束位 5</text>
+        <line class="stroke-mail sw-2" x1="860" y1="80" x2="420" y2="120"/>
+        <line class="stroke-bus sw-2" x1="680" y1="80" x2="640" y2="110"/>
+        <text class="t-small t-muted" x="20" y="172">b6–b7 空闲，可再给别的从站。是否支持位级映射、FMMU 有几个，查 0x0004 和芯片手册。</text>
+      </svg>
+      </div>
+      <figcaption>起始位/结束位是逻辑侧的位号；物理起始位指明从从站内存的哪一位开始取。</figcaption>
+    </figure>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>按每台从站的 PDO 映射算出 SM2/SM3 长度。</li>
+          <li>为每个域规划一段连续逻辑地址；IgH 的第一个域从 0x00000000 开始，排布顺序跟程序注册 PDO 条目的顺序走。</li>
+          <li>PREOP→SAFEOP 前 FPWR 写每台的 FMMU 寄存器（0x0600 起）。</li>
+          <li>每周期把域数组整段装进 LRW，发出，收回，把读回的字节拷回域数组，比较 WKC。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 硬件在帧流过时比较逻辑地址与 FMMU 窗口，命中的字节即时读写，帧不停留。</li>
+          <li>写命中的字节进入 SM2 缓冲；读命中的字节从 SM3 缓冲取出放进帧。</li>
+          <li>按命中情况累加 WKC。</li>
+          <li>固件只看物理地址（SM 缓冲），完全不知道逻辑地址是多少。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <pre><code>ethercat domains -v              # 每个域的基址、大小、WKC 及每段映射
+ethercat reg_read -p0 0x0600 16  # 第 0 台从站的 FMMU0
+ethercat reg_read -p0 0x0610 16  # 第 0 台从站的 FMMU1</code></pre>
+    <p>下表按动画里的 3 台从站、每台 6 B 输出 + 6 B 输入给出；输出格式在 IgH 1.5 与 1.6 之间略有差异。</p>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>Domain0 行</td><td>LogBaseAddr 0x00000000, Size 36, WorkingCounter 9/9</td><td>WKC 前一个数是最近一次实际值，后一个是期望值</td></tr>
+        <tr><td>SlaveConfig 0:0 SM2</td><td>Output, LogAddr 0x00000000, Size 6</td><td>对应 FMMU0 的逻辑起始与长度</td></tr>
+        <tr><td>SlaveConfig 0:0 SM3</td><td>Input, LogAddr 0x00000006, Size 6</td><td>对应 FMMU1</td></tr>
+        <tr><td>SlaveConfig 0:1 SM2</td><td>Output, LogAddr 0x0000000C, Size 6</td><td>第二台从站接着排</td></tr>
+        <tr><td>0x0600 16 字节</td><td><code>00 00 00 00 06 00 00 07 00 11 00 02 01 00 00 00</code></td><td>逻辑 0、长 6、结束位 7、物理 0x1100、写、激活（物理地址因从站而异）</td></tr>
+        <tr><td>0x0610 第 11 字节</td><td><code>0x01</code></td><td>输入 FMMU 为读映射</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "FMMU 类型字节（偏移 +0xB）为 0x02，它用于什么？", "options": ["输入：从站数据放进帧，主站读", "输出：帧里的数据写进从站物理内存", "邮箱：映射 SM0", "只做位级映射"], "answer": 1, "explain": "bit1 = 写映射，是主站视角的写，即输出方向。输入用 0x01（读映射）。IgH 正是按方向写 0x01 或 0x02。"},
+  {"q": "3 台从站，每台都有输入和输出，放在同一个 LRW 域里，WKC 期望值是多少？", "options": ["3", "6", "9", "12"], "answer": 2, "explain": "LRW 下每台从站读命中 +1、写命中 +2，读写都命中 +3，3 × 3 = 9。"},
+  {"q": "从站 2 的 FMMU 窗口是逻辑 0x0C–0x17，LRW 数据报覆盖 0x00–0x23。帧经过从站 2 时，0x00–0x0B 这 12 字节会怎样？", "options": ["从站 2 原样转发，不读也不写", "从站 2 把它们清零", "从站 2 把它们拷进自己的 SM2", "帧在从站 2 停下，等从站 1 的数据处理完"], "answer": 0, "explain": "ESC 只处理与自己 FMMU 窗口相交的字节，其余一概原样转发。帧是飞行中处理的，不会停下。"},
+  {"q": "域 WKC 期望 9，实际读到 7，最可能的原因是？", "options": ["某台从站的输入没有命中", "某台从站的输出没有被接收", "整台从站掉线", "帧丢失"], "answer": 1, "explain": "LRW 写命中贡献 2，差 2 正对应一台从站的输出没被接收（例如该从站还没进 OP、输出 SM 未启用）。差 1 是输入，差 3 是整台；帧丢失时 WKC 根本收不回来。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>逻辑地址是某台从站里的内存地址。<br><strong>实际上：</strong>逻辑地址是主站自己规划的 32 位编号空间，只存在于 LRW/LRD/LWR 数据报和各从站的 FMMU 配置里，任何从站的 RAM 里都没有"0x00000006"这个地址。</li>
+      <li><strong>误区：</strong>一台从站只需要一个 FMMU。<br><strong>实际上：</strong>通常每个过程数据方向各用一个（输出一个、输入一个），位级映射还可能更多；FMMU 数量有限，看 0x0004。</li>
+      <li><strong>误区：</strong>帧在每台从站停下来拷贝数据再发走。<br><strong>实际上：</strong>ESC 在帧流过时逐字节读写，只增加很小的固定延迟，这也是一帧能服务几十台从站的原因。</li>
+    </ul>
+    <p>关联：SM2/SM3 里那 6 个字节具体放哪几个对象（6040、607A、6041、6064），由 PDO 映射决定，见 u3-l3；WKC 规则的来源见 u1-l3。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var F = function (svg) { return Academy.fx(svg); };
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '各自的物理内存', text: '三台从站的输出都在各自芯片的 SM2（0x1100），输入在 SM3（0x1180），地址互相重复，没法用一个地址同时指向它们。', apply: function () {} },
+    { title: '主站规划逻辑地址', text: '主站在 32 位逻辑地址空间里划出连续 36 字节，每台从站的输出、输入各占 6 字节。', apply: function (svg) { F(svg).show('u23-log'); } },
+    { title: '配置从站 1 的 FMMU', text: '主站写从站 1 的 FMMU0（逻辑 0x00 起 6 B → 物理 0x1100，写）和 FMMU1（逻辑 0x06 起 → 0x1180，读）。', apply: function (svg) { F(svg).show('u23-map1'); } },
+    { title: '配置从站 2、3', text: '同样的办法，从站 2 挂到 0x0C–0x17，从站 3 挂到 0x18–0x23。', apply: function (svg) { F(svg).show(['u23-map2', 'u23-map3']); } },
+    { title: 'LRW 帧出发', text: '主站把 36 字节装进一条 LRW 数据报，地址 0x00000000，长度 36，WKC = 0。', apply: function (svg) { F(svg).show('u23-frame'); } },
+    { title: '经过从站 1', text: '从站 1 只处理 0x00–0x0B：把输出写进 SM2，把输入从 SM3 放进帧，WKC +3；其余字节原样转发。', apply: function (svg) { F(svg).move('u23-frame', 224, 97).hot(['u23-s0', 'u23-s1', 'u23-sm2-1', 'u23-sm3-1']); } },
+    { title: '经过全部并返回', text: '从站 2、3 同样处理自己的片段，帧回到主站，WKC 累加到 9，与期望值相等。', apply: function (svg) { F(svg).cool(['u23-s0', 'u23-s1', 'u23-sm2-1', 'u23-sm3-1']).move('u23-frame', 0, 0).text('u23-frame-t', '返回 · WKC = 9/9'); } },
+    { title: '域数组与逻辑地址一一对应', text: '主站进程里的 domain_data 就是这 36 字节的镜像：偏移 = 逻辑地址 − 域基址，程序按偏移读写即可。', apply: function (svg) { F(svg).show('u23-dom'); } }
+  ]);
+  Academy.init('u2-l3');
+})();
+</script>
+</body>
+</html>

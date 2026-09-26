@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>课名 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<!--
+  课页模板。复制为 uX-lY.html 后：
+  1. 改 <title>、data-lesson、.lesson-title、.lesson-lede、Academy.init('uX-lY')。
+  2. 七个 <section> 的 class 和顺序不能改：lesson-locate → lesson-anim → lesson-mech → lesson-duo → lesson-verify → lesson-quiz → lesson-next。
+  3. 页面私有样式写在本页 <style> 里，并以 .lesson 或本页 id 为前缀；不要改 assets/。
+  4. 只能用内联 <script>，不能引入外部脚本。
+  5. SVG 颜色只用 CSS 变量或 site.css 里的工具类（box-bus、fill-drive、t-muted……），文字 ≥12px。
+-->
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="uX-lY">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">课名</h1>
+    <p class="lesson-lede">一句话说清本课解决什么问题。</p>
+  </header>
+
+  <!-- 01 定位：总图缩略图由 init 按 curriculum.js 的 highlight 自动渲染；如需覆盖，在 [data-overview] 上写 data-highlight="esc slave-stack" -->
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>目标一</li>
+          <li>目标二</li>
+          <li>目标三</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 主动画：一个 SVG + 步进器；步进器控件由 Academy.stepper 渲染到 .stepper -->
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 360" role="img" aria-label="主动画：描述这张图演示什么">
+        <!-- 主站侧在左，从站侧在右，网线在中间 -->
+        <g id="master">
+          <rect class="box-bus" x="40" y="140" width="200" height="80" rx="8"/>
+          <text class="t-title t-mid" x="140" y="186">主站</text>
+        </g>
+        <line id="cable" class="wire-bus" x1="240" y1="180" x2="720" y2="180"/>
+        <g id="slave">
+          <rect class="box-drive" x="720" y="140" width="200" height="80" rx="8"/>
+          <text class="t-title t-mid" x="820" y="186">从站</text>
+        </g>
+        <g id="frame" class="is-hidden">
+          <rect class="fill-bus" x="250" y="160" width="70" height="40" rx="5"/>
+          <text class="t-small t-onfill t-mid t-mono" x="285" y="185">帧</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <!-- 03 机制拆解：2–4 个 h3，每节一图或一表，段落 ≤3 句 -->
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+    <h3>小节一</h3>
+    <p>不超过三句话。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>字段</th><th>含义</th></tr>
+        <tr><td><code>0x0000</code></td><td>示例</td></tr>
+      </table>
+    </div>
+    <h3>小节二</h3>
+    <figure>
+      <svg viewBox="0 0 960 160" role="img" aria-label="小节二的示意图">
+        <rect class="box" x="20" y="20" width="920" height="120" rx="8"/>
+        <text class="t-muted" x="40" y="86">示意图</text>
+      </svg>
+      <figcaption>图注。</figcaption>
+    </figure>
+  </section>
+
+  <!-- 04 主从对照：左主站右从站 -->
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul><li>……</li></ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul><li>……</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 在真机上看：命令用代码块，期望值用表 -->
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <pre><code>ethercat slaves</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>0x0130</td><td>0x0008</td><td>OP</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 06 自测：4 题，JSON 字段 q、options[]、answer（从 0 开始的序号）、explain；允许内联 <code> -->
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "题目一", "options": ["选项 A", "选项 B", "选项 C"], "answer": 0, "explain": "解释。"},
+  {"q": "题目二", "options": ["选项 A", "选项 B", "选项 C"], "answer": 1, "explain": "解释。"},
+  {"q": "题目三", "options": ["选项 A", "选项 B", "选项 C"], "answer": 2, "explain": "解释。"},
+  {"q": "题目四", "options": ["选项 A", "选项 B", "选项 C"], "answer": 0, "explain": "解释。"}
+]
+    </script>
+  </section>
+
+  <!-- 07 误区与关联：2–3 条误区；下一课卡片由 init 渲染到 [data-auto-next] -->
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>……<br><strong>实际上：</strong>……</li>
+      <li><strong>误区：</strong>……<br><strong>实际上：</strong>……</li>
+    </ul>
+    <p>关联：……</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  // 主动画：steps[0] 为初始画面；apply 只做增量修改，且只能通过参数 svg 查元素
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '一句话说明这一步。', apply: function () {} },
+    { title: '帧出现', text: '主站生成一帧。', apply: function (svg) { Academy.fx(svg).show('frame'); } },
+    { title: '帧上线', text: '帧开始沿网线走。', apply: function (svg) { Academy.fx(svg).flow('cable'); } },
+    { title: '帧走到一半', text: '帧沿网线向从站移动。', apply: function (svg) { Academy.fx(svg).move('frame', 180, 0); } },
+    { title: '帧到从站', text: '帧到达从站。', apply: function (svg) { Academy.fx(svg).move('frame', 390, 0); } },
+    { title: '从站处理', text: '从站高亮，表示正在处理。', apply: function (svg) { Academy.fx(svg).hot('slave'); } }
+  ]);
+  Academy.init('uX-lY');
+})();
+</script>
+</body>
+</html>

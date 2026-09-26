@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>同步管理器 SM：邮箱与三缓冲 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u2-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">同步管理器 SM：邮箱模式与三缓冲</h1>
+    <p class="lesson-lede">主站和从站固件同时读写同一块 RAM，谁也不能等谁。SM 用两种办法解决：邮箱模式靠满/空标志一问一答，缓冲模式靠三块缓冲轮转让双方永远拿到完整的最新数据。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>解释邮箱模式的满/空握手，以及为什么写满的邮箱不会被覆盖。</li>
+          <li>解释三缓冲模式为什么让主站和固件都不用加锁、不用等待。</li>
+          <li>解释过程数据看门狗怎么被触发，过期后从站为什么报 AL 状态码 0x001B。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 500" role="img" aria-label="左侧主站，中间 ESC 内的 SM0、SM1 邮箱和 SM2 三缓冲及看门狗，右侧从站固件；演示邮箱握手、三缓冲轮转和看门狗过期">
+        <!-- 主站 -->
+        <g id="u22-master">
+          <rect class="box-bus" x="20" y="60" width="170" height="420" rx="8"/>
+          <text class="t-title t-mid" x="105" y="90">主站</text>
+          <g id="u22-m-req">
+            <rect class="box-mail" x="36" y="102" width="138" height="30" rx="4"/>
+            <text class="t-small t-mid" x="105" y="122">待发：SDO 请求</text>
+          </g>
+          <g id="u22-m-resp" class="is-hidden">
+            <rect class="box-mail" x="36" y="172" width="138" height="30" rx="4"/>
+            <text class="t-small t-mid" x="105" y="192">收到：SDO 应答</text>
+          </g>
+          <text id="u22-m-out" class="t-small t-mid" x="105" y="300">每周期写输出</text>
+        </g>
+        <!-- 网线（三路访问示意） -->
+        <line id="u22-w0" class="wire-bus" x1="190" y1="100" x2="320" y2="100"/>
+        <line id="u22-w1" class="wire-bus" x1="190" y1="175" x2="320" y2="175"/>
+        <line id="u22-w2" class="wire-bus" x1="190" y1="295" x2="320" y2="295"/>
+        <text class="t-small t-mid t-muted" x="255" y="90">FPWR</text>
+        <text class="t-small t-mid t-muted" x="255" y="165">FPRD</text>
+        <text class="t-small t-mid t-muted" x="255" y="285">LRW</text>
+
+        <!-- ESC -->
+        <rect class="box" x="310" y="40" width="360" height="450" rx="10"/>
+        <text class="t-title" x="326" y="62">ESC</text>
+
+        <rect id="u22-sm0" class="box-mail" x="320" y="70" width="340" height="60" rx="6"/>
+        <text x="334" y="93">SM0 · 邮箱 · 主站→从站</text>
+        <text class="t-small t-mono t-muted" x="334" y="116">0x0800 · 控制 0x26</text>
+        <text id="u22-sm0-flag" class="t-small t-end t-bold" x="648" y="93">状态：空</text>
+        <g id="u22-sm0-data" class="is-hidden">
+          <rect class="fill-mail" x="540" y="102" width="108" height="22" rx="4"/>
+          <text class="t-small t-mid t-onfill" x="594" y="118">SDO 请求</text>
+        </g>
+
+        <rect id="u22-sm1" class="box-mail" x="320" y="145" width="340" height="60" rx="6"/>
+        <text x="334" y="168">SM1 · 邮箱 · 从站→主站</text>
+        <text class="t-small t-mono t-muted" x="334" y="191">0x0808 · 控制 0x22</text>
+        <text id="u22-sm1-flag" class="t-small t-end t-bold" x="648" y="168">状态：空</text>
+        <g id="u22-sm1-data" class="is-hidden">
+          <rect class="fill-mail" x="540" y="177" width="108" height="22" rx="4"/>
+          <text class="t-small t-mid t-onfill" x="594" y="193">SDO 应答</text>
+        </g>
+
+        <rect id="u22-sm2" class="box-bus" x="320" y="220" width="340" height="140" rx="6"/>
+        <text x="334" y="243">SM2 · 输出 · 三缓冲</text>
+        <text class="t-small t-mono t-muted" x="648" y="243" text-anchor="end">0x0810 · 控制 0x64</text>
+        <g>
+          <rect id="u22-bA" class="box" x="334" y="258" width="100" height="62" rx="4"/>
+          <text class="t-mid t-bold" x="384" y="280">缓冲 A</text>
+          <text id="u22-bA-tag" class="t-small t-mid" x="384" y="306">空闲</text>
+          <rect id="u22-bB" class="box" x="440" y="258" width="100" height="62" rx="4"/>
+          <text class="t-mid t-bold" x="490" y="280">缓冲 B</text>
+          <text id="u22-bB-tag" class="t-small t-mid" x="490" y="306">空闲</text>
+          <rect id="u22-bC" class="box" x="546" y="258" width="100" height="62" rx="4"/>
+          <text class="t-mid t-bold" x="596" y="280">缓冲 C</text>
+          <text id="u22-bC-tag" class="t-small t-mid" x="596" y="306">空闲</text>
+        </g>
+        <text class="t-small t-muted" x="334" y="345">双方都只访问起始地址那 6 字节，ESC 暗中换缓冲</text>
+
+        <rect class="box-muted" x="320" y="370" width="340" height="36" rx="6"/>
+        <text x="334" y="393">SM3 · 输入 · 三缓冲（方向相反，同理）</text>
+
+        <rect class="box" x="320" y="416" width="340" height="64" rx="6"/>
+        <text x="334" y="436">过程数据看门狗</text>
+        <rect class="fill-panel2" x="334" y="446" width="170" height="14" rx="3"/>
+        <rect id="u22-wd-bar" class="fill-drive" x="334" y="446" width="170" height="14" rx="3"/>
+        <text id="u22-wd-text" class="t-small t-mono" x="514" y="458">0x0440.0 = 1</text>
+        <text class="t-small t-muted" x="334" y="476">每次写 SM2 都重新装满计时</text>
+
+        <!-- PDI 连线 -->
+        <line class="wire" x1="660" y1="100" x2="720" y2="100"/>
+        <line class="wire" x1="660" y1="175" x2="720" y2="175"/>
+        <line class="wire" x1="660" y1="295" x2="720" y2="295"/>
+        <text class="t-small t-mid t-muted" x="690" y="90">PDI</text>
+
+        <!-- 从站固件 -->
+        <rect id="u22-fw" class="box-drive" x="720" y="60" width="220" height="420" rx="8"/>
+        <text class="t-title t-mid" x="830" y="90">从站固件</text>
+        <g id="u22-fw-req" class="is-hidden">
+          <rect class="box-mail" x="736" y="102" width="188" height="30" rx="4"/>
+          <text class="t-small t-mid" x="830" y="122">收到请求，处理中</text>
+        </g>
+        <g id="u22-fw-resp" class="is-hidden">
+          <rect class="box-mail" x="736" y="160" width="188" height="30" rx="4"/>
+          <text class="t-small t-mid" x="830" y="180">应答已写入 SM1</text>
+        </g>
+        <text id="u22-fw-out" class="t-small t-mid" x="830" y="300">读到输出：—</text>
+        <rect id="u22-fw-al-r" class="box" x="736" y="410" width="188" height="54" rx="6"/>
+        <text id="u22-fw-al" class="t-small t-mid t-mono" x="830" y="432">0x0130 = 0x0008 OP</text>
+        <text id="u22-fw-code" class="t-small t-mid t-mono" x="830" y="452">0x0134 = 0x0000</text>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>SM 寄存器：每个 8 字节</h3>
+    <p>SM n 的寄存器在 <code>0x0800 + 8×n</code>。主站在进 PREOP 前写好 SM0/SM1，在进 SAFEOP 前写好 SM2/SM3；地址和长度来自 SII 或 ESI。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>偏移</th><th>SM0 地址</th><th>宽度</th><th>含义</th></tr>
+        <tr><td>+0</td><td><code>0x0800</code></td><td>2</td><td>物理起始地址（落在 0x1000 以上的 RAM）</td></tr>
+        <tr><td>+2</td><td><code>0x0802</code></td><td>2</td><td>长度（字节）</td></tr>
+        <tr><td>+4</td><td><code>0x0804</code></td><td>1</td><td>控制字节：模式、方向、中断、看门狗使能</td></tr>
+        <tr><td>+5</td><td><code>0x0805</code></td><td>1</td><td>状态字节：bit3 邮箱满，bit4–5 三缓冲当前状态，其余见芯片手册</td></tr>
+        <tr><td>+6</td><td><code>0x0806</code></td><td>1</td><td>激活：bit0 SM 使能，bit1 重复请求</td></tr>
+        <tr><td>+7</td><td><code>0x0807</code></td><td>1</td><td>PDI 控制：bit0 固件侧停用 SM，bit1 重复确认</td></tr>
+      </table>
+    </div>
+
+    <h3>控制字节：模式位和方向位</h3>
+    <p>bit1–0 选模式：00 缓冲（三缓冲），10 邮箱（单缓冲）。bit3–2 选方向：00 主站读、固件写，01 主站写、固件读。bit5 让事件进 AL Event 请求寄存器（给固件发中断），bit6 让写入去触发过程数据看门狗。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>惯例</th><th>控制字节</th><th>bit1–0 模式</th><th>bit3–2 方向</th><th>bit5 AL 事件</th><th>bit6 看门狗</th><th>用途</th></tr>
+        <tr><td>SM0</td><td><code>0x26</code></td><td>10 邮箱</td><td>01 主站写</td><td>1</td><td>0</td><td>邮箱：主站→从站（ESI 里叫 MBoxOut）</td></tr>
+        <tr><td>SM1</td><td><code>0x22</code></td><td>10 邮箱</td><td>00 主站读</td><td>1</td><td>0</td><td>邮箱：从站→主站（MBoxIn）</td></tr>
+        <tr><td>SM2</td><td><code>0x64</code></td><td>00 缓冲</td><td>01 主站写</td><td>1</td><td>1</td><td>输出过程数据（RxPDO）</td></tr>
+        <tr><td>SM3</td><td><code>0x20</code></td><td>00 缓冲</td><td>00 主站读</td><td>1</td><td>0</td><td>输入过程数据（TxPDO）</td></tr>
+      </table>
+    </div>
+    <p>这四个值是带邮箱从站的惯例，不是强制；以 SII/ESI 为准。没有邮箱的简单 I/O 从站常把 SM0/SM1 直接用作过程数据。</p>
+
+    <h3>邮箱握手与三缓冲的内存占用</h3>
+    <p>邮箱模式：写方写完最后一个字节，SM 变"满"；读方读完最后一个字节，SM 变"空"。满的时候写入被 ESC 丢弃且 WKC 不加，空的时候读取 WKC 也不加，所以主站靠 WKC 就知道要不要重试。三缓冲则占用 3 倍长度的 RAM，双方都只访问第一段地址。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 170" role="img" aria-label="SM2 起始 0x1100 长度 6 字节时，三缓冲实际占用 0x1100 到 0x1111 共 18 字节">
+        <text class="t-bold" x="20" y="28">SM2：起始 0x1100，长度 6 → 物理 RAM 占用 18 字节</text>
+        <rect class="box-bus" x="20" y="44" width="300" height="50" rx="4"/>
+        <text class="t-mid" x="170" y="66">缓冲 1</text>
+        <text class="t-small t-mid t-mono" x="170" y="84">0x1100–0x1105</text>
+        <rect class="box-muted" x="330" y="44" width="300" height="50" rx="4"/>
+        <text class="t-mid" x="480" y="66">缓冲 2</text>
+        <text class="t-small t-mid t-mono" x="480" y="84">0x1106–0x110B</text>
+        <rect class="box-muted" x="640" y="44" width="300" height="50" rx="4"/>
+        <text class="t-mid" x="790" y="66">缓冲 3</text>
+        <text class="t-small t-mid t-mono" x="790" y="84">0x110C–0x1111</text>
+        <text class="t-small t-bus" x="20" y="118">主站 LRW 和固件都只访问 0x1100–0x1105，ESC 把访问重定向到当前该用的那一块。</text>
+        <text class="t-small t-fault" x="20" y="142">后两段不可再分配给别的 SM，否则两边数据互相踩。</text>
+      </svg>
+      </div>
+      <figcaption>三缓冲：一块给写方正在写，一块存最近写完的，一块给读方正在读；写完或读完时 ESC 交换角色。</figcaption>
+    </figure>
+
+    <h3>过程数据看门狗</h3>
+    <p>控制字节 bit6 = 1 的 SM（通常是 SM2）每被写一次，就把过程数据看门狗重新装满。计时单位由分频寄存器决定：单位 = (0x0400 + 2) × 40 ns，默认 2498 对应 100 µs；超时 = 单位 × 0x0420，默认 1000 即 100 ms。过期后 0x0440 bit0 变 0（若用了 ESC 自带的数字输出，ESC 会把它们复位），固件据此退回 SAFEOP 并报 0x001B。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>地址</th><th>名称</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>0x0400</code></td><td>Watchdog Divider</td><td>0x09C2（2498）</td><td>时基 = (值 + 2) × 40 ns</td></tr>
+        <tr><td><code>0x0410</code></td><td>Watchdog Time PDI</td><td>0x03E8</td><td>监视固件侧 PDI 访问，过期反映在 DL Status 0x0110 bit1</td></tr>
+        <tr><td><code>0x0420</code></td><td>Watchdog Time Process Data</td><td>0x03E8</td><td>监视输出 SM 的写入，0 表示关闭</td></tr>
+        <tr><td><code>0x0440</code></td><td>Watchdog Status Process Data</td><td>—</td><td>bit0：1 运行或未启用，0 已过期</td></tr>
+        <tr><td><code>0x0442</code></td><td>Watchdog Counter Process Data</td><td>—</td><td>过期次数计数，清零方式见芯片手册</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>INIT→PREOP 前：按 SII 写 SM0/SM1 的起始、长度、控制字节并激活。</li>
+          <li>发邮箱请求：FPWR 写 SM0 整段；WKC 为 0 说明邮箱还满，稍后重试。</li>
+          <li>取应答：轮询 SM1 状态字节的满位（0x080D bit3），满了再 FPRD 读整段。</li>
+          <li>PREOP→SAFEOP 前：写 SM2/SM3，长度等于映射的 PDO 总字节数。</li>
+          <li>可设看门狗：IgH 用 <code>ecrt_slave_config_watchdog()</code> 写 0x0400/0x0420。</li>
+          <li>周期内用 LRW 刷新 SM2，这就是给看门狗"喂食"。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 硬件维护满/空标志、三缓冲切换、看门狗计时，固件不参与。</li>
+          <li>固件检查主站写的 SM 配置是否可接受，不接受就拒绝转换并在 0x0134 报码。</li>
+          <li>SM0 满时 ESC 发 AL 事件，固件读出请求；应答写进 SM1，读完最后一字节才算"满"。</li>
+          <li>SM2 写完成时（或 SYNC 事件时）固件读输出，SM3 写入最新输入。</li>
+          <li>在 OP 中查到 0x0440 bit0 = 0：退 SAFEOP，置错误位，0x0134 = 0x001B。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <pre><code>ethercat pdos -p0                  # 每个 SM 的物理地址、默认长度、控制字节
+ethercat reg_read -p0 0x0800 8     # SM0 的 8 字节
+ethercat reg_read -p0 0x0810 8     # SM2 的 8 字节
+ethercat reg_read -p0 0x0400 2     # 看门狗分频
+ethercat reg_read -p0 0x0420 2     # 过程数据看门狗时间
+ethercat reg_read -p0 0x0440 2     # 过程数据看门狗状态
+ethercat reg_read -p0 0x0134 2     # 过期后看 AL 状态码</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>pdos 的 SM0 行</td><td>ControlRegister 0x26, Enable 1</td><td>PhysAddr 与 DefaultSize 因从站而异</td></tr>
+        <tr><td>0x0800 8 字节</td><td><code>0x00 0x10 0x80 0x00 0x26 … 0x01 …</code></td><td>示例：起始 0x1000、长度 0x80、控制 0x26、激活 bit0=1</td></tr>
+        <tr><td>0x0810 第 4 字节</td><td><code>0x64</code></td><td>缓冲模式、主站写、看门狗触发</td></tr>
+        <tr><td>0x0400</td><td><code>0xC2 0x09</code></td><td>2498 → 100 µs 时基（未被主站改写时）</td></tr>
+        <tr><td>0x0420</td><td><code>0xE8 0x03</code></td><td>1000 × 100 µs = 100 ms</td></tr>
+        <tr><td>0x0440</td><td>bit0 = 1</td><td>OP 中正常；停掉主站程序 100 ms 后变 0</td></tr>
+        <tr><td>0x0134</td><td><code>0x1B 0x00</code></td><td>停主站程序后，从站退 SAFEOP+E 报 0x001B</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "某 SM 控制字节读出 0x26，它是什么配置？", "options": ["缓冲模式，主站读", "邮箱模式，主站写，AL 事件使能", "邮箱模式，主站读，看门狗使能", "缓冲模式，主站写，看门狗使能"], "answer": 1, "explain": "0x26 = 0010 0110b：bit1–0 = 10 邮箱，bit3–2 = 01 主站写，bit5 = 1 AL 事件。这正是 SM0 的惯例值。缓冲模式主站写且带看门狗是 0x64。"},
+  {"q": "SM0 还是满的，主站又对它写了一次，会发生什么？", "options": ["新数据覆盖旧请求", "ESC 丢弃这次写入，该数据报 WKC 不加，主站稍后重试", "ESC 把新数据排队，等固件读完再放进去", "从站立即报错退回 INIT"], "answer": 1, "explain": "邮箱是单缓冲，满时拒绝写入。主站从 WKC 没有增加得知失败，所以不会丢请求，也不会覆盖。"},
+  {"q": "SM2 配成起始 0x1100、长度 6 字节的缓冲模式，实际占用多少物理 RAM？", "options": ["6 字节", "12 字节", "18 字节", "24 字节"], "answer": 2, "explain": "三缓冲占 3 × 长度 = 18 字节（0x1100–0x1111）。双方只访问前 6 字节，后两段由 ESC 内部使用，不能再分配给别的 SM。"},
+  {"q": "看门狗分频 0x0400 = 2498，0x0420 = 1000，输出多久不刷新从站会判定过期？", "options": ["1 ms", "10 ms", "100 ms", "1 s"], "answer": 2, "explain": "时基 (2498 + 2) × 40 ns = 100 µs，乘以 1000 = 100 ms。这是出厂默认值，主站可改写。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>三缓冲就是主站轮流写三个不同地址。<br><strong>实际上：</strong>主站和固件永远访问起始地址那一段，选哪块缓冲由 ESC 硬件完成。主站和固件代码里都看不到"缓冲 2、缓冲 3"。</li>
+      <li><strong>误区：</strong>看门狗是主站程序里的超时。<br><strong>实际上：</strong>它是从站 ESC 里的计时器，监视输出 SM 有没有被写。主站程序崩溃或卡顿超过设定时间，从站自己退回 SAFEOP 并报 0x001B。</li>
+      <li><strong>误区：</strong>SM0 叫"接收邮箱"，所以是主站接收。<br><strong>实际上：</strong>SII 里的 "Receive Mailbox" 是从站视角：从站接收、主站写入，即 SM0；ESI 里同一个 SM 叫 MBoxOut，是主站视角。</li>
+    </ul>
+    <p>关联：SM2/SM3 里的字节怎么跟逻辑地址对上、一条 LRW 怎么同时写多台从站的 SM2，见下一课 FMMU；SM0/SM1 里跑的 CoE 报文见 u3-l2。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  var F = function (svg) { return Academy.fx(svg); };
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: 'SM0/SM1 是邮箱（单缓冲），SM2/SM3 是过程数据（三缓冲），两个邮箱都空，看门狗计时满格。', apply: function () {} },
+    { title: '主站写满 SM0', text: '主站 FPWR 把 SDO 请求写进 SM0；最后一个字节写完，SM0 变满，ESC 给固件发事件。',
+      apply: function (svg) { F(svg).hide('u22-m-req').show('u22-sm0-data').text('u22-sm0-flag', '状态：满').hot('u22-sm0'); } },
+    { title: '从站读空 SM0', text: '固件经 PDI 读完整个 SM0，最后一字节读完即变空，主站可以写下一条了。',
+      apply: function (svg) { F(svg).cool('u22-sm0').hide('u22-sm0-data').text('u22-sm0-flag', '状态：空').show('u22-fw-req'); } },
+    { title: '从站写满 SM1', text: '固件把应答写进 SM1，写完最后一字节 SM1 变满，等主站来取。',
+      apply: function (svg) { F(svg).show(['u22-sm1-data', 'u22-fw-resp']).text('u22-sm1-flag', '状态：满').hot('u22-sm1'); } },
+    { title: '主站读空 SM1', text: '主站轮询到 SM1 满位后 FPRD 读走应答，SM1 变空，一次一问一答结束。',
+      apply: function (svg) { F(svg).cool('u22-sm1').hide('u22-sm1-data').text('u22-sm1-flag', '状态：空').show('u22-m-resp'); } },
+    { title: '缓冲模式：写完缓冲 A', text: '周期 1 的输出经 LRW 写进 SM2，ESC 实际放进缓冲 A；写完后 A 成为"最新"。',
+      apply: function (svg) { F(svg).text('u22-m-out', '周期 1 输出已写').text('u22-bA-tag', '最新 · 周期 1').hot('u22-bA'); } },
+    { title: '读 A 的同时写 B', text: '固件开始读，ESC 锁住 A 给它；同一时刻主站写周期 2，ESC 把它放进 B，谁也不等谁。',
+      apply: function (svg) { F(svg).cool('u22-bA').text('u22-bA-tag', '固件读取中 · 1').text('u22-bB-tag', '主站写入中 · 2').text('u22-fw-out', '读到输出：周期 1').text('u22-m-out', '周期 2 写入中').hot('u22-bB'); } },
+    { title: '三块轮转', text: 'B 写完成为最新，A 读完被释放，周期 3 写进 C；固件下次读直接拿到 B，永远是完整的最新一份。',
+      apply: function (svg) { F(svg).cool('u22-bB').text('u22-bA-tag', '空闲').text('u22-bB-tag', '最新 · 周期 2').text('u22-bC-tag', '主站写入中 · 3').text('u22-m-out', '周期 3 写入中').hot('u22-bC'); } },
+    { title: '主站停发，看门狗过期', text: '主站程序停了，SM2 不再被写；100 ms 后计时耗尽，0x0440 bit0 变 0。',
+      apply: function (svg) { F(svg).cool('u22-bC').dim(['u22-master', 'u22-w0', 'u22-w1', 'u22-w2']).attr('u22-wd-bar', 'width', 0).text('u22-wd-text', '0x0440.0 = 0 过期').cls('u22-wd-text', 't-fault'); } },
+    { title: '从站退回 SAFEOP 并报 0x001B', text: '固件发现看门狗过期，把输出置安全值，AL 退到 SAFEOP 并置错误位，0x0134 写入 0x001B。',
+      apply: function (svg) { F(svg).fault('u22-fw-al-r').text('u22-fw-al', '0x0130 = 0x0014 SAFEOP+E').text('u22-fw-code', '0x0134 = 0x001B'); } }
+  ]);
+  Academy.init('u2-l2');
+})();
+</script>
+</body>
+</html>

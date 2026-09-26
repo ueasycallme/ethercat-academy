@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESM 状态机：INIT 到 OP · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson svg rect.st-cur { fill: var(--bus-soft); stroke: var(--bus); stroke-width: 3; }
+.lesson svg rect.st-err { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 3; }
+.lesson .al-decoder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.lesson .al-decoder input { font-family: var(--font-mono); width: 8em; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.lesson .al-decoder output { font-weight: 600; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u3-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">ESM 状态机：INIT 到 OP</h1>
+    <p class="lesson-lede">总线"起不来"时，先看从站卡在哪个 ESM 状态、0x0134 报了什么码。本课讲清每次转换主站写什么、从站查什么，以及出错后怎么确认。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>画出 INIT / PREOP / SAFEOP / OP / BOOT 五个状态和合法转换。</li>
+          <li>说出每次转换前主站要配好什么、从站在转换时检查什么。</li>
+          <li>读懂 0x0130 的错误位与 0x0134 状态码，会写错误确认。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 470" role="img" aria-label="主动画：主站写 AL Control 0x0120，从站回 AL Status 0x0130，从 INIT 一路到 OP，再演示看门狗错误与错误确认">
+        <!-- 状态行 -->
+        <text class="t-small t-muted" x="20" y="20">ESM 当前状态（高亮）</text>
+        <g id="a-st-boot-g">
+          <rect id="a-st-boot" class="box-muted dashed" x="20" y="30" width="120" height="54" rx="8"/>
+          <text class="t-title t-mid" x="80" y="55">BOOT</text>
+          <text class="t-small t-mono t-mid t-muted" x="80" y="74">0x03</text>
+        </g>
+        <path class="wire" d="M142 57 H188"/>
+        <polygon class="fill-muted" points="188,57 180,52 180,62"/>
+        <polygon class="fill-muted" points="142,57 150,52 150,62"/>
+        <g>
+          <rect id="a-st-init" class="box st-cur" x="190" y="30" width="140" height="54" rx="8"/>
+          <text class="t-title t-mid" x="260" y="55">INIT</text>
+          <text class="t-small t-mono t-mid t-muted" x="260" y="74">0x01</text>
+        </g>
+        <path class="wire" d="M332 57 H386"/>
+        <polygon class="fill-muted" points="388,57 380,52 380,62"/>
+        <g>
+          <rect id="a-st-preop" class="box" x="390" y="30" width="140" height="54" rx="8"/>
+          <text class="t-title t-mid" x="460" y="55">PREOP</text>
+          <text class="t-small t-mono t-mid t-muted" x="460" y="74">0x02</text>
+        </g>
+        <path class="wire" d="M532 57 H586"/>
+        <polygon class="fill-muted" points="588,57 580,52 580,62"/>
+        <g>
+          <rect id="a-st-safeop" class="box" x="590" y="30" width="140" height="54" rx="8"/>
+          <text class="t-title t-mid" x="660" y="55">SAFEOP</text>
+          <text class="t-small t-mono t-mid t-muted" x="660" y="74">0x04</text>
+        </g>
+        <path class="wire" d="M732 57 H786"/>
+        <polygon class="fill-muted" points="788,57 780,52 780,62"/>
+        <g>
+          <rect id="a-st-op" class="box" x="790" y="30" width="140" height="54" rx="8"/>
+          <text class="t-title t-mid" x="860" y="55">OP</text>
+          <text class="t-small t-mono t-mid t-muted" x="860" y="74">0x08</text>
+        </g>
+
+        <!-- 主站 -->
+        <rect class="box-bus" x="20" y="116" width="270" height="340" rx="10"/>
+        <text class="t-title" x="36" y="144">主站（IgH）</text>
+        <text class="t-small t-muted" x="36" y="164">转换前要做的事</text>
+        <g id="a-m1" class="is-dim">
+          <rect class="box" x="36" y="176" width="238" height="30" rx="6"/>
+          <text class="t-small" x="48" y="196">① 写 SM0/SM1：邮箱地址与长度</text>
+        </g>
+        <g id="a-m2" class="is-dim">
+          <rect class="box-mail" x="36" y="214" width="238" height="30" rx="6"/>
+          <text class="t-small" x="48" y="234">② SDO 下载 PDO 分配与映射</text>
+        </g>
+        <g id="a-m3" class="is-dim">
+          <rect class="box" x="36" y="252" width="238" height="30" rx="6"/>
+          <text class="t-small" x="48" y="272">③ 写 SM2/SM3、FMMU</text>
+        </g>
+        <g id="a-m4" class="is-dim">
+          <rect class="box" x="36" y="290" width="238" height="30" rx="6"/>
+          <text class="t-small" x="48" y="310">④ 配 DC（SYNC0 周期与启动时间）</text>
+        </g>
+        <g id="a-m5" class="is-dim">
+          <rect class="box" x="36" y="328" width="238" height="30" rx="6"/>
+          <text class="t-small" x="48" y="348">⑤ 开始发周期 LRW 帧</text>
+        </g>
+        <g id="a-m6" class="is-dim">
+          <rect class="box-fault" x="36" y="366" width="238" height="30" rx="6"/>
+          <text class="t-small" x="48" y="386">⑥ 读 0x0134，写 bit4 确认</text>
+        </g>
+        <text class="t-small t-muted" x="36" y="430">IgH 自动完成这些，应用只调 API</text>
+
+        <!-- 网线 -->
+        <line class="wire-bus" x1="290" y1="280" x2="610" y2="280"/>
+        <text class="t-small t-muted t-mid" x="450" y="298">网线</text>
+        <g id="a-w" class="is-hidden">
+          <line id="a-wl" class="wire-bus" x1="300" y1="236" x2="592" y2="236"/>
+          <polygon class="fill-bus" points="602,236 590,229 590,243"/>
+          <text id="a-wt" class="t-mono t-mid t-bus" x="450" y="224">FPWR 0x0120 ← 0x02</text>
+        </g>
+        <g id="a-r" class="is-hidden">
+          <line class="wire stroke-drive" x1="318" y1="324" x2="604" y2="324"/>
+          <polygon class="fill-drive" points="306,324 318,317 318,331"/>
+          <text id="a-rt" class="t-mono t-mid t-drive" x="450" y="350">FPRD 0x0130 → 0x02</text>
+        </g>
+        <g id="a-sdo" class="is-hidden">
+          <line class="wire stroke-mail dashed" x1="300" y1="380" x2="600" y2="380"/>
+          <text class="t-small t-mid t-mail" x="450" y="372">邮箱 SDO：1C12 / 1600 / 1C13 / 1A00 …</text>
+        </g>
+        <g id="a-lrw" class="is-hidden">
+          <line class="wire-bus is-flow" x1="300" y1="420" x2="600" y2="420"/>
+          <text class="t-small t-mid t-bus" x="450" y="412">周期 LRW（过程数据）</text>
+        </g>
+
+        <!-- 从站 -->
+        <rect class="box-drive" x="610" y="116" width="330" height="340" rx="10"/>
+        <text class="t-title" x="626" y="144">从站（ESC + 固件）</text>
+        <rect id="a-rctl" class="box" x="624" y="160" width="302" height="30" rx="5"/>
+        <text class="t-small t-mono" x="634" y="180">0x0120 AL Control</text>
+        <text id="a-vctl" class="t-mono t-end" x="914" y="181">0x01</text>
+        <rect id="a-rsta" class="box" x="624" y="196" width="302" height="30" rx="5"/>
+        <text class="t-small t-mono" x="634" y="216">0x0130 AL Status</text>
+        <text id="a-vsta" class="t-mono t-end" x="914" y="217">0x01</text>
+        <rect id="a-rcode" class="box" x="624" y="232" width="302" height="30" rx="5"/>
+        <text class="t-small t-mono" x="634" y="252">0x0134 AL Status Code</text>
+        <text id="a-vcode" class="t-mono t-end" x="914" y="253">0x0000</text>
+
+        <text class="t-small t-muted" x="626" y="286">已配置的 ESC 资源</text>
+        <g id="a-sm0" class="is-dim"><rect class="box-mail" x="624" y="294" width="46" height="28" rx="5"/><text class="t-small t-mono t-mid" x="647" y="313">SM0</text></g>
+        <g id="a-sm1" class="is-dim"><rect class="box-mail" x="675" y="294" width="46" height="28" rx="5"/><text class="t-small t-mono t-mid" x="698" y="313">SM1</text></g>
+        <g id="a-sm2" class="is-dim"><rect class="box-bus" x="726" y="294" width="46" height="28" rx="5"/><text class="t-small t-mono t-mid" x="749" y="313">SM2</text></g>
+        <g id="a-sm3" class="is-dim"><rect class="box-bus" x="777" y="294" width="46" height="28" rx="5"/><text class="t-small t-mono t-mid" x="800" y="313">SM3</text></g>
+        <g id="a-fmmu" class="is-dim"><rect class="box-bus" x="828" y="294" width="52" height="28" rx="5"/><text class="t-small t-mono t-mid" x="854" y="313">FMMU</text></g>
+        <g id="a-dc" class="is-dim"><rect class="box-bus" x="885" y="294" width="41" height="28" rx="5"/><text class="t-small t-mono t-mid" x="905" y="313">DC</text></g>
+
+        <text class="t-small t-muted" x="626" y="346">当前状态允许</text>
+        <g id="a-mbx-g" class="is-dim"><rect class="box-mail" x="624" y="354" width="302" height="28" rx="5"/><text id="a-mbx" class="t-small" x="634" y="373">邮箱（SDO）：不可用</text></g>
+        <g id="a-in-g" class="is-dim"><rect class="box" x="624" y="386" width="302" height="28" rx="5"/><text id="a-in" class="t-small" x="634" y="405">输入（TxPDO）：不可用</text></g>
+        <g id="a-out-g" class="is-dim"><rect class="box" x="624" y="418" width="302" height="28" rx="5"/><text id="a-out" class="t-small" x="634" y="437">输出（RxPDO）：不可用</text></g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>五个状态各允许什么</h3>
+    <p>ESM 是"逐级放权"：每升一级，从站多打开一类通信。状态值直接写在 0x0120 / 0x0130 的低 4 位里。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>状态</th><th>值</th><th>邮箱</th><th>输入 TxPDO</th><th>输出 RxPDO</th><th>典型用途</th></tr>
+        <tr><td>INIT</td><td><code>0x01</code></td><td>否</td><td>否</td><td>否</td><td>主站分配站地址、写 SM0/SM1</td></tr>
+        <tr><td>PREOP</td><td><code>0x02</code></td><td>是</td><td>否</td><td>否</td><td>SDO 配置参数和 PDO 映射，配 SM2/SM3、FMMU、DC</td></tr>
+        <tr><td>SAFEOP</td><td><code>0x04</code></td><td>是</td><td>是</td><td>否，输出保持安全态</td><td>主站已能读到实际位置、状态字</td></tr>
+        <tr><td>OP</td><td><code>0x08</code></td><td>是</td><td>是</td><td>是</td><td>控制字和目标位置真正生效</td></tr>
+        <tr><td>BOOT</td><td><code>0x03</code></td><td>是（仅 FoE 等）</td><td>否</td><td>否</td><td>固件升级，只能从 INIT 进出</td></tr>
+      </table>
+    </div>
+
+    <h3>合法转换与从站检查</h3>
+    <p>向上只能一级一级走；向下可以一步退到任何更低的状态。越级请求（如 INIT 直接请求 SAFEOP）会被拒绝并报 <code>0x0011</code>。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 230" role="img" aria-label="ESM 合法转换图：上排为向上转换，下排为向下转换，BOOT 只和 INIT 相连">
+        <rect class="box-muted dashed" x="20" y="88" width="110" height="50" rx="8"/><text class="t-title t-mid" x="75" y="119">BOOT</text>
+        <rect class="box" x="190" y="88" width="130" height="50" rx="8"/><text class="t-title t-mid" x="255" y="119">INIT</text>
+        <rect class="box" x="400" y="88" width="130" height="50" rx="8"/><text class="t-title t-mid" x="465" y="119">PREOP</text>
+        <rect class="box" x="610" y="88" width="130" height="50" rx="8"/><text class="t-title t-mid" x="675" y="119">SAFEOP</text>
+        <rect class="box" x="820" y="88" width="120" height="50" rx="8"/><text class="t-title t-mid" x="880" y="119">OP</text>
+        <!-- 向上 -->
+        <path class="wire stroke-bus" d="M320 100 H396"/><polygon class="fill-bus" points="398,100 388,95 388,105"/>
+        <path class="wire stroke-bus" d="M530 100 H606"/><polygon class="fill-bus" points="608,100 598,95 598,105"/>
+        <path class="wire stroke-bus" d="M740 100 H816"/><polygon class="fill-bus" points="818,100 808,95 808,105"/>
+        <text class="t-small t-mid t-bus" x="358" y="40">I→P：查邮箱 SM</text>
+        <text class="t-small t-mid t-bus" x="358" y="58">错 0x0016</text>
+        <text class="t-small t-mid t-bus" x="570" y="40">P→S：查 SM2/SM3、映射、DC</text>
+        <text class="t-small t-mid t-bus" x="570" y="58">错 0x001D/1E/24/25/30</text>
+        <text class="t-small t-mid t-bus" x="780" y="40">S→O：查输出、同步</text>
+        <text class="t-small t-mid t-bus" x="780" y="58">错 0x0019/1A/2D</text>
+        <!-- 向下 -->
+        <path class="wire stroke-muted" d="M400 128 H324"/><polygon class="fill-muted" points="322,128 332,123 332,133"/>
+        <path class="wire stroke-muted" d="M610 128 H534"/><polygon class="fill-muted" points="532,128 542,123 542,133"/>
+        <path class="wire stroke-muted" d="M820 128 H744"/><polygon class="fill-muted" points="742,128 752,123 752,133"/>
+        <path class="wire stroke-muted" d="M675 138 V180 H255 V142"/><polygon class="fill-muted" points="255,140 250,150 260,150"/>
+        <path class="wire stroke-muted" d="M880 138 V200 H465 V142"/><polygon class="fill-muted" points="465,140 460,150 470,150"/>
+        <text class="t-small t-muted" x="690" y="176">S→I</text>
+        <text class="t-small t-muted" x="888" y="176">O→P</text>
+        <path class="wire stroke-muted dashed" d="M130 113 H186"/><polygon class="fill-muted" points="188,113 178,108 178,118"/><polygon class="fill-muted" points="130,113 140,108 140,118"/>
+        <text class="t-small t-mid t-muted" x="158" y="80">I⇄B</text>
+        <text class="t-small t-fault" x="20" y="222">越级：I→S、I→O、P→O、B→P 等 → 0x0011</text>
+      </svg>
+      </div>
+      <figcaption>蓝色为向上转换，从站在转换时检查对应配置；灰色为向下转换，从站总是接受（图中只画了部分，O→I、P→I 等同理）。BOOT 只能与 INIT 互转。</figcaption>
+    </figure>
+
+    <h3>AL Control / AL Status 的位</h3>
+    <p>主站写 0x0120 请求，从站固件（经 PDI）写 0x0130 应答；两者低 4 位同为状态值。bit4 在 0x0130 是"错误指示"，在 0x0120 是"错误确认"。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>位</th><th>0x0120 AL Control（主站写）</th><th>0x0130 AL Status（从站写）</th></tr>
+        <tr><td>3:0</td><td>请求的状态：1 INIT、2 PREOP、3 BOOT、4 SAFEOP、8 OP</td><td>实际状态，编码相同</td></tr>
+        <tr><td>4</td><td>Error Ind Ack：1 = 确认错误</td><td>Error Ind：1 = 转换失败或运行中出错，0x0134 有码</td></tr>
+        <tr><td>5</td><td>Device Identification 请求</td><td>Device Identification 已载入</td></tr>
+        <tr><td>7:6</td><td>保留</td><td>保留</td></tr>
+      </table>
+    </div>
+    <div class="al-decoder">
+      <label for="al-in">试解码 0x0130：</label>
+      <input id="al-in" value="0x14" spellcheck="false" aria-label="输入 AL Status 值">
+      <output id="al-out" for="al-in"></output>
+    </div>
+    <div id="al-bits"></div>
+
+    <h3>AL 状态码 0x0134（ETG.1000.6 表节选）</h3>
+    <p>0x0130 的 bit4 只说"出错了"，原因在 0x0134。下表是调试关节驱动器最常碰到的码，完整表见 ETG.1000.6。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>码</th><th>含义</th><th>常见场景</th></tr>
+        <tr><td><code>0x0000</code></td><td>无错误</td><td>—</td></tr>
+        <tr><td><code>0x0011</code></td><td>无效的状态转换请求</td><td>越级请求，如 INIT 直接请求 SAFEOP</td></tr>
+        <tr><td><code>0x0012</code></td><td>未知的请求状态</td><td>0x0120 写了 1/2/3/4/8 以外的值</td></tr>
+        <tr><td><code>0x0016</code></td><td>无效的邮箱配置</td><td>I→P：SM0/SM1 地址或长度与从站要求不符</td></tr>
+        <tr><td><code>0x0017</code></td><td>无效的 SM 配置</td><td>SM 起始地址、长度或控制字节不对</td></tr>
+        <tr><td><code>0x0019</code></td><td>无有效输出</td><td>S→O：输出 SM 还没收到过数据</td></tr>
+        <tr><td><code>0x001A</code></td><td>同步错误</td><td>DC 模式下帧没赶在 SYNC0 前到达</td></tr>
+        <tr><td><code>0x001B</code></td><td>SM 看门狗</td><td>OP 中输出长时间未更新，主站周期停了或卡顿</td></tr>
+        <tr><td><code>0x001D</code></td><td>无效的输出配置</td><td>P→S：SM2 长度与 RxPDO 映射总长不符</td></tr>
+        <tr><td><code>0x001E</code></td><td>无效的输入配置</td><td>P→S：SM3 长度与 TxPDO 映射总长不符</td></tr>
+        <tr><td><code>0x0024</code></td><td>无效的输入映射</td><td>1C13 / 1A0x 映射了从站不支持的对象</td></tr>
+        <tr><td><code>0x0025</code></td><td>无效的输出映射</td><td>1C12 / 160x 映射了从站不支持的对象</td></tr>
+        <tr><td><code>0x002D</code></td><td>No Sync Error：未收到同步信号</td><td>S→O：DC 模式下 SYNC0 没有出来</td></tr>
+        <tr><td><code>0x0030</code></td><td>无效的 DC SYNC 配置</td><td>SYNC0 周期不被从站支持，或 DC 激活位没写对</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>每次只请求上一级：写 0x0120，然后轮询 0x0130 直到低 4 位等于请求值，或 bit4 置 1。</li>
+          <li>请求前先把该级需要的配置写好：INIT 里写 SM0/SM1；PREOP 里走 SDO、写 SM2/SM3、FMMU、DC。</li>
+          <li>SAFEOP→OP 前先让周期 LRW 帧跑起来，保证输出 SM 有新数据。</li>
+          <li>看到 bit4 = 1：读 0x0134 记日志，写 0x0120 = 当前状态 | 0x10 确认。IgH 会自动做这一步并在内核日志里打印码。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 收到 0x0120 写入后产生 AL 事件（中断），由固件决定接受还是拒绝；无 µC 的简单从站可由 ESC 直接把请求照抄到 0x0130。</li>
+          <li>接受：按转换打开邮箱、输入或输出处理，写 0x0130 = 新状态。</li>
+          <li>拒绝：留在原状态，写 0x0134 = 原因码，0x0130 = 原状态 | 0x10。</li>
+          <li>运行中出错（看门狗、同步丢失）：自行降级，同样置 bit4 并报码，等主站确认。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>先看每台从站的状态和错误标志（第 3 列为状态，其后 <code>+</code> 表示正常，<code>E</code> 表示有未确认错误）：</p>
+    <pre><code>ethercat slaves</code></pre>
+    <p>手动把 0 号从站依次请求到 PREOP、SAFEOP，并直接读寄存器核对（无应用程序运行时 IgH 默认让从站停在 PREOP）：</p>
+    <pre><code>ethercat states -p0 PREOP
+ethercat reg_read -p0 -t uint16 0x0130
+ethercat states -p0 SAFEOP
+ethercat reg_read -p0 -t uint16 0x0130
+ethercat reg_read -p0 -t uint16 0x0134</code></pre>
+    <p>出错时 IgH 会在内核日志里打印 AL 状态码和文字说明：</p>
+    <pre><code>dmesg | grep -i "AL status"</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>0x0130（PREOP）</td><td>0x0002</td><td>低 4 位 = 2，bit4 = 0</td></tr>
+        <tr><td>0x0130（SAFEOP）</td><td>0x0004</td><td>若读到 0x0012，说明 P→S 被拒，从站仍在 PREOP 且带错误位</td></tr>
+        <tr><td>0x0130（OP）</td><td>0x0008</td><td>主站应用激活并在跑周期任务时</td></tr>
+        <tr><td>0x0134</td><td>0x0000</td><td>非零时对照上面的状态码表；常见 0x001B、0x001A、0x001D/0x001E</td></tr>
+        <tr><td>ethercat slaves</td><td>OP  +</td><td>出现 E 表示有错误；IgH 会自动写确认并重试</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "读到 <code>0x0130 = 0x0014</code>，从站处于什么情况？", "options": ["在 OP，一切正常", "在 SAFEOP，并有一个尚未确认的错误", "在 BOOT，正在升级固件", "在 PREOP，请求 SAFEOP 正在进行中"], "answer": 1, "explain": "低 4 位 0x4 = SAFEOP，bit4（0x10）= 错误指示。原因码要去 0x0134 读，确认要写 0x0120 = 0x14。"},
+  {"q": "从站在 INIT，主站直接写 <code>0x0120 = 0x04</code>，最可能的结果是？", "options": ["从站跳到 SAFEOP", "从站先自动经过 PREOP 再到 SAFEOP", "从站留在 INIT，置错误位并报 0x0011", "ESC 硬件复位"], "answer": 2, "explain": "向上只能一级一级走。越级请求是无效状态转换，AL 状态码 0x0011，0x0130 读到 0x0011（INIT | 错误位）。"},
+  {"q": "哪个状态是第一次可以用 SDO 读写对象字典的状态？", "options": ["INIT", "PREOP", "SAFEOP", "只有 OP"], "answer": 1, "explain": "PREOP 打开邮箱通信，SDO 走邮箱。PDO 映射也正是在 PREOP 里用 SDO 写进去的，之后才能请求 SAFEOP。"},
+  {"q": "运行中从站因看门狗掉到 SAFEOP 并置了错误位。主站确认错误应写什么？", "options": ["<code>0x0120 = 0x08</code>", "<code>0x0120 = 0x14</code>", "<code>0x0134 = 0x0000</code>", "<code>0x0130 = 0x04</code>"], "answer": 1, "explain": "确认 = 当前状态值 | bit4，SAFEOP 下即 0x14。0x0130 和 0x0134 由从站写，主站不写。确认后再请求 0x08 才回 OP。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>总线到了 OP，电机就能动了。<br><strong>实际上：</strong>ESM 的 OP 只说明过程数据通路打开；驱动器还要经过 CiA402 状态机（6040/6041）才会使能，两台状态机互相独立。</li>
+      <li><strong>误区：</strong>写了 0x0120 就算切换完成。<br><strong>实际上：</strong>0x0120 只是请求，必须读 0x0130 确认；从站可以拒绝，结果看 bit4 和 0x0134。</li>
+      <li><strong>误区：</strong>错误位会自己消失。<br><strong>实际上：</strong>bit4 要等主站写 0x0120 的 bit4 确认才清除；不确认，再次请求升级时从站可能直接拒绝。</li>
+    </ul>
+    <p>关联：SM 与看门狗见 u2-l2；PREOP 里具体走什么 SDO 见下一课 u3-l2 与 u3-l3；0x001A 同步错误的来龙去脉见 u4-l2；驱动器自己的状态机见 u5-l1。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function st(f, from, to) { return f.cls('a-st-' + from, 'st-cur', false).cls('a-st-' + to, 'st-cur'); }
+  function write(f, v) { return f.hide('a-r').show('a-w').text('a-wt', 'FPWR 0x0120 ← ' + v).flow('a-wl').text('a-vctl', v).hot('a-rctl').cool('a-rsta'); }
+  function read(f, v) { return f.hide('a-w').show('a-r').text('a-rt', 'FPRD 0x0130 → ' + v).text('a-vsta', v).cool('a-rctl').hot('a-rsta'); }
+
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '上电：INIT', text: '从站上电后处于 INIT，0x0130 = 0x01：此时只能访问 ESC 寄存器，邮箱和过程数据都不可用。',
+      apply: function () {} },
+    { title: '主站配邮箱 SM', text: '主站在 INIT 里按 SII 给的地址和长度写 SM0（邮箱出）和 SM1（邮箱入），为 PREOP 做准备。',
+      apply: function (svg) { Academy.fx(svg).undim(['a-m1', 'a-sm0', 'a-sm1']); } },
+    { title: '请求 PREOP', text: '主站写 AL Control：0x0120 = 0x02。这只是请求，状态还没变。',
+      apply: function (svg) { write(Academy.fx(svg), '0x02'); } },
+    { title: '从站进入 PREOP', text: '从站检查邮箱 SM 配置无误，写 0x0130 = 0x02；主站轮询读到后确认进入 PREOP，邮箱打开。',
+      apply: function (svg) { var f = Academy.fx(svg); read(f, '0x02'); st(f, 'init', 'preop'); f.undim('a-mbx-g').text('a-mbx', '邮箱（SDO）：可用'); } },
+    { title: 'PREOP 里完成配置', text: '主站用 SDO 写 PDO 映射，再写 SM2/SM3、FMMU、DC 寄存器，并开始发周期 LRW 帧；这些都要在请求 SAFEOP 之前做完。',
+      apply: function (svg) { Academy.fx(svg).hide('a-r').show(['a-sdo', 'a-lrw']).undim(['a-m2', 'a-m3', 'a-m4', 'a-m5', 'a-sm2', 'a-sm3', 'a-fmmu', 'a-dc']); } },
+    { title: '请求 SAFEOP', text: '主站写 0x0120 = 0x04。',
+      apply: function (svg) { write(Academy.fx(svg).hide('a-sdo'), '0x04'); } },
+    { title: '从站进入 SAFEOP', text: '从站核对 SM2/SM3 长度与映射、DC 设置，通过后 0x0130 = 0x04：输入开始有效，输出仍被忽略、保持安全态。',
+      apply: function (svg) { var f = Academy.fx(svg); read(f, '0x04'); st(f, 'preop', 'safeop'); f.undim(['a-in-g', 'a-out-g']).text('a-in', '输入（TxPDO）：有效').text('a-out', '输出（RxPDO）：忽略，保持安全态'); } },
+    { title: '请求 OP', text: '周期帧已在跑、输出 SM 有新数据，主站写 0x0120 = 0x08。',
+      apply: function (svg) { write(Academy.fx(svg), '0x08'); } },
+    { title: '从站进入 OP', text: '从站确认输出有效、同步正常，0x0130 = 0x08：输出开始生效，控制字、目标位置真正送进驱动器。',
+      apply: function (svg) { var f = Academy.fx(svg); read(f, '0x08'); st(f, 'safeop', 'op'); f.text('a-out', '输出（RxPDO）：生效').cls('a-out', 't-drive'); } },
+    { title: '运行中出错', text: '主站周期停了，输出 SM 看门狗到期：从站自行退回 SAFEOP，0x0130 = 0x14（SAFEOP + bit4 错误），0x0134 = 0x001B。',
+      apply: function (svg) {
+        var f = Academy.fx(svg);
+        f.hide(['a-r', 'a-lrw']).cool(['a-rctl', 'a-rsta']);
+        st(f, 'op', 'safeop').cls('a-st-safeop', 'st-err');
+        f.text('a-vsta', '0x14').cls(['a-vsta', 'a-vcode'], 't-fault').text('a-vcode', '0x001B').fault(['a-rsta', 'a-rcode']);
+        f.text('a-out', '输出（RxPDO）：忽略，保持安全态').cls('a-out', 't-drive', false);
+      } },
+    { title: '主站确认错误', text: '主站读 0x0134 记下原因，再写 0x0120 = 0x14：低 4 位是当前状态 SAFEOP，bit4 = 1 表示确认。',
+      apply: function (svg) { var f = Academy.fx(svg).undim('a-m6').cool('a-rcode'); write(f, '0x14'); f.cool('a-rsta'); } },
+    { title: '错误位清除', text: '从站清掉 bit4，0x0130 回到 0x04。排除原因（恢复周期帧）后，主站再请求 0x08 即可回到 OP。',
+      apply: function (svg) { var f = Academy.fx(svg); read(f, '0x04'); f.cls('a-vsta', 't-fault', false).cls('a-st-safeop', 'st-err', false); } }
+  ]);
+
+  // AL Status 解码器
+  var names = ['状态 bit0', '状态 bit1', '状态 bit2', '状态 bit3', '错误指示', 'ID 已载入', '保留', '保留'];
+  var stateName = { 1: 'INIT', 2: 'PREOP', 3: 'BOOT', 4: 'SAFEOP', 8: 'OP' };
+  var inp = document.getElementById('al-in'), out = document.getElementById('al-out'), box = document.getElementById('al-bits');
+  function decode() {
+    var v = parseInt(String(inp.value).trim(), 16);
+    if (isNaN(v) || v < 0 || v > 0xFFFF) { out.textContent = '请输入十六进制，如 0x14'; box.innerHTML = ''; return; }
+    var s = stateName[v & 0x0F] || ('未定义状态值 ' + (v & 0x0F));
+    out.textContent = Academy.hex(v, 4) + ' → ' + s + ((v & 0x10) ? '，有未确认错误：去读 0x0134' : '，无错误');
+    Academy.bitsTable(box, v & 0xFF, names, 8);
+  }
+  inp.addEventListener('input', decode);
+  decode();
+
+  Academy.init('u3-l1');
+})();
+</script>
+</body>
+</html>

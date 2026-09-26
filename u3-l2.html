@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>邮箱与 CoE SDO · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .sdo-bits td, .lesson .sdo-bits th { text-align: center; font-family: var(--font-mono); font-size: .85rem; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u3-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">邮箱与 CoE SDO</h1>
+    <p class="lesson-lede">SDO 是"一问一答"的配置通路：主站把请求写进 SM0，从站把应答放进 SM1。本课逐字节拆开一次 SDO 下载，并讲清快速、普通、分段传输和 abort code。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>逐字节读懂一帧 SDO 请求：邮箱头 6 字节、CoE 头 2 字节、SDO 8 字节。</li>
+          <li>区分快速传输、普通传输和分段传输，会从命令字节判断是哪一种。</li>
+          <li>看到 abort code 能说出原因和下一步该查什么。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 500" role="img" aria-label="主动画：主站把 SDO 下载请求写进 SM0，从站写对象字典后把应答放进 SM1，主站轮询读回；下方逐字节展示请求与应答">
+        <!-- 主站 -->
+        <rect class="box-bus" x="20" y="20" width="250" height="232" rx="10"/>
+        <text class="t-title" x="36" y="48">主站（IgH）</text>
+        <text class="t-small t-muted" x="36" y="72">本次任务</text>
+        <text class="t-mono" x="36" y="96">SDO 下载</text>
+        <text class="t-mono" x="36" y="120">6060:00 ← 8（CSP）</text>
+        <text class="t-small t-muted" x="36" y="160">主站状态</text>
+        <rect id="a-msr" class="box" x="34" y="170" width="222" height="32" rx="6"/>
+        <text id="a-ms" class="t-small" x="46" y="191">组装请求…</text>
+        <text class="t-small t-muted" x="36" y="232">轮询：读 SM1 状态 0x080D bit3</text>
+
+        <!-- 网线 -->
+        <line class="wire-bus" x1="270" y1="136" x2="650" y2="136"/>
+        <g id="a-pk" class="is-hidden">
+          <rect class="fill-mail" x="286" y="104" width="120" height="26" rx="5"/>
+          <text class="t-small t-onfill t-mid t-mono" x="346" y="122">FPWR → SM0</text>
+        </g>
+        <g id="a-pr" class="is-hidden">
+          <rect class="fill-drive" x="516" y="144" width="120" height="26" rx="5"/>
+          <text class="t-small t-onfill t-mid t-mono" x="576" y="162">FPRD ← SM1</text>
+        </g>
+        <g id="a-seg" class="is-hidden">
+          <rect class="box-power" x="284" y="178" width="354" height="74" rx="8"/>
+          <text class="t-small" x="298" y="198">数据 &gt; 4 字节：普通传输，命令 0x21</text>
+          <text class="t-small" x="298" y="218">后跟 4 字节总长度，数据紧随其后</text>
+          <text class="t-small" x="298" y="238">邮箱装不下时，再用分段请求继续传</text>
+        </g>
+
+        <!-- 从站 -->
+        <rect class="box-drive" x="650" y="20" width="290" height="232" rx="10"/>
+        <text class="t-title" x="666" y="48">从站</text>
+        <rect id="a-sm0r" class="box-mail" x="666" y="62" width="130" height="64" rx="6"/>
+        <text class="t-small t-bold" x="676" y="82">SM0 邮箱出</text>
+        <text class="t-small t-muted" x="676" y="98">主站 → 从站</text>
+        <text id="a-sm0s" class="t-small t-mono" x="676" y="116">空</text>
+        <rect id="a-sm1r" class="box-mail" x="666" y="150" width="130" height="64" rx="6"/>
+        <text class="t-small t-bold" x="676" y="170">SM1 邮箱入</text>
+        <text class="t-small t-muted" x="676" y="186">从站 → 主站</text>
+        <text id="a-sm1s" class="t-small t-mono" x="676" y="204">空</text>
+        <rect class="box" x="810" y="62" width="118" height="152" rx="6"/>
+        <text class="t-small t-bold" x="820" y="82">对象字典</text>
+        <text class="t-small t-mono" x="820" y="110">6060:00</text>
+        <text class="t-small t-muted" x="820" y="128">运行模式</text>
+        <rect id="a-odr" class="box" x="820" y="138" width="98" height="30" rx="5"/>
+        <text id="a-od" class="t-mono t-mid" x="869" y="159">0</text>
+        <text class="t-small t-muted" x="820" y="200">CoE 协议栈</text>
+
+        <!-- 字节条 -->
+        <text class="t-small t-bold" x="96" y="290">请求：主站写入 SM0</text>
+        <g id="a-q-mbx" class="is-hidden">
+        <text class="t-small t-muted t-mid" x="252.0" y="308">邮箱头 6 字节</text>
+        <rect id="a-q-c0" class="box-mail" x="97" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b0" class="t-mono t-mid" x="122.0" y="339">0A</text>
+        <rect id="a-q-c1" class="box-mail" x="149" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b1" class="t-mono t-mid" x="174.0" y="339">00</text>
+        <rect id="a-q-c2" class="box-mail" x="201" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b2" class="t-mono t-mid" x="226.0" y="339">00</text>
+        <rect id="a-q-c3" class="box-mail" x="253" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b3" class="t-mono t-mid" x="278.0" y="339">00</text>
+        <rect id="a-q-c4" class="box-mail" x="305" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b4" class="t-mono t-mid" x="330.0" y="339">00</text>
+        <rect id="a-q-c5" class="box-mail" x="357" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b5" class="t-mono t-mid" x="382.0" y="339">13</text>
+        <text class="t-small t-mid t-muted" x="148.0" y="368">Length</text>
+        <text class="t-small t-mid t-muted" x="252.0" y="368">Address</text>
+        <text class="t-small t-mid t-muted" x="330.0" y="368">Ch/Pri</text>
+        <text class="t-small t-mid t-muted" x="382.0" y="368">Typ/Cnt</text>
+        </g>
+        <g id="a-q-coe" class="is-hidden">
+        <text class="t-small t-muted t-mid" x="460.0" y="308">CoE 头 2</text>
+        <rect id="a-q-c6" class="box-bus" x="409" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b6" class="t-mono t-mid" x="434.0" y="339">00</text>
+        <rect id="a-q-c7" class="box-bus" x="461" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b7" class="t-mono t-mid" x="486.0" y="339">20</text>
+        <text class="t-small t-mid t-muted" x="460.0" y="368">Num/Svc</text>
+        </g>
+        <g id="a-q-sdo" class="is-hidden">
+        <text class="t-small t-muted t-mid" x="720.0" y="308">SDO 8 字节</text>
+        <rect id="a-q-c8" class="box-drive" x="513" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b8" class="t-mono t-mid" x="538.0" y="339">2F</text>
+        <rect id="a-q-c9" class="box-drive" x="565" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b9" class="t-mono t-mid" x="590.0" y="339">60</text>
+        <rect id="a-q-c10" class="box-drive" x="617" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b10" class="t-mono t-mid" x="642.0" y="339">60</text>
+        <rect id="a-q-c11" class="box-drive" x="669" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b11" class="t-mono t-mid" x="694.0" y="339">00</text>
+        <rect id="a-q-c12" class="box-drive" x="721" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b12" class="t-mono t-mid" x="746.0" y="339">08</text>
+        <rect id="a-q-c13" class="box-drive" x="773" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b13" class="t-mono t-mid" x="798.0" y="339">00</text>
+        <rect id="a-q-c14" class="box-drive" x="825" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b14" class="t-mono t-mid" x="850.0" y="339">00</text>
+        <rect id="a-q-c15" class="box-drive" x="877" y="316" width="50" height="34" rx="4"/>
+        <text id="a-q-b15" class="t-mono t-mid" x="902.0" y="339">00</text>
+        <text class="t-small t-mid t-muted" x="538.0" y="368">命令</text>
+        <text class="t-small t-mid t-muted" x="616.0" y="368">Index</text>
+        <text class="t-small t-mid t-muted" x="694.0" y="368">Sub</text>
+        <text class="t-small t-mid t-muted" x="824.0" y="368">Data</text>
+        </g>
+        <text class="t-small t-bold" x="96" y="400">应答：从站写入 SM1</text>
+        <g id="a-p-mbx" class="is-hidden">
+        <text class="t-small t-muted t-mid" x="252.0" y="418">邮箱头 6 字节</text>
+        <rect id="a-p-c0" class="box-mail" x="97" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b0" class="t-mono t-mid" x="122.0" y="449">0A</text>
+        <rect id="a-p-c1" class="box-mail" x="149" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b1" class="t-mono t-mid" x="174.0" y="449">00</text>
+        <rect id="a-p-c2" class="box-mail" x="201" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b2" class="t-mono t-mid" x="226.0" y="449">00</text>
+        <rect id="a-p-c3" class="box-mail" x="253" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b3" class="t-mono t-mid" x="278.0" y="449">00</text>
+        <rect id="a-p-c4" class="box-mail" x="305" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b4" class="t-mono t-mid" x="330.0" y="449">00</text>
+        <rect id="a-p-c5" class="box-mail" x="357" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b5" class="t-mono t-mid" x="382.0" y="449">13</text>
+        <text class="t-small t-mid t-muted" x="148.0" y="478">Length</text>
+        <text class="t-small t-mid t-muted" x="252.0" y="478">Address</text>
+        <text class="t-small t-mid t-muted" x="330.0" y="478">Ch/Pri</text>
+        <text class="t-small t-mid t-muted" x="382.0" y="478">Typ/Cnt</text>
+        </g>
+        <g id="a-p-coe" class="is-hidden">
+        <text class="t-small t-muted t-mid" x="460.0" y="418">CoE 头 2</text>
+        <rect id="a-p-c6" class="box-bus" x="409" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b6" class="t-mono t-mid" x="434.0" y="449">00</text>
+        <rect id="a-p-c7" class="box-bus" x="461" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b7" class="t-mono t-mid" x="486.0" y="449">30</text>
+        <text class="t-small t-mid t-muted" x="460.0" y="478">Num/Svc</text>
+        </g>
+        <g id="a-p-sdo" class="is-hidden">
+        <text class="t-small t-muted t-mid" x="720.0" y="418">SDO 8 字节</text>
+        <rect id="a-p-c8" class="box-drive" x="513" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b8" class="t-mono t-mid" x="538.0" y="449">60</text>
+        <rect id="a-p-c9" class="box-drive" x="565" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b9" class="t-mono t-mid" x="590.0" y="449">60</text>
+        <rect id="a-p-c10" class="box-drive" x="617" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b10" class="t-mono t-mid" x="642.0" y="449">60</text>
+        <rect id="a-p-c11" class="box-drive" x="669" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b11" class="t-mono t-mid" x="694.0" y="449">00</text>
+        <rect id="a-p-c12" class="box-drive" x="721" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b12" class="t-mono t-mid" x="746.0" y="449">00</text>
+        <rect id="a-p-c13" class="box-drive" x="773" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b13" class="t-mono t-mid" x="798.0" y="449">00</text>
+        <rect id="a-p-c14" class="box-drive" x="825" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b14" class="t-mono t-mid" x="850.0" y="449">00</text>
+        <rect id="a-p-c15" class="box-drive" x="877" y="426" width="50" height="34" rx="4"/>
+        <text id="a-p-b15" class="t-mono t-mid" x="902.0" y="449">00</text>
+        <text class="t-small t-mid t-muted" x="538.0" y="478">命令</text>
+        <text class="t-small t-mid t-muted" x="616.0" y="478">Index</text>
+        <text class="t-small t-mid t-muted" x="694.0" y="478">Sub</text>
+        <text class="t-small t-mid t-muted" x="824.0" y="478">Data</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>一帧 SDO 的三层头</h3>
+    <p>邮箱头告诉 ESC 后面有多少字节、是什么协议；CoE 头说明是 SDO 请求还是应答；SDO 部分才是命令、对象号和数据。所有多字节字段都是小端。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>字节偏移</th><th>字段</th><th>位宽</th><th>本例值</th><th>说明</th></tr>
+        <tr><td>0–1</td><td>Length</td><td>16</td><td><code>0x000A</code></td><td>邮箱头之后的字节数（CoE 头 2 + SDO 8）</td></tr>
+        <tr><td>2–3</td><td>Address</td><td>16</td><td><code>0x0000</code></td><td>站地址字段，主站填法因实现而异，按 ETG.1000.6</td></tr>
+        <tr><td>4</td><td>Channel / Priority</td><td>6 + 2</td><td><code>0x00</code></td><td>通道 bit0–5，优先级 bit6–7，一般为 0</td></tr>
+        <tr><td>5</td><td>Type / Cnt</td><td>4 + 3 + 1</td><td><code>0x13</code></td><td>Type bit0–3：3 = CoE（2 EoE、4 FoE、5 SoE）；Cnt bit4–6：1–7 循环，用来识别重发；bit7 保留</td></tr>
+        <tr><td>6–7</td><td>CoE 头</td><td>9 + 3 + 4</td><td><code>0x2000</code></td><td>Number bit0–8（SDO 时为 0）；保留 3 位；Service bit12–15：2 = SDO 请求，3 = SDO 应答，1 = 紧急报文</td></tr>
+        <tr><td>8</td><td>SDO 命令</td><td>8</td><td><code>0x2F</code></td><td>见下表</td></tr>
+        <tr><td>9–10</td><td>Index</td><td>16</td><td><code>0x6060</code></td><td>对象索引，线上为 60 60</td></tr>
+        <tr><td>11</td><td>Subindex</td><td>8</td><td><code>0x00</code></td><td>子索引</td></tr>
+        <tr><td>12–15</td><td>Data</td><td>32</td><td><code>08 00 00 00</code></td><td>快速传输的数据；普通传输时是总长度</td></tr>
+      </table>
+    </div>
+
+    <h3>SDO 命令字节怎么读</h3>
+    <p>高 3 位是命令码（主站发叫 ccs，从站回叫 scs）；初始化类命令里 e = 1 表示快速传输，s = 1 表示给出了长度，n 是 4 字节数据里"没用上"的字节数。bit4 在 CoE 里是 Complete Access 标志，普通访问为 0。</p>
+    <div class="table-wrap">
+      <table class="sdo-bits">
+        <tr><th>bit7–5</th><th>bit4</th><th>bit3–2</th><th>bit1</th><th>bit0</th></tr>
+        <tr><td>ccs / scs</td><td>CA</td><td>n</td><td>e</td><td>s</td></tr>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <tr><th>命令字节</th><th>方向</th><th>含义</th></tr>
+        <tr><td><code>0x2F</code> / <code>0x2B</code> / <code>0x27</code> / <code>0x23</code></td><td>主→从</td><td>快速下载 1 / 2 / 3 / 4 字节（ccs = 1，e = 1，s = 1，n = 3/2/1/0）</td></tr>
+        <tr><td><code>0x21</code></td><td>主→从</td><td>普通下载：Data 放 4 字节总长度，数据跟在后面</td></tr>
+        <tr><td><code>0x60</code></td><td>从→主</td><td>下载应答成功（scs = 3）</td></tr>
+        <tr><td><code>0x40</code></td><td>主→从</td><td>上传请求（ccs = 2），Data 为 0</td></tr>
+        <tr><td><code>0x4F</code> / <code>0x4B</code> / <code>0x47</code> / <code>0x43</code></td><td>从→主</td><td>快速上传应答 1 / 2 / 3 / 4 字节</td></tr>
+        <tr><td><code>0x41</code></td><td>从→主</td><td>普通上传应答：Data 为总长度，数据跟在后面</td></tr>
+        <tr><td><code>0x80</code></td><td>双向</td><td>Abort：Data 为 4 字节 abort code</td></tr>
+      </table>
+    </div>
+
+    <h3>快速、普通与分段</h3>
+    <p>不超过 4 字节的对象（6040、6060、607A 等）用快速传输，一问一答就完。更长的对象用普通传输，数据紧跟在长度后面；只有当数据超过邮箱容量时，才继续用分段请求逐段搬运，toggle 位 t 在 0/1 间交替防止丢段。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 330" role="img" aria-label="时序图：一次需要分段的 SDO 上传，左侧主站右侧从站，toggle 位交替，最后一段 c 等于 1">
+        <rect class="box-bus" x="40" y="10" width="160" height="36" rx="6"/><text class="t-title t-mid" x="120" y="34">主站</text>
+        <rect class="box-drive" x="760" y="10" width="160" height="36" rx="6"/><text class="t-title t-mid" x="840" y="34">从站</text>
+        <line class="wire stroke-muted dashed" x1="120" y1="46" x2="120" y2="320"/>
+        <line class="wire stroke-muted dashed" x1="840" y1="46" x2="840" y2="320"/>
+        <line class="wire stroke-mail" x1="120" y1="80" x2="832" y2="80"/><polygon class="fill-mail" points="840,80 828,74 828,86"/>
+        <text class="t-small t-mono t-mid" x="480" y="72">0x40 上传请求 1008:00</text>
+        <line class="wire stroke-drive" x1="128" y1="130" x2="840" y2="130"/><polygon class="fill-drive" points="120,130 132,124 132,136"/>
+        <text class="t-small t-mono t-mid" x="480" y="122">0x41 总长 N + 邮箱能装下的前一段数据</text>
+        <line class="wire stroke-mail" x1="120" y1="180" x2="832" y2="180"/><polygon class="fill-mail" points="840,180 828,174 828,186"/>
+        <text class="t-small t-mono t-mid" x="480" y="172">0x60 上传分段请求（t = 0）</text>
+        <line class="wire stroke-drive" x1="128" y1="220" x2="840" y2="220"/><polygon class="fill-drive" points="120,220 132,214 132,226"/>
+        <text class="t-small t-mono t-mid" x="480" y="212">分段应答（t = 0，c = 0）+ 数据</text>
+        <line class="wire stroke-mail" x1="120" y1="260" x2="832" y2="260"/><polygon class="fill-mail" points="840,260 828,254 828,266"/>
+        <text class="t-small t-mono t-mid" x="480" y="252">0x70 上传分段请求（t = 1）</text>
+        <line class="wire stroke-drive" x1="128" y1="300" x2="840" y2="300"/><polygon class="fill-drive" points="120,300 132,294 132,306"/>
+        <text class="t-small t-mono t-mid" x="480" y="292">分段应答（t = 1，c = 1 最后一段）</text>
+      </svg>
+      </div>
+      <figcaption>以读设备名 1008:00 为例（字符串，长度因厂商而异）。数据不超过邮箱容量时，第二行的 0x41 应答就已带回全部数据，后面几行不会出现。</figcaption>
+    </figure>
+
+    <h3>abort code：出错时从站回什么</h3>
+    <p>从站不能完成请求时，回一帧命令字节 0x80 的 SDO，索引和子索引照抄请求，4 字节数据就是 abort code。码的高位字节大致分类：0x05 协议层、0x06 访问与对象、0x08 应用与状态。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>abort code</th><th>含义</th><th>下一步查什么</th></tr>
+        <tr><td><code>0x05040000</code></td><td>SDO 协议超时</td><td>从站固件忙或分段中断；查邮箱周期、从站负载</td></tr>
+        <tr><td><code>0x06010000</code></td><td>不支持该访问</td><td>对只读对象做了下载，或反之；查 ESI 的访问属性</td></tr>
+        <tr><td><code>0x06020000</code></td><td>对象不存在</td><td>索引写错，或这台驱动器没有该对象</td></tr>
+        <tr><td><code>0x06070010</code></td><td>数据类型不匹配，服务参数长度不符</td><td>长度写错，如对 16 位对象写了 4 字节；核对 <code>--type</code></td></tr>
+        <tr><td><code>0x06090011</code></td><td>子索引不存在</td><td>子索引写错；VAR 类对象只有子索引 0</td></tr>
+        <tr><td><code>0x08000022</code></td><td>当前设备状态下不能传输或存储</td><td>在错误的 ESM 状态改 PDO 映射（例如在 SAFEOP/OP 写 1C12），或驱动器状态不允许</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>确认从站至少在 PREOP，且 SM1 里没有未读的旧应答。</li>
+          <li>组装邮箱头 + CoE 头 + SDO，用 FPWR 写满 SM0 整个缓冲区（写到最后一个字节 SM 才变"满"）。</li>
+          <li>周期性 FPRD 读 SM1 状态（0x080D bit3 = 邮箱满），满了再 FPRD 读出整个 SM1。</li>
+          <li>核对应答的索引、子索引；命令字节 0x80 时解出 abort code，上报给应用。超时由主站自己计时。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 在 SM0 写满时触发 PDI 中断或置事件位；固件读出 SM0，SM0 回到"空"，主站可发下一帧。</li>
+          <li>协议栈按 Type = 3 交给 CoE，按 Service = 2 交给 SDO 服务，查对象字典的存在性、访问权限、长度和当前状态。</li>
+          <li>成功就读写对象，失败就准备 abort code。</li>
+          <li>把应答写进 SM1；主站读完后 SM1 变"空"，才能放下一条应答。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>从站需在 PREOP 或更高。IgH 的 <code>upload</code>/<code>download</code> 参数是"索引 子索引 [值]"；从站不支持 SDO Information 时必须用 <code>--type</code> 指定类型。</p>
+    <pre><code># 读状态字（快速上传，2 字节）
+ethercat upload -p0 0x6041 0 --type uint16
+# 写运行模式为 CSP（快速下载，1 字节，命令字节 0x2F）
+ethercat download -p0 0x6060 0 8 --type int8
+ethercat upload -p0 0x6061 0 --type int8
+# 读厂商号，对照 ethercat slaves -v
+ethercat upload -p0 0x1018 1 --type uint32
+# 故意读一个不存在的子索引，看 abort code
+ethercat upload -p0 0x6041 5 --type uint16
+# 列出对象字典（需从站支持 SDO Information）
+ethercat sdos -p0</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>命令</th><th>期望</th><th>说明</th></tr>
+        <tr><td>upload 0x6041 0</td><td>如 0x0250</td><td>十六进制 + 十进制两列；具体值按 u5-l1 的掩码判读</td></tr>
+        <tr><td>download 0x6060 0 8</td><td>无输出</td><td>成功时静默；失败打印 abort code</td></tr>
+        <tr><td>upload 0x6061 0</td><td>0x08 8</td><td>驱动器接受了 CSP；有的驱动器要在 CiA402 某些状态下才更新</td></tr>
+        <tr><td>upload 0x1018 1</td><td>厂商号</td><td>与 <code>ethercat slaves -v</code> 的 Vendor Id 一致</td></tr>
+        <tr><td>upload 0x6041 5</td><td>abort 0x06090011</td><td>多数驱动器如此；少数回 0x06020000 等，因厂商而异</td></tr>
+      </table>
+    </div>
+    <p>Wireshark 抓包过滤 <code>ecat_mailbox.coe</code> 可以看到每帧 SM0/SM1 读写里的邮箱头与 SDO 字段（字段名以所装 Wireshark 版本为准）。</p>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "邮箱头第 5 字节是 <code>0x13</code>，它表示什么？", "options": ["长度 0x13 字节", "Type = 3（CoE），Cnt = 1", "SDO 应答", "通道 1，优先级 3"], "answer": 1, "explain": "该字节低 4 位是 Type（3 = CoE），bit4–6 是计数器 Cnt。长度在字节 0–1，SDO 请求/应答由 CoE 头的 Service 区分。"},
+  {"q": "用快速下载写 2 字节对象 6040，SDO 命令字节应是？", "options": ["<code>0x2F</code>", "<code>0x2B</code>", "<code>0x23</code>", "<code>0x40</code>"], "answer": 1, "explain": "ccs = 1、e = 1、s = 1，n = 4 − 2 = 2：0b0010_1011 = 0x2B。0x2F 是 1 字节，0x23 是 4 字节，0x40 是上传请求。"},
+  {"q": "在 OP 下 SDO 写 <code>0x1C12:00 = 0</code>，从站回 abort <code>0x08000022</code>。最合理的处理是？", "options": ["换一个子索引重试", "把 --type 改成 uint32", "先把从站退回 PREOP 再改 PDO 分配", "重启主站模块"], "answer": 2, "explain": "0x08000022 = 当前设备状态下不能传输或存储。多数从站只允许在 PREOP 修改 PDO 分配与映射，下一课详细讲。"},
+  {"q": "主站怎么知道从站的 SDO 应答已经准备好？", "options": ["从站主动发一帧以太网帧给主站", "主站周期读 SM1 状态，邮箱满位置 1 后读取 SM1", "应答直接写回 SM0", "看 WKC 是否加 1"], "answer": 1, "explain": "EtherCAT 从站不会主动发帧。应答放进 SM1（邮箱入），主站轮询 SM1 状态寄存器（0x080D bit3）或邮箱状态，满了再读。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>SDO 和 PDO 都是"读写对象"，所以可以在周期任务里用 SDO 发目标位置。<br><strong>实际上：</strong>SDO 走邮箱，一次往返要若干个总线周期且时长不确定；周期数据必须走 PDO。</li>
+      <li><strong>误区：</strong>大于 4 字节一定要分段。<br><strong>实际上：</strong>CoE 普通传输可以把数据直接跟在长度后面放进同一帧邮箱；只有超过邮箱容量才需要分段。</li>
+      <li><strong>误区：</strong>upload 超时就说明对象不存在。<br><strong>实际上：</strong>对象不存在从站会明确回 0x06020000；超时多半是从站不在 PREOP 以上、邮箱配置错或固件卡住，先查 ESM 状态。</li>
+    </ul>
+    <p>关联：SM 邮箱满/空握手见 u2-l2；ESM 什么时候打开邮箱见 u3-l1；用 SDO 写 PDO 映射见下一课 u3-l3；6041/6060 的含义见 u5-l1、u5-l2。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function bytes(f, prefix, from, list) {
+    list.forEach(function (b, k) { f.text(prefix + '-b' + (from + k), b); });
+    return f;
+  }
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '从站已在 PREOP，SM0、SM1 两个邮箱都是空的；主站要把 6060:00（运行模式）写成 8。',
+      apply: function () {} },
+    { title: '邮箱头', text: '先写 6 字节邮箱头：Length = 0x000A（后面还有 10 字节），Type = 3 表示 CoE，Cnt = 1。',
+      apply: function (svg) { Academy.fx(svg).show('a-q-mbx'); } },
+    { title: 'CoE 头', text: 'CoE 头 2 字节：Service = 2 表示 SDO 请求，Number 对 SDO 为 0，小端写成 00 20。',
+      apply: function (svg) { Academy.fx(svg).show('a-q-coe'); } },
+    { title: 'SDO 命令', text: '命令 0x2F = 快速下载 1 字节；索引 0x6060 小端写成 60 60，子索引 00，数据 08。',
+      apply: function (svg) { Academy.fx(svg).show('a-q-sdo').text('a-ms', '请求就绪，16 字节'); } },
+    { title: '写入 SM0', text: '主站用 FPWR 把请求写满 SM0 缓冲区，写到最后一个字节时 SM0 变为"满"，ESC 通知从站固件。',
+      apply: function (svg) { Academy.fx(svg).show('a-pk').move('a-pk', 226, 0).text('a-sm0s', '满').hot('a-sm0r').text('a-ms', '已写入，等待应答'); } },
+    { title: '从站处理', text: '从站读出 SM0（SM0 变空），CoE 栈核对对象存在、可写、长度为 1 字节，然后把 6060:00 改成 8。',
+      apply: function (svg) { Academy.fx(svg).hide('a-pk').text('a-sm0s', '空').cool('a-sm0r').text('a-od', '8').hot('a-odr'); } },
+    { title: '应答写入 SM1', text: '从站把应答写进 SM1：CoE Service = 3（SDO 应答），命令 0x60 = 下载成功，SM1 变"满"。',
+      apply: function (svg) { Academy.fx(svg).cool('a-odr').show(['a-p-mbx', 'a-p-coe', 'a-p-sdo']).text('a-sm1s', '满').hot('a-sm1r'); } },
+    { title: '主站轮询读回', text: '主站周期读 SM1 状态，发现"满"后 FPRD 读出应答，SM1 变空；命令 0x60 且索引一致，下载完成。',
+      apply: function (svg) { Academy.fx(svg).show('a-pr').move('a-pr', -226, 0).text('a-sm1s', '空').cool('a-sm1r').text('a-ms', '收到 0x60：下载成功'); } },
+    { title: '大于 4 字节怎么办', text: '4 字节装不下时改用普通传输：命令 0x21，Data 放总长度，数据紧跟其后；超过邮箱容量才再发分段请求。',
+      apply: function (svg) { Academy.fx(svg).hide('a-pr').show('a-seg'); } },
+    { title: '出错：abort', text: '假如请求把子索引写成 05：从站回命令 0x80，数据是 abort code 0x06090011（子索引不存在），小端 11 00 09 06。',
+      apply: function (svg) {
+        var f = Academy.fx(svg).hide('a-seg');
+        f.text('a-q-b11', '05').fault('a-q-c11');
+        bytes(f, 'a-p', 8, ['80']);
+        bytes(f, 'a-p', 11, ['05', '11', '00', '09', '06']);
+        f.fault(['a-p-c8', 'a-p-c12', 'a-p-c13', 'a-p-c14', 'a-p-c15']).text('a-ms', 'abort 0x06090011').fault('a-msr');
+      } }
+  ]);
+  Academy.init('u3-l2');
+})();
+</script>
+</body>
+</html>

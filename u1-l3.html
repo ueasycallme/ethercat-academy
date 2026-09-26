@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>寻址与命令 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u1-l3">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">寻址与命令：飞行读写与 WKC</h1>
+    <p class="lesson-lede">数据报头里的命令码决定"怎么找从站、读还是写"；每台从站在帧流过时就地读写，并把 WKC 按规则加上去，主站靠 WKC 判断有多少次读写真正发生了。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>区分自增（位置）寻址、站地址寻址、广播、逻辑寻址，各用在什么阶段。</li>
+          <li>说出每类命令的 WKC 增量：只读 +1、只写 +1、读写命令读 +1 / 写 +2 / 都成功 +3。</li>
+          <li>解释"飞行读写"：从站在帧流过时读写，帧不停留。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+<svg viewBox="0 0 960 440" role="img" aria-label="主动画：同一台主站依次发 APRD、FPRD、BRD、LRW 四种命令，三台从站按各自的寻址规则决定是否处理，WKC 随之累加，最后与期望值比较">
+<rect class="box-bus" x="160" y="18" width="740" height="92" rx="8"/>
+<text class="t-small t-muted" x="172" y="36">数据报（在网线上流动）</text>
+<rect class="box" x="180" y="44" width="160" height="56" rx="5"/>
+<text class="t-small t-muted" x="190" y="62">Cmd</text>
+<text id="l3-cmd" class="t-mono t-bold" x="190" y="88">—</text>
+<rect class="box" x="350" y="44" width="250" height="56" rx="5"/>
+<text class="t-small t-muted" x="360" y="62">地址</text>
+<text id="l3-addr" class="t-mono" x="360" y="88">—</text>
+<rect class="box" x="610" y="44" width="170" height="56" rx="5"/>
+<text class="t-small t-muted" x="620" y="62">数据</text>
+<text id="l3-data" class="" x="620" y="88">—</text>
+<rect class="box" x="790" y="44" width="95" height="56" rx="5"/>
+<text class="t-small t-muted" x="800" y="62">WKC</text>
+<text id="l3-wkc" class="t-mono t-bold t-bus" x="800" y="88">—</text>
+<g id="l3-master"><rect class="box-bus" x="16" y="160" width="120" height="160" rx="8"/><text class="t-title t-mid" x="76" y="190">主站</text>
+<g id="l3-cmp" class="is-hidden"><text id="l3-exp" class="t-small t-mid" x="76" y="228">期望 WKC 6</text><text id="l3-got" class="t-small t-mid" x="76" y="252">收到 WKC 6</text><text id="l3-verdict" class="t-drive t-bold t-mid" x="76" y="284">完整</text></g></g>
+<line id="l3-w0" class="wire-bus" x1="136" y1="240" x2="210" y2="240"/>
+<line id="l3-w1" class="wire-bus" x1="390" y1="240" x2="470" y2="240"/>
+<line id="l3-w2" class="wire-bus" x1="650" y1="240" x2="730" y2="240"/>
+<g id="l3-s1"><rect id="l3-s1-box" class="box-drive" x="210" y="160" width="180" height="160" rx="8"/>
+<text class="t-title" x="222" y="188">从站 1</text>
+<text id="l3-s1-inc" class="t-big t-bold t-bus t-end t-mono" x="378" y="190"></text>
+<text class="t-small t-muted" x="222" y="212">位置 0</text>
+<text class="t-small t-mono" x="222" y="232">站地址 0x1001</text>
+<text id="l3-s1-a" class="t-small" x="222" y="272"></text>
+<text id="l3-s1-b" class="t-small t-bold" x="222" y="294"></text></g>
+<g id="l3-s2"><rect id="l3-s2-box" class="box-drive" x="470" y="160" width="180" height="160" rx="8"/>
+<text class="t-title" x="482" y="188">从站 2</text>
+<text id="l3-s2-inc" class="t-big t-bold t-bus t-end t-mono" x="638" y="190"></text>
+<text class="t-small t-muted" x="482" y="212">位置 1</text>
+<text class="t-small t-mono" x="482" y="232">站地址 0x1002</text>
+<text id="l3-s2-a" class="t-small" x="482" y="272"></text>
+<text id="l3-s2-b" class="t-small t-bold" x="482" y="294"></text></g>
+<g id="l3-s3"><rect id="l3-s3-box" class="box-drive" x="730" y="160" width="180" height="160" rx="8"/>
+<text class="t-title" x="742" y="188">从站 3</text>
+<text id="l3-s3-inc" class="t-big t-bold t-bus t-end t-mono" x="898" y="190"></text>
+<text class="t-small t-muted" x="742" y="212">位置 2</text>
+<text class="t-small t-mono" x="742" y="232">站地址 0x1003</text>
+<text id="l3-s3-a" class="t-small" x="742" y="272"></text>
+<text id="l3-s3-b" class="t-small t-bold" x="742" y="294"></text></g>
+<g id="l3-otf" class="is-hidden"><rect class="box" x="160" y="336" width="740" height="98" rx="8"/>
+<text class="t-small t-bold" x="176" y="356">飞行读写（放大一台从站）</text>
+<rect class="box-muted" x="250" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="294" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="338" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="382" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="426" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="470" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="514" y="368" width="36" height="26" rx="3"/>
+<rect class="box-muted" x="558" y="368" width="36" height="26" rx="3"/>
+<rect class="box-bus" x="602" y="368" width="36" height="26" rx="3"/>
+<rect class="box-bus" x="646" y="368" width="36" height="26" rx="3"/>
+<rect class="box-bus" x="690" y="368" width="36" height="26" rx="3"/>
+<rect class="box-bus" x="734" y="368" width="36" height="26" rx="3"/>
+<rect class="box-bus" x="778" y="368" width="36" height="26" rx="3"/>
+<rect class="box-bus" x="822" y="368" width="36" height="26" rx="3"/>
+<line class="stroke-drive sw-3" x1="562" y1="362" x2="562" y2="400"/>
+<text class="t-small t-drive t-bold" x="490" y="356">ESC 处理点</text>
+<text class="t-small t-muted" x="176" y="386">帧的方向 →</text>
+<text class="t-small" x="176" y="424">字节一边流过一边被读写：从站不等整帧收完，只引入很短的固定延迟。蓝色 = 已经过处理点。</text>
+</g>
+</svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>四种寻址方式</h3>
+    <p>命令码本身就带着寻址方式：AP 开头按位置，FP 开头按站地址，B 开头广播，L 开头按逻辑地址。位置寻址时 32 位地址拆成 ADP（2 B，找谁）和 ADO（2 B，从站内的寄存器偏移）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>方式</th><th>命令</th><th>地址字段</th><th>哪台处理</th><th>典型用途</th></tr>
+        <tr><td>自增（位置）</td><td>APRD APWR APRW ARMW</td><td>ADP = −位置号；ADO = 寄存器</td><td>每台把 ADP 加 1 后转发；收到 ADP = 0 的那台处理</td><td>启动扫描，分配站地址之前</td></tr>
+        <tr><td>站地址</td><td>FPRD FPWR FPRW FRMW</td><td>ADP = 站地址；ADO = 寄存器</td><td>ADP 等于本站 <code>0x0010</code>（或已启用的别名 <code>0x0012</code>）的那台</td><td>配置、邮箱、诊断</td></tr>
+        <tr><td>广播</td><td>BRD BWR BRW</td><td>ADO = 寄存器；ADP 不用于寻址</td><td>所有从站</td><td>数从站、读全体状态、同时写全体</td></tr>
+        <tr><td>逻辑</td><td>LRD LWR LRW</td><td>32 位逻辑地址</td><td>FMMU 映射覆盖了该地址段的从站</td><td>周期过程数据</td></tr>
+      </table>
+    </div>
+    <p>BRD 时每台从站把自己寄存器的值与帧里的数据按位或，所以读回的是全体的"或"。</p>
+
+    <h3>命令码表</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>码</th><th>命令</th><th>含义</th><th>码</th><th>命令</th><th>含义</th></tr>
+        <tr><td>0</td><td>NOP</td><td>无操作</td><td>8</td><td>BWR</td><td>广播写</td></tr>
+        <tr><td>1</td><td>APRD</td><td>位置读</td><td>9</td><td>BRW</td><td>广播读写</td></tr>
+        <tr><td>2</td><td>APWR</td><td>位置写</td><td>10</td><td>LRD</td><td>逻辑读</td></tr>
+        <tr><td>3</td><td>APRW</td><td>位置读写</td><td>11</td><td>LWR</td><td>逻辑写</td></tr>
+        <tr><td>4</td><td>FPRD</td><td>站地址读</td><td>12</td><td>LRW</td><td>逻辑读写</td></tr>
+        <tr><td>5</td><td>FPWR</td><td>站地址写</td><td>13</td><td>ARMW</td><td>位置读、其余多台写</td></tr>
+        <tr><td>6</td><td>FPRW</td><td>站地址读写</td><td>14</td><td>FRMW</td><td>站地址读、其余多台写</td></tr>
+        <tr><td>7</td><td>BRD</td><td>广播读</td><td></td><td></td><td></td></tr>
+      </table>
+    </div>
+
+    <h3>WKC 增量规则</h3>
+    <p>每台从站只在读写真正成功时才加 WKC：没命中、没映射、或该区域当前不可访问都不加。读写命令把"读"和"写"分别计 1 和 2，主站从总数就能分辨是哪一半没成功。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>命令类</th><th>每台从站成功时</th><th>例</th></tr>
+        <tr><td>只读：APRD FPRD BRD LRD</td><td>读成功 +1</td><td>BRD 3 台在线 → WKC = 3</td></tr>
+        <tr><td>只写：APWR FPWR BWR LWR</td><td>写成功 +1</td><td>FPWR 命中 → WKC = 1</td></tr>
+        <tr><td>读写：APRW FPRW BRW LRW</td><td>读成功 +1，写成功 +2，都成功 +3</td><td>LRW 一台既有输出又有输入 → +3</td></tr>
+        <tr><td>读多写：ARMW FRMW</td><td>被寻址那台读成功 +1；其余每台写成功 +1</td><td>用于分发参考时钟（u4-l1）</td></tr>
+      </table>
+    </div>
+
+    <h3>期望 WKC 怎么算</h3>
+    <p>周期 LRW 的期望值按每台从站在这个数据报里的映射逐台加：有输出（被写）加 2，有输入（被读）加 1。IgH 自动为每个域算好这个数，并在每周期比较。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>从站</th><th>映射</th><th>贡献</th></tr>
+        <tr><td>从站 1（伺服驱动器）</td><td>RxPDO 输出 + TxPDO 输入</td><td>2 + 1 = 3</td></tr>
+        <tr><td>从站 2（数字输入模块）</td><td>只有输入</td><td>1</td></tr>
+        <tr><td>从站 3（数字输出模块）</td><td>只有输出</td><td>2</td></tr>
+        <tr><td colspan="2"><strong>期望 WKC</strong></td><td><strong>6</strong></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>按阶段选寻址方式：先广播数从站，再按位置给每台写站地址（<code>0x0010</code>），之后配置和诊断都用站地址，周期过程数据用 LRW。</li>
+          <li>IgH 空闲时周期性发 BRD 读 <code>0x0130</code>：WKC 就是在线从站数，数据是全体 AL 状态的按位或。</li>
+          <li>为每个数据报算好期望 WKC；周期里比较实际值，IgH 在 <code>ecrt_domain_state()</code> 的 <code>wc_state</code> 里给出 ZERO / INCOMPLETE / COMPLETE。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 读到数据报头就判断是否命中：位置寻址先把 ADP 加 1 再转发；站地址寻址比 <code>0x0010</code>；逻辑寻址查自己的 FMMU。</li>
+          <li>命中就在数据流过时读或写，并按规则累加 WKC；整个过程由 ESC 硬件完成，从站 CPU 不参与。</li>
+          <li>从站从不单独应答：所有结果都写回同一帧里，随帧回到主站。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <pre><code>ethercat reg_read -p1 --type uint16 0x0010 2   # 位置 1 那台的站地址（扫描时由主站写入）
+ethercat reg_read -p1 --type uint16 0x0130 2   # 它的 AL 状态；IgH 用站地址寻址去读
+ethercat domains                               # 每个域的 WorkingCounter 实际/期望
+dmesg | grep -i "working counter"              # WKC 变化时 IgH 会打日志</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>0x0010</td><td>非 0，各台互不相同</td><td>站地址由主站分配，具体数值按主站实现而定</td></tr>
+        <tr><td>WorkingCounter</td><td>6/6（按你的映射）</td><td>斜杠左边是最近一次实际值，右边是期望值</td></tr>
+        <tr><td>期望值</td><td>Σ（有输出 2 + 有输入 1）</td><td>按上面的表逐台加，核对 IgH 算的数</td></tr>
+        <tr><td>实际 &lt; 期望</td><td>例如 4/6</td><td>有从站没参与交换：掉线、没到 SAFEOP/OP、或映射不对；先看 <code>ethercat slaves</code></td></tr>
+        <tr><td>实际 = 0</td><td>0/6</td><td>这帧没有一台处理成功，常见于帧没回来或全体不在可交换状态</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "要用 APRD 读位置 2（第三台）从站的寄存器，ADP 应该填？", "options": ["<code>0x0002</code>", "<code>0xFFFE</code>", "<code>0x0003</code>", "它的站地址"], "answer": 1, "explain": "每台从站把 ADP 加 1 再转发，收到 0 的那台处理。填 −2（<code>0xFFFE</code>），经过前两台各加 1 后到第三台正好是 0。"},
+  {"q": "3 台从站都在线，主站发 BRD 读 <code>0x0130</code>。返回的 WKC 和数据是？", "options": ["WKC = 1，数据是第一台的 AL 状态", "WKC = 3，数据是三台 AL 状态的按位或", "WKC = 3，数据是三台 AL 状态之和", "WKC = 6，数据是最后一台的 AL 状态"], "answer": 1, "explain": "广播读时每台都读成功各 +1；每台把自己的值与帧里的数据按位或。"},
+  {"q": "LRW 数据报里，某台从站既有输出被写、又有输入被读，它对 WKC 的贡献是？", "options": ["+1", "+2", "+3", "+4"], "answer": 2, "explain": "读写命令：读成功 +1，写成功 +2，两者都成功 +3。"},
+  {"q": "<code>ethercat domains</code> 显示 WorkingCounter 4/6，最合理的解读是？", "options": ["帧里的数据全部正确，只是计数方式不同", "有 2 次写或 2 次读没有成功：有从站没参与这次交换", "WKC 溢出，可以忽略", "主站 CPU 太忙"], "answer": 1, "explain": "期望 6、实际 4，说明有从站没参与交换，比如线形末端一台只有输出的从站掉线正好少 2。先用 ethercat slaves 看哪台状态不对。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>WKC 就是"应答的从站数"。<br><strong>实际上：</strong>只读、只写命令每台 +1，但读写命令按读 1、写 2 加权；LRW 的期望值要按每台的输出/输入映射逐台算。</li>
+      <li><strong>误区：</strong>WKC 对上了，数据就一定对。<br><strong>实际上：</strong>WKC 只说明读写发生了几次，不校验数据内容，也不说明驱动器已进入 Operation Enabled。</li>
+      <li><strong>误区：</strong>位置寻址一直用下去就行。<br><strong>实际上：</strong>位置号随接线变，前面插拔一台后面全变；分配站地址后应改用站地址或逻辑寻址。</li>
+    </ul>
+    <p>关联：LRW 里"哪段逻辑地址对应哪台从站的哪块内存"由 FMMU 决定，见 u2-l3；ARMW/FRMW 分发参考时钟见 u4-l1；WKC 不完整的排查见 u7-l2。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function notes(f, list) {
+    list.forEach(function (n, i) {
+      f.text('l3-s' + (i + 1) + '-a', n[0]).text('l3-s' + (i + 1) + '-b', n[1]).text('l3-s' + (i + 1) + '-inc', n[2]);
+    });
+  }
+  function card(f, cmd, addr, data, wkc) {
+    f.text('l3-cmd', cmd).text('l3-addr', addr).text('l3-data', data).text('l3-wkc', wkc);
+  }
+  var S = ['l3-s1-box', 'l3-s2-box', 'l3-s3-box'];
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '三台从站', text: '每台有位置号（接线顺序）和主站写入的站地址（这里的 0x1001… 是示例值）。', apply: function () {} },
+    { title: 'APRD：按位置发出', text: '主站发 APRD，ADP = 0x0000 表示"位置 0"，ADO = 0x0130 是 AL 状态寄存器。', apply: function (svg) {
+      card(Academy.fx(svg), 'APRD (0x01)', 'ADP 0x0000 · ADO 0x0130', '2 B 待填', '0');
+    } },
+    { title: 'APRD：收到 0 的那台命中', text: '每台把 ADP 加 1 后转发；从站 1 收到 0 命中并读出，WKC +1，后两台收到的已不是 0。', apply: function (svg) {
+      var f = Academy.fx(svg).hot('l3-s1-box');
+      notes(f, [['收到 ADP 0x0000', '= 0 → 命中，读', '+1'], ['收到 ADP 0x0001', '≠ 0 → 跳过', ''], ['收到 ADP 0x0002', '≠ 0 → 跳过', '']]);
+      f.text('l3-data', '从站 1 的 AL 状态').text('l3-wkc', '1');
+    } },
+    { title: 'FPRD：按站地址匹配', text: 'ADP 换成站地址 0x1002；只有 0x0010 寄存器等于它的从站 2 命中，WKC = 1。', apply: function (svg) {
+      var f = Academy.fx(svg).cool(S).hot('l3-s2-box');
+      card(f, 'FPRD (0x04)', 'ADP 0x1002 · ADO 0x0130', '从站 2 的 AL 状态', '1');
+      notes(f, [['0x1002 ≠ 本站 0x1001', '跳过', ''], ['0x1002 = 本站地址', '命中，读', '+1'], ['0x1002 ≠ 本站 0x1003', '跳过', '']]);
+    } },
+    { title: 'BRD：人人都处理', text: '广播读每台都命中，各自把值按位或进数据并 +1，WKC 累加到 3。', apply: function (svg) {
+      var f = Academy.fx(svg).cool(S).hot(S);
+      card(f, 'BRD (0x07)', 'ADO 0x0130（ADP 不寻址）', '三台 AL 状态的或', '3');
+      notes(f, [['广播：命中', '读并按位或', '+1'], ['广播：命中', '读并按位或', '+1'], ['广播：命中', '读并按位或', '+1']]);
+    } },
+    { title: 'LRW：按 FMMU 匹配逻辑地址', text: '逻辑读写：从站 1 写输出+读输入 +3，从站 2 只读输入 +1，从站 3 只写输出 +2，WKC = 6。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      card(f, 'LRW (0x0C)', '逻辑 0x00000000', '输出写入 / 输入读出', '6');
+      notes(f, [['FMMU：输出 + 输入', '写 +2，读 +1', '+3'], ['FMMU：只有输入', '读', '+1'], ['FMMU：只有输出', '写', '+2']]);
+    } },
+    { title: '飞行读写', text: '从站不等整帧收完：字节一边流过处理点一边被读写，帧只被延迟很短的固定时间。', apply: function (svg) {
+      Academy.fx(svg).show('l3-otf').flow(['l3-w0', 'l3-w1', 'l3-w2']);
+    } },
+    { title: 'WKC 对比期望值', text: '帧回到主站，实际 WKC 6 等于期望 6：这个数据报的每次读写都成功了。', apply: function (svg) {
+      Academy.fx(svg).hide('l3-otf').show('l3-cmp');
+    } },
+    { title: '少一台：WKC 不完整', text: '若末端的从站 3 掉线，从站 2 端口 1 自动闭环，少了从站 3 的 +2，主站收到 4/6，判为不完整。', apply: function (svg) {
+      var f = Academy.fx(svg).cool('l3-s3-box').fault('l3-s3-box').flow('l3-w2', false).dim('l3-w2');
+      f.text('l3-s3-a', '掉线，不在环上').text('l3-s3-b', '无贡献').text('l3-s3-inc', '');
+      f.text('l3-s2-a', '端口 1 无链路 → 闭环');
+      f.text('l3-wkc', '4').text('l3-got', '收到 WKC 4').text('l3-verdict', '不完整').cls('l3-verdict', 't-fault');
+    } }
+  ]);
+  Academy.init('u1-l3');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDO 映射与过程映像 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .map-decoder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.lesson .map-decoder input { font-family: var(--font-mono); width: 11em; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.lesson .map-decoder output { font-family: var(--font-mono); font-weight: 600; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u3-l3">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">PDO 映射与过程映像</h1>
+    <p class="lesson-lede">周期帧里每个字节是谁、在哪个偏移，全由三层对象决定：映射对象（1600/1A00）选内容，分配对象（1C12/1C13）挂到 SM，主站再用 FMMU 把 SM 排进域。本课把这条链从头算到 C 代码里的偏移。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>读懂映射项的 32 位编码：索引 16 位、子索引 8 位、位长 8 位。</li>
+          <li>解释 1C12/1C13 怎样把 PDO 挂到 SM2/SM3，并算出 SM 长度。</li>
+          <li>从映射一路算出域里每个变量的字节偏移，读懂 <code>ethercat cstruct</code> 的输出。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 500" role="img" aria-label="主动画：右侧从站对象字典依次写入 1600、1C12、1A00、1C13，算出 SM2、SM3 长度；左侧主站把两段放进域，得到偏移 0、2、6、8">
+        <!-- 主站：域 -->
+        <rect class="box-bus" x="20" y="20" width="290" height="460" rx="10"/>
+        <text class="t-title" x="36" y="48">主站：域（过程映像）</text>
+        <text class="t-small t-muted" x="36" y="68">偏移</text>
+        <g id="a-cells">
+          <rect class="box-muted" x="70" y="80" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="99">0</text>
+          <rect class="box-muted" x="70" y="110" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="129">1</text>
+          <rect class="box-muted" x="70" y="140" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="159">2</text>
+          <rect class="box-muted" x="70" y="170" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="189">3</text>
+          <rect class="box-muted" x="70" y="200" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="219">4</text>
+          <rect class="box-muted" x="70" y="230" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="249">5</text>
+          <rect class="box-muted" x="70" y="260" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="279">6</text>
+          <rect class="box-muted" x="70" y="290" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="309">7</text>
+          <rect class="box-muted" x="70" y="320" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="339">8</text>
+          <rect class="box-muted" x="70" y="350" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="369">9</text>
+          <rect class="box-muted" x="70" y="380" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="399">10</text>
+          <rect class="box-muted" x="70" y="410" width="56" height="28" rx="3"/><text class="t-small t-mono t-mid t-muted" x="98" y="429">11</text>
+        </g>
+        <g id="a-seg" class="is-hidden">
+          <rect class="fill-none stroke-bus sw-3" x="68" y="78" width="60" height="182" rx="5"/>
+          <rect class="fill-none stroke-drive sw-3" x="68" y="258" width="60" height="182" rx="5"/>
+          <text class="t-small t-bus" x="30" y="96">输出</text>
+          <text class="t-small t-bus t-bold" x="30" y="114">SM2</text>
+          <text class="t-small t-drive" x="30" y="276">输入</text>
+          <text class="t-small t-drive t-bold" x="30" y="294">SM3</text>
+        </g>
+        <g id="a-vars" class="is-hidden">
+          <path class="wire stroke-bus" d="M132 82 h8 v54 h-8"/>
+          <text class="t-small t-mono" x="148" y="104">+0 控制字</text>
+          <text class="t-small t-mono t-muted" x="148" y="122">6040 u16</text>
+          <path class="wire stroke-bus" d="M132 142 h8 v114 h-8"/>
+          <text class="t-small t-mono" x="148" y="194">+2 目标位置</text>
+          <text class="t-small t-mono t-muted" x="148" y="212">607A s32</text>
+          <path class="wire stroke-drive" d="M132 262 h8 v54 h-8"/>
+          <text class="t-small t-mono" x="148" y="284">+6 状态字</text>
+          <text class="t-small t-mono t-muted" x="148" y="302">6041 u16</text>
+          <path class="wire stroke-drive" d="M132 322 h8 v114 h-8"/>
+          <text class="t-small t-mono" x="148" y="374">+8 实际位置</text>
+          <text class="t-small t-mono t-muted" x="148" y="392">6064 s32</text>
+        </g>
+        <text id="a-dsize" class="t-small t-muted" x="36" y="466">域大小：未确定</text>
+
+        <!-- 网线 -->
+        <line class="wire-bus" x1="310" y1="260" x2="430" y2="260"/>
+        <g id="a-lrw" class="is-hidden">
+          <text class="t-small t-mid t-bus" x="370" y="240">LRW 12 字节</text>
+          <text class="t-small t-mid t-bus" x="370" y="286">WKC 期望 3</text>
+        </g>
+
+        <!-- 从站：对象字典 -->
+        <rect class="box-drive" x="430" y="20" width="510" height="460" rx="10"/>
+        <text class="t-title" x="446" y="48">从站：对象字典 → SM</text>
+
+        <rect id="a-p1600" class="box-mail" x="446" y="62" width="234" height="118" rx="6"/>
+        <text class="t-small t-bold" x="456" y="82">0x1600 RxPDO 映射</text>
+        <text class="t-small t-mono t-muted" x="456" y="106">:00 条目数</text><text id="a-16-0" class="t-small t-mono t-end" x="670" y="106">0</text>
+        <text class="t-small t-mono t-muted" x="456" y="134">:01</text><text id="a-16-1" class="t-small t-mono t-end" x="670" y="134">—</text>
+        <text class="t-small t-mono t-muted" x="456" y="162">:02</text><text id="a-16-2" class="t-small t-mono t-end" x="670" y="162">—</text>
+
+        <rect id="a-p1a00" class="box-mail" x="694" y="62" width="234" height="118" rx="6"/>
+        <text class="t-small t-bold" x="704" y="82">0x1A00 TxPDO 映射</text>
+        <text class="t-small t-mono t-muted" x="704" y="106">:00 条目数</text><text id="a-1a-0" class="t-small t-mono t-end" x="918" y="106">0</text>
+        <text class="t-small t-mono t-muted" x="704" y="134">:01</text><text id="a-1a-1" class="t-small t-mono t-end" x="918" y="134">—</text>
+        <text class="t-small t-mono t-muted" x="704" y="162">:02</text><text id="a-1a-2" class="t-small t-mono t-end" x="918" y="162">—</text>
+
+        <rect id="a-p1c12" class="box-mail" x="446" y="194" width="234" height="84" rx="6"/>
+        <text class="t-small t-bold" x="456" y="214">0x1C12 SM2 分配</text>
+        <text class="t-small t-mono t-muted" x="456" y="240">:00 PDO 个数</text><text id="a-12-0" class="t-small t-mono t-end" x="670" y="240">0</text>
+        <text class="t-small t-mono t-muted" x="456" y="266">:01</text><text id="a-12-1" class="t-small t-mono t-end" x="670" y="266">—</text>
+
+        <rect id="a-p1c13" class="box-mail" x="694" y="194" width="234" height="84" rx="6"/>
+        <text class="t-small t-bold" x="704" y="214">0x1C13 SM3 分配</text>
+        <text class="t-small t-mono t-muted" x="704" y="240">:00 PDO 个数</text><text id="a-13-0" class="t-small t-mono t-end" x="918" y="240">0</text>
+        <text class="t-small t-mono t-muted" x="704" y="266">:01</text><text id="a-13-1" class="t-small t-mono t-end" x="918" y="266">—</text>
+
+        <g id="a-dec" class="is-hidden">
+          <rect class="box-power" x="446" y="292" width="482" height="64" rx="6"/>
+          <text class="t-small t-muted" x="458" y="314">映射项拆解：索引 | 子索引 | 位长</text>
+          <text id="a-dect" class="t-mono" x="458" y="342">0x6040 | 0x00 | 0x10 → 6040:00，16 位</text>
+        </g>
+
+        <rect id="a-sm2r" class="box-bus" x="446" y="372" width="234" height="92" rx="6"/>
+        <text class="t-small t-bold" x="456" y="394">ESC SM2（输出）</text>
+        <text class="t-small t-muted" x="456" y="418">长度（0x0812）</text>
+        <text id="a-sm2l" class="t-big t-mono" x="456" y="448">?</text>
+        <rect id="a-sm3r" class="box-drive" x="694" y="372" width="234" height="92" rx="6"/>
+        <text class="t-small t-bold" x="704" y="394">ESC SM3（输入）</text>
+        <text class="t-small t-muted" x="704" y="418">长度（0x081A）</text>
+        <text id="a-sm3l" class="t-big t-mono" x="704" y="448">?</text>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>映射项的 32 位编码</h3>
+    <p>映射对象的每个子索引是一个 UINT32：高 16 位索引、中 8 位子索引、低 8 位位长（单位 bit）。子索引 0 是条目个数。索引为 0 的条目是填充位，用来对齐。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>映射项</th><th>索引</th><th>子索引</th><th>位长</th><th>对象</th></tr>
+        <tr><td><code>0x60400010</code></td><td>0x6040</td><td>0x00</td><td>0x10 = 16</td><td>控制字</td></tr>
+        <tr><td><code>0x607A0020</code></td><td>0x607A</td><td>0x00</td><td>0x20 = 32</td><td>目标位置</td></tr>
+        <tr><td><code>0x60410010</code></td><td>0x6041</td><td>0x00</td><td>0x10 = 16</td><td>状态字</td></tr>
+        <tr><td><code>0x60640020</code></td><td>0x6064</td><td>0x00</td><td>0x20 = 32</td><td>实际位置</td></tr>
+        <tr><td><code>0x00000008</code></td><td>0x0000</td><td>0x00</td><td>8</td><td>8 位填充</td></tr>
+      </table>
+    </div>
+    <div class="map-decoder">
+      <label for="map-in">试拆一个映射项：</label>
+      <input id="map-in" value="0x60B80010" spellcheck="false" aria-label="输入 32 位映射项">
+      <output id="map-out" for="map-in"></output>
+    </div>
+
+    <h3>分配：从 PDO 到 SM 长度</h3>
+    <p>1C12 列出挂在 SM2（输出）上的 RxPDO，1C13 列出挂在 SM3（输入）上的 TxPDO。SM 长度等于所分配 PDO 的位长之和换成字节，主站据此写 SM 长度寄存器；与从站预期不一致时，从站在 PREOP→SAFEOP 拒绝并报 0x001D / 0x001E。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 200" role="img" aria-label="分配链：1C12 指向 1600，1600 列出 6040 与 607A，合计 48 位即 6 字节写入 SM2；1C13 指向 1A00，合计 6 字节写入 SM3">
+        <rect class="box-mail" x="20" y="20" width="150" height="60" rx="6"/><text class="t-mono t-mid" x="95" y="46">1C12:01</text><text class="t-small t-mono t-mid t-muted" x="95" y="68">= 0x1600</text>
+        <path class="wire" d="M170 50 H226"/><polygon class="fill-muted" points="232,50 222,45 222,55"/>
+        <rect class="box-mail" x="234" y="20" width="300" height="60" rx="6"/><text class="t-mono" x="246" y="46">1600: 6040/16 + 607A/32</text><text class="t-small t-muted" x="246" y="68">= 48 bit</text>
+        <path class="wire" d="M534 50 H590"/><polygon class="fill-muted" points="596,50 586,45 586,55"/>
+        <rect class="box-bus" x="598" y="20" width="340" height="60" rx="6"/><text class="t-mono" x="610" y="46">SM2 长度 = 6 字节</text><text class="t-small t-muted" x="610" y="68">主站写 0x0812，控制字节为输出方向</text>
+        <rect class="box-mail" x="20" y="120" width="150" height="60" rx="6"/><text class="t-mono t-mid" x="95" y="146">1C13:01</text><text class="t-small t-mono t-mid t-muted" x="95" y="168">= 0x1A00</text>
+        <path class="wire" d="M170 150 H226"/><polygon class="fill-muted" points="232,150 222,145 222,155"/>
+        <rect class="box-mail" x="234" y="120" width="300" height="60" rx="6"/><text class="t-mono" x="246" y="146">1A00: 6041/16 + 6064/32</text><text class="t-small t-muted" x="246" y="168">= 48 bit</text>
+        <path class="wire" d="M534 150 H590"/><polygon class="fill-muted" points="596,150 586,145 586,155"/>
+        <rect class="box-drive" x="598" y="120" width="340" height="60" rx="6"/><text class="t-mono" x="610" y="146">SM3 长度 = 6 字节</text><text class="t-small t-muted" x="610" y="168">主站写 0x081A，控制字节为输入方向</text>
+      </svg>
+      </div>
+      <figcaption>一个 SM 可以分配多个 PDO（1C12:01、:02…），长度按顺序累加。SM2 寄存器组起始 0x0810、SM3 起始 0x0818，长度字段在各自 +2 处。</figcaption>
+    </figure>
+
+    <h3>动态映射：在 PREOP 里按顺序写</h3>
+    <p>映射可改的从站（ESI 里标明）只允许在 PREOP 改，在 SAFEOP/OP 改通常回 abort 0x08000022。关键是"先清零子索引 0，写完条目，再写回个数"，从站在写子索引 0 时才校验整张表。IgH 在 <code>ecrt_slave_config_pdos()</code> 配置后会自动按这个顺序写。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>#</th><th>SDO 下载</th><th>作用</th></tr>
+        <tr><td>1</td><td><code>1C12:00 = 0</code></td><td>先解除 SM2 的分配</td></tr>
+        <tr><td>2</td><td><code>1600:00 = 0</code></td><td>清空映射，允许改条目</td></tr>
+        <tr><td>3</td><td><code>1600:01 = 0x60400010</code></td><td>第 1 个条目</td></tr>
+        <tr><td>4</td><td><code>1600:02 = 0x607A0020</code></td><td>第 2 个条目</td></tr>
+        <tr><td>5</td><td><code>1600:00 = 2</code></td><td>写回个数，从站校验映射</td></tr>
+        <tr><td>6</td><td><code>1C12:01 = 0x1600</code></td><td>把 1600 挂到 SM2</td></tr>
+        <tr><td>7</td><td><code>1C12:00 = 1</code></td><td>写回个数，分配生效</td></tr>
+      </table>
+    </div>
+    <p>1A00 / 1C13 同理。固定映射的从站只能在 1C12/1C13 里选预定义的 PDO，甚至连分配也不能改，写入会被 abort，具体以 ESI 为准。</p>
+
+    <h3>从映射到域偏移与 C 代码</h3>
+    <p>应用按顺序注册 PDO 条目时，IgH 为每个用到的 SM 在域里分配一段连续空间并配 FMMU。本例先注册输出，于是 SM2 的 6 字节在前、SM3 的 6 字节在后，域共 12 字节，一帧 LRW 读写全部。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>对象</th><th>所在 SM</th><th>域偏移</th><th>长度</th><th>读写宏</th></tr>
+        <tr><td>6040 控制字</td><td>SM2</td><td>0</td><td>2</td><td><code>EC_WRITE_U16(pd + off_cw, v)</code></td></tr>
+        <tr><td>607A 目标位置</td><td>SM2</td><td>2</td><td>4</td><td><code>EC_WRITE_S32(pd + off_tp, v)</code></td></tr>
+        <tr><td>6041 状态字</td><td>SM3</td><td>6</td><td>2</td><td><code>EC_READ_U16(pd + off_sw)</code></td></tr>
+        <tr><td>6064 实际位置</td><td>SM3</td><td>8</td><td>4</td><td><code>EC_READ_S32(pd + off_ap)</code></td></tr>
+      </table>
+    </div>
+    <pre><code>static unsigned int off_cw, off_tp, off_sw, off_ap;
+const ec_pdo_entry_reg_t regs[] = {
+    {0, 0, VID, PID, 0x6040, 0, &amp;off_cw},   /* → 0 */
+    {0, 0, VID, PID, 0x607A, 0, &amp;off_tp},   /* → 2 */
+    {0, 0, VID, PID, 0x6041, 0, &amp;off_sw},   /* → 6 */
+    {0, 0, VID, PID, 0x6064, 0, &amp;off_ap},   /* → 8 */
+    {}
+};
+ecrt_domain_reg_pdo_entry_list(domain, regs);</code></pre>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>应用用 <code>ec_sync_info_t</code> 数组描述想要的分配和映射，调用 <code>ecrt_slave_config_pdos()</code>。</li>
+          <li>PREOP 里按"清零、写条目、写个数"的顺序 SDO 下载 1600/1A00、1C12/1C13。</li>
+          <li>按映射算 SM2/SM3 长度写入 SM 寄存器，为每段配 FMMU，把逻辑地址排进域。</li>
+          <li>把每个注册条目的域偏移回填给应用，周期里按偏移读写域内存。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>写子索引 0 时校验映射：对象存在、可映射、方向对、总长不超限；不合法回 abort。</li>
+          <li>P→S 时核对 SM2/SM3 长度与自己算的映射总长，不符报 0x001D/0x001E，映射非法报 0x0024/0x0025。</li>
+          <li>运行时固件按映射表把 SM2 的字节拆给 6040、607A，再把 6041、6064 拼进 SM3。</li>
+          <li>ESC 本身不懂映射，只按 SM 和 FMMU 搬字节。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>看从站当前的分配与映射（主站配置过则为配置后的值，否则为 SII/ESI 默认）：</p>
+    <pre><code>ethercat pdos -p0</code></pre>
+    <p>本例预期输出形如（SM 物理地址与名称因厂商而异）：</p>
+    <pre><code>SM0: PhysAddr 0x1000, DefaultSize  128, ControlRegister 0x26, Enable 1
+SM1: PhysAddr 0x1080, DefaultSize  128, ControlRegister 0x22, Enable 1
+SM2: PhysAddr 0x1100, DefaultSize    6, ControlRegister 0x64, Enable 1
+  RxPDO 0x1600 "RxPDO 1"
+    PDO entry 0x6040:00, 16 bit, "Controlword"
+    PDO entry 0x607a:00, 32 bit, "Target position"
+SM3: PhysAddr 0x1180, DefaultSize    6, ControlRegister 0x20, Enable 1
+  TxPDO 0x1a00 "TxPDO 1"
+    PDO entry 0x6041:00, 16 bit, "Statusword"
+    PDO entry 0x6064:00, 32 bit, "Position actual value"</code></pre>
+    <p>直接用 SDO 读映射项与分配，并生成可以粘进主站程序的 C 描述：</p>
+    <pre><code>ethercat upload -p0 0x1600 1 --type uint32
+ethercat upload -p0 0x1C12 1 --type uint16
+ethercat cstruct -p0</code></pre>
+    <pre><code>/* Master 0, Slave 0, "..."
+ * Vendor ID:       0x........
+ * Product code:    0x........
+ * Revision number: 0x........
+ */
+
+ec_pdo_entry_info_t slave_0_pdo_entries[] = {
+    {0x6040, 0x00, 16}, /* Controlword */
+    {0x607a, 0x00, 32}, /* Target position */
+    {0x6041, 0x00, 16}, /* Statusword */
+    {0x6064, 0x00, 32}, /* Position actual value */
+};
+
+ec_pdo_info_t slave_0_pdos[] = {
+    {0x1600, 2, slave_0_pdo_entries + 0}, /* RxPDO 1 */
+    {0x1a00, 2, slave_0_pdo_entries + 2}, /* TxPDO 1 */
+};
+
+ec_sync_info_t slave_0_syncs[] = {
+    {0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE},
+    {1, EC_DIR_INPUT, 0, NULL, EC_WD_DISABLE},
+    {2, EC_DIR_OUTPUT, 1, slave_0_pdos + 0, EC_WD_ENABLE},
+    {3, EC_DIR_INPUT, 1, slave_0_pdos + 1, EC_WD_DISABLE},
+    {0xff}
+};</code></pre>
+    <p>程序运行、域注册后看域布局和 WKC：</p>
+    <pre><code>ethercat domains -v</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
+        <tr><td>1600:01</td><td>0x60400010</td><td>6040:00，16 位</td></tr>
+        <tr><td>1C12:01</td><td>0x1600</td><td>SM2 分配了 1600</td></tr>
+        <tr><td>SM2 / SM3 大小</td><td>6 / 6</td><td>pdos 输出的 DefaultSize，或 reg_read 0x0812 / 0x081A</td></tr>
+        <tr><td>cstruct 条目数</td><td>2 + 2</td><td>{索引, 子索引, 位长}，与映射项三段一一对应</td></tr>
+        <tr><td>域大小</td><td>12</td><td>domains 输出的 Size；单从站 LRW 读写都命中时 WKC 3/3</td></tr>
+      </table>
+    </div>
+    <p>cstruct 里 <code>EC_WD_ENABLE</code>/<code>DISABLE</code> 取自 SM 控制字节的看门狗位，方向取自控制字节方向位，因从站 SII 而异。</p>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "映射项 <code>0x60640020</code> 表示什么？", "options": ["6064:00，32 位", "6064:20，0 位", "0x0020 号对象的 6064 位", "6064:00，20 位"], "answer": 0, "explain": "高 16 位 0x6064 是索引，中 8 位 0x00 是子索引，低 8 位 0x20 = 32 是位长。位长是十六进制，0x20 不是 20。"},
+  {"q": "RxPDO 映射为 6040/16 + 607A/32 + 60B8/16，且 1C12 只分配了这一个 PDO，SM2 长度应是多少？", "options": ["6 字节", "8 字节", "64 字节", "3 字节"], "answer": 1, "explain": "16 + 32 + 16 = 64 bit = 8 字节。SM 长度必须等于这个值，否则 PREOP→SAFEOP 报 0x001D（无效输出配置）。"},
+  {"q": "动态修改 0x1600 的正确顺序是？", "options": ["直接改 1600:01，再请求 SAFEOP", "在 OP 下先写 1600:00 = 0，再写条目", "在 PREOP 下 1C12:00 = 0、1600:00 = 0、写条目、1600:00 = n、1C12 重新分配", "先请求 SAFEOP，再写 1C12"], "answer": 2, "explain": "映射只在 PREOP 可改；先解除分配、清零个数，写完条目后写回个数触发校验，最后恢复分配。在 SAFEOP/OP 改通常回 0x08000022。"},
+  {"q": "本课例子里应用先注册 6041、6064，再注册 6040、607A，控制字的域偏移会变成多少？", "options": ["仍是 0", "2", "6", "8"], "answer": 2, "explain": "IgH 按首次注册到某个 SM 的顺序在域里排 SM：先注册输入则 SM3 的 6 字节在前，SM2 排在偏移 6。所以偏移要用注册回填的变量，不要手写常量。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>把域指针强转成一个普通 C 结构体来读写。<br><strong>实际上：</strong>偏移 2 的 32 位目标位置不按 4 字节对齐，普通结构体会被编译器补齐成 0、4、8、12；要么结构体加 packed，要么用 <code>EC_READ_*</code>/<code>EC_WRITE_*</code> 宏，它们还处理了小端。</li>
+      <li><strong>误区：</strong>改了 ESI 或主站里的映射，驱动器就一定按新映射发数据。<br><strong>实际上：</strong>映射是写进驱动器对象字典的，要在 PREOP 真的下载成功；固定映射的驱动器会拒绝，用 <code>ethercat pdos</code> 核对实际值。</li>
+      <li><strong>误区：</strong>1C12 里填映射项、1600 里填 PDO 号。<br><strong>实际上：</strong>层次反过来：1C12/1C13 的条目是 PDO 号（0x1600、0x1A00），1600/1A00 的条目才是"索引|子索引|位长"。</li>
+    </ul>
+    <p>关联：FMMU 与逻辑地址见 u2-l3；映射用 SDO 写入见 u3-l2；控制字、状态字各位的含义见下一课 u5-l1；周期里怎么读写域见 u6-l1。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '从站在 PREOP：映射对象和分配对象都是空的（子索引 0 = 0），SM2/SM3 长度未定，主站的域也还是空的。',
+      apply: function () {} },
+    { title: '1600:01 = 0x60400010', text: '第 1 个输出映射项：高 16 位 6040 是控制字，中 8 位 00 是子索引，低 8 位 0x10 表示 16 位。',
+      apply: function (svg) { Academy.fx(svg).text('a-16-1', '0x60400010').hot('a-p1600').show('a-dec'); } },
+    { title: '1600:02 = 0x607A0020', text: '第 2 个映射项是 607A 目标位置 32 位；写完条目后把 1600:00 写成 2，从站此时校验整张映射表。',
+      apply: function (svg) { Academy.fx(svg).text('a-16-2', '0x607A0020').text('a-16-0', '2').text('a-dect', '0x607A | 0x00 | 0x20 → 607A:00，32 位'); } },
+    { title: '1C12:01 = 0x1600', text: '分配对象 1C12 把 RxPDO 0x1600 挂到 SM2（输出）上，1C12:00 = 1。',
+      apply: function (svg) { Academy.fx(svg).cool('a-p1600').hot('a-p1c12').text('a-12-1', '0x1600').text('a-12-0', '1'); } },
+    { title: 'SM2 长度 = 6 字节', text: '16 + 32 = 48 位 = 6 字节，主站把它写进 SM2 的长度寄存器；与从站算的不符会报 0x001D。',
+      apply: function (svg) { Academy.fx(svg).cool('a-p1c12').text('a-sm2l', '6 字节').hot('a-sm2r'); } },
+    { title: '1A00：状态字与实际位置', text: '输入方向同理：1A00:01 = 0x60410010（6041，16 位），1A00:02 = 0x60640020（6064，32 位），1A00:00 = 2。',
+      apply: function (svg) { Academy.fx(svg).cool('a-sm2r').hot('a-p1a00').text('a-1a-1', '0x60410010').text('a-1a-2', '0x60640020').text('a-1a-0', '2').text('a-dect', '0x6064 | 0x00 | 0x20 → 6064:00，32 位'); } },
+    { title: '1C13 → SM3 = 6 字节', text: '1C13:01 = 0x1A00 把 TxPDO 挂到 SM3（输入），同样得出 SM3 长度 6 字节。',
+      apply: function (svg) { Academy.fx(svg).cool('a-p1a00').text('a-13-1', '0x1A00').text('a-13-0', '1').text('a-sm3l', '6 字节').hot('a-sm3r'); } },
+    { title: '主站把两段放进域', text: '主站为 SM2、SM3 各配一个 FMMU：输出 6 字节放在域偏移 0–5，输入 6 字节放在 6–11，一帧 LRW 读写 12 字节。',
+      apply: function (svg) { Academy.fx(svg).cool('a-sm3r').hide('a-dec').show(['a-seg', 'a-lrw']).text('a-dsize', '域大小：12 字节'); } },
+    { title: '变量偏移 0、2、6、8', text: '按映射顺序累加：控制字 0、目标位置 2、状态字 6、实际位置 8。这就是 IgH 回填给应用的偏移。',
+      apply: function (svg) { Academy.fx(svg).show('a-vars'); } }
+  ]);
+
+  // 映射项拆解器
+  var inp = document.getElementById('map-in'), out = document.getElementById('map-out');
+  function hx(v, d) { return '0x' + v.toString(16).toUpperCase().padStart(d, '0'); }
+  function decode() {
+    var s = String(inp.value).trim().replace(/^0x/i, '');
+    if (!/^[0-9a-f]{1,8}$/i.test(s)) { out.textContent = '请输入 32 位十六进制，如 0x60B80010'; return; }
+    var v = parseInt(s, 16);
+    var idx = Math.floor(v / 0x10000), sub = Math.floor(v / 0x100) % 0x100, len = v % 0x100;
+    out.textContent = hx(idx, 4) + ':' + hx(sub, 2).slice(2) + '，' + len + ' 位' + (idx === 0 ? '（填充）' : '') + (len % 8 ? '（非整字节，位映射）' : '');
+  }
+  inp.addEventListener('input', decode);
+  decode();
+
+  Academy.init('u3-l3');
+})();
+</script>
+</body>
+</html>

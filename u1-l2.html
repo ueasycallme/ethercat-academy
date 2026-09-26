@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>帧结构 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .l2-on { fill: var(--bus-soft); stroke: var(--bus); }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u1-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">帧结构：以太网头到 WKC</h1>
+    <p class="lesson-lede">一帧 EtherCAT 就是一帧普通以太网帧：以太网头、2 字节 EtherCAT 头，后面首尾相接的若干数据报，每个数据报末尾都带一个 WKC。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>从外到内说出一帧的各个字段及其长度。</li>
+          <li>解释一帧怎样装多个数据报，以及 M 位的作用。</li>
+          <li>说出 WKC 的位置：每个数据报的数据之后各 2 字节。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+<svg viewBox="0 0 960 420" role="img" aria-label="主动画：逐段展开一帧 64 字节的 EtherCAT 帧：以太网头、EtherCAT 头、两个数据报（各带头、数据、WKC）、填充、FCS">
+<text class="t-small t-muted" x="20" y="26">示例：一帧 64 字节（含 FCS），装两个数据报。色块宽度不按字节比例。</text>
+<text class="t-small t-muted t-mid t-mono" x="110" y="52">14 B</text>
+<rect id="l2-seg-eth" class="box-muted" x="20" y="60" width="180" height="48" rx="3"/>
+<text class="t-small t-mid" x="110" y="89">以太网头</text>
+<text class="t-small t-muted t-mid t-mono" x="230" y="52">2 B</text>
+<rect id="l2-seg-eh" class="box-muted" x="200" y="60" width="60" height="48" rx="3"/>
+<text class="t-small t-mid" x="230" y="89">ECAT 头</text>
+<text class="t-small t-muted t-mid t-mono" x="325" y="52">10 B</text>
+<rect id="l2-seg-d1h" class="box-muted" x="260" y="60" width="130" height="48" rx="3"/>
+<text class="t-small t-mid" x="325" y="89">数据报1 头</text>
+<text class="t-small t-muted t-mid t-mono" x="440" y="52">8 B</text>
+<rect id="l2-seg-d1d" class="box-muted" x="390" y="60" width="100" height="48" rx="3"/>
+<text class="t-small t-mid" x="440" y="89">数据</text>
+<text class="t-small t-muted t-mid t-mono" x="518" y="52">2 B</text>
+<rect id="l2-seg-d1w" class="box-muted" x="490" y="60" width="56" height="48" rx="3"/>
+<text class="t-small t-mid" x="518" y="89">WKC</text>
+<text class="t-small t-muted t-mid t-mono" x="611" y="52">10 B</text>
+<rect id="l2-seg-d2h" class="box-muted" x="546" y="60" width="130" height="48" rx="3"/>
+<text class="t-small t-mid" x="611" y="89">数据报2 头</text>
+<text class="t-small t-muted t-mid t-mono" x="704" y="52">2 B</text>
+<rect id="l2-seg-d2d" class="box-muted" x="676" y="60" width="56" height="48" rx="3"/>
+<text class="t-small t-mid" x="704" y="89">数据</text>
+<text class="t-small t-muted t-mid t-mono" x="760" y="52">2 B</text>
+<rect id="l2-seg-d2w" class="box-muted" x="732" y="60" width="56" height="48" rx="3"/>
+<text class="t-small t-mid" x="760" y="89">WKC</text>
+<text class="t-small t-muted t-mid t-mono" x="833" y="52">10 B</text>
+<rect id="l2-seg-pad" class="box-muted" x="788" y="60" width="90" height="48" rx="3"/>
+<text class="t-small t-mid" x="833" y="89">填充</text>
+<text class="t-small t-muted t-mid t-mono" x="909" y="52">4 B</text>
+<rect id="l2-seg-fcs" class="box-muted" x="878" y="60" width="62" height="48" rx="3"/>
+<text class="t-small t-mid" x="909" y="89">FCS</text>
+<g id="l2-p1" class="is-hidden">
+<rect class="box" x="40" y="150" width="270" height="74" rx="6"/>
+<text class="t-small t-muted" x="50" y="170">目的 MAC · 6 B</text>
+<text class="t-mono t-bold t-bus" x="50" y="194">FF:FF:FF:FF:FF:FF</text>
+<text class="t-small t-muted" x="50" y="214">IgH 主站发广播地址</text>
+<rect class="box" x="320" y="150" width="270" height="74" rx="6"/>
+<text class="t-small t-muted" x="330" y="170">源 MAC · 6 B</text>
+<text class="t-mono t-bold t-bus" x="330" y="194">主站网卡 MAC</text>
+<text class="t-small t-muted" x="330" y="214">每经一台 ESC 处理会改 1 位</text>
+<rect class="box" x="600" y="150" width="240" height="74" rx="6"/>
+<text class="t-small t-muted" x="610" y="170">EtherType · 2 B</text>
+<text class="t-mono t-bold t-bus" x="610" y="194">0x88A4</text>
+<text class="t-small t-muted" x="610" y="214">线上字节：88 A4</text>
+<text class="t-small t-muted" x="40" y="262">EtherType 0x88A4 让网卡把帧直接交给 EtherCAT，不走 IP/TCP。</text>
+<text class="t-small t-muted" x="40" y="286">注意字节序：EtherType 按网络字节序（大端）；从 EtherCAT 头开始，所有多字节字段都是小端。</text>
+</g>
+<g id="l2-p2" class="is-hidden">
+<text class="t-small t-mid" x="210" y="172">Type（4 位）= 1</text>
+<rect class="box-bus" x="120" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="142.5" y="200">0</text>
+<rect class="box-bus" x="165" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="187.5" y="200">0</text>
+<rect class="box-bus" x="210" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="232.5" y="200">0</text>
+<rect class="box-bus" x="255" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="277.5" y="200">1</text>
+<text class="t-small t-mid" x="322.5" y="172">R</text>
+<rect class="box-muted" x="300" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="322.5" y="200">0</text>
+<text class="t-small t-mid" x="592.5" y="172">Length（11 位）= 34</text>
+<rect class="box-drive" x="345" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="367.5" y="200">0</text>
+<rect class="box-drive" x="390" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="412.5" y="200">0</text>
+<rect class="box-drive" x="435" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="457.5" y="200">0</text>
+<rect class="box-drive" x="480" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="502.5" y="200">0</text>
+<rect class="box-drive" x="525" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="547.5" y="200">0</text>
+<rect class="box-drive" x="570" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="592.5" y="200">1</text>
+<rect class="box-drive" x="615" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="637.5" y="200">0</text>
+<rect class="box-drive" x="660" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="682.5" y="200">0</text>
+<rect class="box-drive" x="705" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="727.5" y="200">0</text>
+<rect class="box-drive" x="750" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="772.5" y="200">1</text>
+<rect class="box-drive" x="795" y="180" width="45" height="30" rx="2"/>
+<text class="t-mono t-mid" x="817.5" y="200">0</text>
+<text class="t-small t-muted t-mid" x="142" y="232">bit15</text>
+<text class="t-small t-muted t-mid" x="817" y="232">bit0</text>
+<text class="t-small t-bus" x="40" y="262">16 位值 = 0x1022，线上按小端发送：先 22 后 10。</text>
+<text class="t-small t-muted" x="40" y="286">Length = 后面全部数据报的总字节数（不含填充和 FCS）；Type 1 = EtherCAT 命令（DLPDU）。</text>
+</g>
+<g id="l2-p3" class="is-hidden">
+<rect class="box" x="40" y="150" width="110" height="74" rx="6"/>
+<text class="t-small t-muted" x="50" y="170">Cmd · 1 B</text>
+<text class="t-mono t-bold t-bus" x="50" y="194">0x0C</text>
+<text class="t-small t-muted" x="50" y="214">LRW</text>
+<rect class="box" x="160" y="150" width="110" height="74" rx="6"/>
+<text class="t-small t-muted" x="170" y="170">Idx · 1 B</text>
+<text class="t-mono t-bold t-bus" x="170" y="194">0x01</text>
+<text class="t-small t-muted" x="170" y="214">主站编号</text>
+<rect class="box" x="280" y="150" width="180" height="74" rx="6"/>
+<text class="t-small t-muted" x="290" y="170">Address · 4 B</text>
+<text class="t-mono t-bold t-bus" x="290" y="194">0x00000000</text>
+<text class="t-small t-muted" x="290" y="214">逻辑地址</text>
+<rect class="box" x="470" y="150" width="170" height="74" rx="6"/>
+<text class="t-small t-muted" x="480" y="170">Len/R/C/M · 2 B</text>
+<text class="t-mono t-bold t-bus" x="480" y="194">0x8008</text>
+<text class="t-small t-muted" x="480" y="214">见下方逐位</text>
+<rect class="box" x="650" y="150" width="130" height="74" rx="6"/>
+<text class="t-small t-muted" x="660" y="170">IRQ · 2 B</text>
+<text class="t-mono t-bold t-bus" x="660" y="194">0x0000</text>
+<text class="t-small t-muted" x="660" y="214">事件请求</text>
+<text class="t-small t-mid" x="140" y="262">M</text>
+<rect class="box-bus" x="120" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="140" y="290">1</text>
+<text class="t-small t-mid" x="180" y="262">C</text>
+<rect class="box-muted" x="160" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="180" y="290">0</text>
+<text class="t-small t-mid" x="260" y="262">R</text>
+<rect class="box-muted" x="200" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="220" y="290">0</text>
+<rect class="box-muted" x="240" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="260" y="290">0</text>
+<rect class="box-muted" x="280" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="300" y="290">0</text>
+<text class="t-small t-mid" x="540" y="262">Len（11 位）= 8</text>
+<rect class="box-drive" x="320" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="340" y="290">0</text>
+<rect class="box-drive" x="360" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="380" y="290">0</text>
+<rect class="box-drive" x="400" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="420" y="290">0</text>
+<rect class="box-drive" x="440" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="460" y="290">0</text>
+<rect class="box-drive" x="480" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="500" y="290">0</text>
+<rect class="box-drive" x="520" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="540" y="290">0</text>
+<rect class="box-drive" x="560" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="580" y="290">0</text>
+<rect class="box-drive" x="600" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="620" y="290">1</text>
+<rect class="box-drive" x="640" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="660" y="290">0</text>
+<rect class="box-drive" x="680" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="700" y="290">0</text>
+<rect class="box-drive" x="720" y="270" width="40" height="30" rx="2"/>
+<text class="t-mono t-mid" x="740" y="290">0</text>
+<text class="t-small t-muted" x="40" y="330">Address 在位置/站地址寻址时拆成 ADP（2 B）+ ADO（2 B）；逻辑寻址时是 32 位逻辑地址。</text>
+<text class="t-small t-muted" x="40" y="352">C = 循环帧标志（防止断环后帧无限绕圈）；M = 后面还有数据报。数据报头共 10 字节。</text>
+</g>
+<g id="l2-p4" class="is-hidden">
+<rect class="box-drive" x="120" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="150" y="195">B0</text>
+<rect class="box-drive" x="190" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="220" y="195">B1</text>
+<rect class="box-drive" x="260" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="290" y="195">B2</text>
+<rect class="box-drive" x="330" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="360" y="195">B3</text>
+<rect class="box-drive" x="400" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="430" y="195">B4</text>
+<rect class="box-drive" x="470" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="500" y="195">B5</text>
+<rect class="box-drive" x="540" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="570" y="195">B6</text>
+<rect class="box-drive" x="610" y="170" width="60" height="40" rx="4"/>
+<text class="t-mono t-mid" x="640" y="195">B7</text>
+<text class="t-small t-mid t-muted" x="400" y="160">Len = 8 → 数据区 8 字节</text>
+<text class="t-small t-bus" x="40" y="250">数据区长度由 Len 决定。主站写给从站的输出在帧流过时被从站取走，从站把输入就地填进来。</text>
+<text class="t-small t-muted" x="40" y="274">帧长度不变：从站只改字节内容，不插入也不删除字节。</text>
+</g>
+<g id="l2-p5" class="is-hidden">
+<rect class="box" x="40" y="150" width="230" height="74" rx="6"/>
+<text class="t-small t-muted" x="50" y="170">WKC · 2 B</text>
+<text class="t-mono t-bold t-bus" x="50" y="194">发出 0x0000</text>
+<text class="t-small t-muted" x="50" y="214">主站发出时总是 0</text>
+<rect class="box" x="280" y="150" width="260" height="74" rx="6"/>
+<text class="t-small t-muted" x="290" y="170">WKC · 2 B</text>
+<text class="t-mono t-bold t-bus" x="290" y="194">返回 0x0003</text>
+<text class="t-small t-muted" x="290" y="214">示例：一台从站读写都成功</text>
+<text class="t-small t-bus" x="40" y="262">WKC（Working Counter）紧跟在每个数据报的数据之后，由处理了该数据报的从站累加。</text>
+<text class="t-small t-muted" x="40" y="286">主站收回后拿它和期望值比较，差多少就知道有几次读/写没成功（加法规则见下一课）。</text>
+</g>
+<g id="l2-p6" class="is-hidden">
+<rect class="box" x="40" y="150" width="86" height="74" rx="6"/>
+<text class="t-small t-muted" x="50" y="170">Cmd · 1 B</text>
+<text class="t-mono t-bold t-bus" x="50" y="194">0x04</text>
+<text class="t-small t-muted" x="50" y="214">FPRD</text>
+<rect class="box" x="132" y="150" width="86" height="74" rx="6"/>
+<text class="t-small t-muted" x="142" y="170">Idx · 1 B</text>
+<text class="t-mono t-bold t-bus" x="142" y="194">0x02</text>
+<rect class="box" x="224" y="150" width="140" height="74" rx="6"/>
+<text class="t-small t-muted" x="234" y="170">ADP · 2 B</text>
+<text class="t-mono t-bold t-bus" x="234" y="194">0x1002</text>
+<text class="t-small t-muted" x="234" y="214">站地址（示例）</text>
+<rect class="box" x="370" y="150" width="140" height="74" rx="6"/>
+<text class="t-small t-muted" x="380" y="170">ADO · 2 B</text>
+<text class="t-mono t-bold t-bus" x="380" y="194">0x0130</text>
+<text class="t-small t-muted" x="380" y="214">AL 状态寄存器</text>
+<rect class="box" x="516" y="150" width="100" height="74" rx="6"/>
+<text class="t-small t-muted" x="526" y="170">Len… · 2 B</text>
+<text class="t-mono t-bold t-bus" x="526" y="194">0x0002</text>
+<text class="t-small t-muted" x="526" y="214">M = 0</text>
+<rect class="box" x="622" y="150" width="90" height="74" rx="6"/>
+<text class="t-small t-muted" x="632" y="170">IRQ · 2 B</text>
+<text class="t-mono t-bold t-bus" x="632" y="194">0x0000</text>
+<rect class="box" x="718" y="150" width="80" height="74" rx="6"/>
+<text class="t-small t-muted" x="728" y="170">数据 · 2 B</text>
+<text class="t-mono t-bold t-bus" x="728" y="194">— —</text>
+<rect class="box" x="804" y="150" width="80" height="74" rx="6"/>
+<text class="t-small t-muted" x="814" y="170">WKC · 2 B</text>
+<text class="t-mono t-bold t-bus" x="814" y="194">0x0000</text>
+<text class="t-small t-bus" x="40" y="262">第二个数据报首尾相接地跟在第一个的 WKC 后面，结构完全相同：10 B 头 + 数据 + 2 B WKC。</text>
+<text class="t-small t-muted" x="40" y="286">一帧能装多个数据报：IgH 会把同一周期排队的数据报尽量塞进同一帧。</text>
+</g>
+<g id="l2-p7" class="is-hidden">
+<path class="fill-none stroke-bus sw-2" d="M260,116 L260,126 L788,126 L788,116"/>
+<text class="t-small t-bus t-mid" x="524" y="142">ECAT 头 Length = 34 = (10+8+2) + (10+2+2)</text>
+<path class="fill-none stroke-muted sw-2" d="M788,116 L788,126 L878,126 L878,116"/>
+<rect class="box" x="40" y="160" width="300" height="74" rx="6"/>
+<text class="t-small t-muted" x="50" y="180">数据报 1 的 Len 字</text>
+<text class="t-mono t-bold t-bus" x="50" y="204">0x8008 → M = 1</text>
+<text class="t-small t-muted" x="50" y="224">后面还有数据报</text>
+<rect class="box" x="350" y="160" width="300" height="74" rx="6"/>
+<text class="t-small t-muted" x="360" y="180">数据报 2 的 Len 字</text>
+<text class="t-mono t-bold t-bus" x="360" y="204">0x0002 → M = 0</text>
+<text class="t-small t-muted" x="360" y="224">这是最后一个</text>
+<text class="t-small t-bus" x="40" y="272">主站按 M 位一个接一个地解析，M = 0 的数据报之后就不再有数据报。</text>
+<text class="t-small t-muted" x="40" y="296">后面的 10 字节是填充：以太网载荷最少 46 字节，这里 2 + 34 = 36，不够就补 0，从站和主站都忽略它。</text>
+</g>
+<g id="l2-p8" class="is-hidden">
+<rect class="box" x="40" y="150" width="300" height="74" rx="6"/>
+<text class="t-small t-muted" x="50" y="170">FCS · 4 B</text>
+<text class="t-mono t-bold t-bus" x="50" y="194">CRC-32</text>
+<text class="t-small t-muted" x="50" y="214">覆盖从目的 MAC 到填充</text>
+<text class="t-small t-bus" x="40" y="262">每台 ESC 边转发边改数据，所以边转发边重算 FCS。</text>
+<text class="t-small t-muted" x="40" y="286">收到的帧 CRC 本来就错时，ESC 会让它继续保持错误并计入本端口的错误计数器，主站不会把坏帧当好帧用。</text>
+<text class="t-small t-muted" x="40" y="310">整帧：14 + 2 + 34 + 10 + 4 = 64 字节，正好是以太网最小帧长。</text>
+</g>
+<g id="l2-p0"><text class="t-muted" x="40" y="200">线上就是一串字节。接下来从左到右，一段一段拆开看。</text></g>
+</svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>一帧从外到内</h3>
+    <p>EtherCAT 没有自己的物理帧格式，它借用标准以太网帧，用 EtherType <code>0x88A4</code> 标明身份。以太网载荷的前 2 字节是 EtherCAT 头，其余是数据报。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>层</th><th>字段</th><th>长度</th><th>说明</th></tr>
+        <tr><td rowspan="3">以太网头</td><td>目的 MAC</td><td>6 B</td><td>从站不看它；IgH 发广播地址</td></tr>
+        <tr><td>源 MAC</td><td>6 B</td><td>主站网卡地址</td></tr>
+        <tr><td>EtherType</td><td>2 B</td><td><code>0x88A4</code>，大端</td></tr>
+        <tr><td rowspan="3">EtherCAT 头</td><td>Length</td><td>11 位</td><td>后面全部数据报的字节数，不含填充和 FCS</td></tr>
+        <tr><td>保留</td><td>1 位</td><td>0</td></tr>
+        <tr><td>Type</td><td>4 位</td><td>1 = EtherCAT 命令（DLPDU）</td></tr>
+        <tr><td>数据报区</td><td>数据报 1 … n</td><td>每个 12 B + 数据</td><td>首尾相接，靠 M 位串起来</td></tr>
+        <tr><td rowspan="2">以太网尾</td><td>填充</td><td>0–32 B</td><td>载荷不足 46 B 时补足</td></tr>
+        <tr><td>FCS</td><td>4 B</td><td>CRC-32，每台 ESC 转发时重算</td></tr>
+      </table>
+    </div>
+    <p>中间还可能插入 4 字节 VLAN 标签，一般不用。从 EtherCAT 头开始，所有多字节字段都是小端。</p>
+
+    <h3>数据报：10 字节头 + 数据 + 2 字节 WKC</h3>
+    <p>每个数据报就是一条"命令"：对谁、读写哪里、多长。偏移从数据报第一个字节算起。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>偏移</th><th>字段</th><th>长度</th><th>说明</th></tr>
+        <tr><td><code>0</code></td><td>Cmd</td><td>1 B</td><td>命令码，如 <code>0x04</code> FPRD、<code>0x0C</code> LRW（下一课全表）</td></tr>
+        <tr><td><code>1</code></td><td>Idx</td><td>1 B</td><td>主站给的编号，收回时用来对号</td></tr>
+        <tr><td><code>2</code></td><td>Address</td><td>4 B</td><td>位置/站地址寻址：ADP（2 B）+ ADO（2 B）；逻辑寻址：32 位逻辑地址</td></tr>
+        <tr><td><code>6</code></td><td>Len / R / C / M</td><td>2 B</td><td>bit 0–10 数据长度；bit 11–13 保留；bit 14 C 循环帧；bit 15 M 还有后续</td></tr>
+        <tr><td><code>8</code></td><td>IRQ</td><td>2 B</td><td>从站事件请求，按位或进来；主站很少用</td></tr>
+        <tr><td><code>10</code></td><td>Data</td><td>Len 字节</td><td>被读写的内容</td></tr>
+        <tr><td><code>10+Len</code></td><td>WKC</td><td>2 B</td><td>工作计数器，主站发出时为 0</td></tr>
+      </table>
+    </div>
+
+    <h3>长度上限与填充</h3>
+    <p>一帧能装多少由以太网帧长决定。短帧要补足最小帧长，长帧装不下时主站拆成多帧。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>量</th><th>值</th><th>怎么来的</th></tr>
+        <tr><td>最小以太网帧</td><td>64 B</td><td>含 FCS；对应载荷最少 46 B</td></tr>
+        <tr><td>最大以太网载荷</td><td>1500 B</td><td>标准以太网 MTU（不含 VLAN）</td></tr>
+        <tr><td>数据报区最大</td><td>1498 B</td><td>1500 − 2（EtherCAT 头）</td></tr>
+        <tr><td>每个数据报的固定开销</td><td>12 B</td><td>10 B 头 + 2 B WKC</td></tr>
+        <tr><td>单个数据报最多数据</td><td>1486 B</td><td>1498 − 12</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>为每条命令生成一个数据报：填 Cmd、地址、Len，给一个 Idx，WKC 清 0。</li>
+          <li>把同一时刻排队的数据报首尾相接装进一帧，除最后一个外都置 M = 1，算好 EtherCAT 头 Length，不足最小帧长就填充。</li>
+          <li>收回帧后按 Idx 把每个数据报对上号，取出数据区和 WKC；超时没回来就判为丢帧。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 边收边解析：读到每个数据报头就判断"是不是给我的"。</li>
+          <li>是给自己的，就在数据流过时读或写数据区，并累加该数据报的 WKC；不是的原样转发。</li>
+          <li>不改变帧长；转发时重算 FCS，并把源 MAC 的一个位置 1，主站据此能分出"发出的帧"和"处理过回来的帧"。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>用 IgH 的 generic 驱动时，EtherCAT 网口对 Linux 仍可见，可以直接抓包（把 <code>enp3s0</code> 换成你的网口）。用原生驱动时网口被主站独占，需要 IgH 的调试网口（编译选项 <code>--enable-debug-if</code>）或在线路上加镜像设备，以你安装的版本为准。</p>
+    <pre><code>sudo tcpdump -i enp3s0 -c 20 -w ecat.pcap ether proto 0x88a4
+wireshark ecat.pcap
+# Wireshark 显示过滤器：
+ecat
+# 或
+eth.type == 0x88a4</code></pre>
+    <p>选中一帧，逐层展开 Ethernet II → EtherCAT frame header → 各个 EtherCAT datagram，对照下表：</p>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>看哪里</th><th>期望</th><th>说明</th></tr>
+        <tr><td>Ethernet II Type</td><td><code>0x88a4</code></td><td>EtherCAT</td></tr>
+        <tr><td>EtherCAT 头 Type</td><td>1</td><td>EtherCAT 命令</td></tr>
+        <tr><td>EtherCAT 头 Length</td><td>= 各数据报 (12 + Len) 之和</td><td>自己加一遍核对</td></tr>
+        <tr><td>周期帧里的数据报</td><td>LRW，地址 = 域的逻辑起始地址</td><td>过程数据；可能还跟着别的数据报</td></tr>
+        <tr><td>同一帧抓到两次</td><td>发出时 WKC = 0，回来时 WKC = 期望值</td><td>主站网口上收发都能抓到</td></tr>
+        <tr><td>回来那帧的源 MAC</td><td>第一个字节 bit 1 被置 1</td><td>如 <code>00:…</code> 变成 <code>02:…</code></td></tr>
+        <tr><td>短帧末尾</td><td>有填充字节</td><td>不计入 EtherCAT 头 Length</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "EtherCAT 帧的 EtherType 是多少？", "options": ["<code>0x0800</code>", "<code>0x88A4</code>", "<code>0x88F7</code>", "<code>0x8100</code>"], "answer": 1, "explain": "<code>0x88A4</code> 是 EtherCAT 的 EtherType，帧不经过 IP/TCP。<code>0x0800</code> 是 IPv4，<code>0x88F7</code> 是 PTP，<code>0x8100</code> 是 VLAN 标签。"},
+  {"q": "EtherCAT 头的 16 位值是 <code>0x1022</code>，说明什么？", "options": ["Type = 1，后面数据报区共 34 字节", "Type = 2，数据报区 0x22 个数据报", "Length = 0x1022 字节", "Type = 0x10，Length = 0x22"], "answer": 0, "explain": "bit 0–10 是 Length：0x022 = 34；bit 11 保留；bit 12–15 是 Type：1 = EtherCAT 命令。"},
+  {"q": "一帧装了 3 个数据报，帧里有几个 WKC，在哪？", "options": ["1 个，在 FCS 前面", "1 个，在 EtherCAT 头里", "3 个，每个数据报的数据区之后各一个", "3 个，都集中在帧尾"], "answer": 2, "explain": "WKC 属于数据报：每个数据报 = 10 字节头 + 数据 + 2 字节 WKC，一个接一个排列。"},
+  {"q": "某数据报的 Len/R/C/M 字是 <code>0x8008</code>，表示？", "options": ["数据 8 字节，后面还有数据报", "数据 0x8008 字节", "数据 8 字节，这是最后一个数据报", "循环帧标志置位，需要丢弃"], "answer": 0, "explain": "bit 0–10 = 8 是数据长度；bit 15（M）= 1 表示后面还有数据报；bit 14（C）= 0。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>每台从站一帧，从站越多帧越多。<br><strong>实际上：</strong>一帧装多个数据报，一个 LRW 数据报就能服务所有从站的过程数据；周期通信常常只要一帧。</li>
+      <li><strong>误区：</strong>WKC 只有一个，在帧尾。<br><strong>实际上：</strong>每个数据报末尾各有一个 WKC；帧尾是填充（如果有）和 FCS。</li>
+      <li><strong>误区：</strong>EtherCAT 头的 Length 就是以太网载荷长度。<br><strong>实际上：</strong>Length 只算数据报区，不含 EtherCAT 头自己、填充和 FCS。</li>
+    </ul>
+    <p>关联：数据报头里的 Cmd 和地址怎么决定"谁来处理"、WKC 怎么加，是下一课 u1-l3；LRW 的逻辑地址怎样对应到各从站内存，是 u2-l3 FMMU。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function focus(svg, prevPanel, panel, prevSegs, segs) {
+    var f = Academy.fx(svg);
+    if (prevPanel) f.hide(prevPanel);
+    if (prevSegs) f.cool(prevSegs);
+    f.show(panel).cls(segs, 'l2-on').hot(segs);
+  }
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '一帧 = 一串字节', text: '网线上看到的只是一串字节；下面从左到右逐段拆开。', apply: function () {} },
+    { title: '以太网头', text: '目的 MAC、源 MAC 各 6 字节，EtherType 0x88A4 表明这是 EtherCAT 帧。', apply: function (svg) {
+      focus(svg, 'l2-p0', 'l2-p1', null, 'l2-seg-eth');
+    } },
+    { title: 'EtherCAT 头', text: '2 字节：Length 11 位、保留 1 位、Type 4 位（1 = EtherCAT 命令）。', apply: function (svg) {
+      focus(svg, 'l2-p1', 'l2-p2', 'l2-seg-eth', 'l2-seg-eh');
+    } },
+    { title: '数据报头', text: '10 字节：Cmd、Idx、32 位地址、Len/R/C/M、IRQ。', apply: function (svg) {
+      focus(svg, 'l2-p2', 'l2-p3', 'l2-seg-eh', 'l2-seg-d1h');
+    } },
+    { title: '数据区', text: '长度由 Len 给出；从站在帧流过时读写这里。', apply: function (svg) {
+      focus(svg, 'l2-p3', 'l2-p4', 'l2-seg-d1h', 'l2-seg-d1d');
+    } },
+    { title: 'WKC', text: '16 位工作计数器紧跟在数据之后，主站发出时为 0，由处理它的从站累加。', apply: function (svg) {
+      focus(svg, 'l2-p4', 'l2-p5', 'l2-seg-d1d', 'l2-seg-d1w');
+    } },
+    { title: '第二个数据报', text: '第二个数据报首尾相接地跟在后面，同样是 10 字节头 + 数据 + WKC。', apply: function (svg) {
+      focus(svg, 'l2-p5', 'l2-p6', 'l2-seg-d1w', ['l2-seg-d2h', 'l2-seg-d2d', 'l2-seg-d2w']);
+    } },
+    { title: 'M 位与填充', text: '数据报 1 的 M = 1 表示后面还有，数据报 2 的 M = 0 表示到此为止；再往后是填充。', apply: function (svg) {
+      focus(svg, 'l2-p6', 'l2-p7', ['l2-seg-d2h', 'l2-seg-d2d', 'l2-seg-d2w'], 'l2-seg-pad');
+    } },
+    { title: '帧尾 FCS', text: '最后 4 字节 CRC-32 校验整帧，每台 ESC 转发时重算。', apply: function (svg) {
+      focus(svg, 'l2-p7', 'l2-p8', 'l2-seg-pad', 'l2-seg-fcs');
+    } }
+  ]);
+  Academy.init('u1-l2');
+})();
+</script>
+</body>
+</html>

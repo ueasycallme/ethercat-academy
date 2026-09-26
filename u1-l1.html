@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拓扑与端口 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .l1-decoder { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.lesson .l1-decoder input {
+  font-family: var(--font-mono); font-size: .95rem; width: 9em; padding: 4px 8px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+}
+.lesson .l1-ports { margin-top: 6px; }
+.lesson .l1-ports td:first-child { font-family: var(--font-mono); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u1-l1">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">拓扑与端口：帧怎么走一圈</h1>
+    <p class="lesson-lede">接成一条线的从站为什么实际上是一个环：ESC 按固定端口顺序转发，没接线的端口自动闭合，帧在去程被处理、在回程只被转发。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>说出 ESC 端口 0–3 的帧处理顺序：0 → 处理单元 → 3 → 1 → 2 → 0。</li>
+          <li>解释为什么线形拓扑在物理上是一个环。</li>
+          <li>说出断线或末端无链路时，帧怎样被 ESC 自动闭环送回主站。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+<svg viewBox="0 0 960 360" role="img" aria-label="主动画：一帧从主站出发，经三台从站的端口 0、处理单元、端口 3、端口 1 前进，在最后一台自动闭环，沿回程经端口 2、端口 0 返回主站">
+<defs><marker id="l1-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="fill-bus" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<text class="t-small t-muted" x="20" y="30">上方线路 = 去程（经过处理单元）　下方线路 = 回程（只转发，不处理）</text>
+<g id="l1-master"><rect class="box-bus" x="16" y="130" width="110" height="170" rx="8"/><text class="t-title t-mid" x="71" y="200">主站</text><text class="t-small t-muted t-mid" x="71" y="224">网卡</text></g>
+<line id="l1-c0u" class="wire-bus" x1="126" y1="180" x2="198" y2="180" marker-end="url(#l1-arr)"/>
+<line id="l1-c0d" class="wire-bus" x1="198" y1="250" x2="126" y2="250" marker-end="url(#l1-arr)"/>
+<line id="l1-c1u" class="wire-bus" x1="382" y1="180" x2="448" y2="180" marker-end="url(#l1-arr)"/>
+<line id="l1-c1d" class="wire-bus" x1="448" y1="250" x2="382" y2="250" marker-end="url(#l1-arr)"/>
+<line id="l1-c2u" class="wire-bus" x1="632" y1="180" x2="698" y2="180" marker-end="url(#l1-arr)"/>
+<line id="l1-c2d" class="wire-bus" x1="698" y1="250" x2="632" y2="250" marker-end="url(#l1-arr)"/>
+<g id="l1-s1">
+<rect class="box-drive" x="190" y="90" width="200" height="210" rx="8"/>
+<text class="t-title t-mid" x="290" y="116">从站 1</text>
+<rect class="box-muted" x="198" y="150" width="30" height="130" rx="4"/><text class="t-small t-mono t-mid" x="213" y="219">P0</text>
+<rect class="box-muted" x="352" y="150" width="30" height="130" rx="4"/><text class="t-small t-mono t-mid" x="367" y="219">P1</text>
+<rect id="l1-s1-epu" class="box-bus" x="238" y="140" width="70" height="65" rx="6"/><text class="t-small t-mid" x="273" y="158">处理单元</text>
+<rect class="box-muted" x="316" y="168" width="26" height="24" rx="3"/><text class="t-small t-mono t-mid" x="329" y="185">P3</text>
+<rect class="box-muted" x="274" y="238" width="26" height="24" rx="3"/><text class="t-small t-mono t-mid" x="287" y="255">P2</text>
+<line class="wire-bus" x1="228" y1="180" x2="238" y2="180"/>
+<line class="wire-bus" x1="308" y1="180" x2="316" y2="180"/>
+<line class="wire-bus" x1="342" y1="180" x2="352" y2="180"/>
+<line id="l1-s1-d1" class="wire-bus" x1="352" y1="250" x2="300" y2="250"/>
+<line id="l1-s1-d2" class="wire-bus" x1="274" y1="250" x2="228" y2="250"/>
+<text class="t-small t-muted t-mid" x="290" y="294">P2、P3 未接线：闭合</text>
+</g>
+<g id="l1-s2">
+<rect class="box-drive" x="440" y="90" width="200" height="210" rx="8"/>
+<text class="t-title t-mid" x="540" y="116">从站 2</text>
+<rect class="box-muted" x="448" y="150" width="30" height="130" rx="4"/><text class="t-small t-mono t-mid" x="463" y="219">P0</text>
+<rect class="box-muted" x="602" y="150" width="30" height="130" rx="4"/><text class="t-small t-mono t-mid" x="617" y="219">P1</text>
+<rect id="l1-s2-epu" class="box-bus" x="488" y="140" width="70" height="65" rx="6"/><text class="t-small t-mid" x="523" y="158">处理单元</text>
+<rect class="box-muted" x="566" y="168" width="26" height="24" rx="3"/><text class="t-small t-mono t-mid" x="579" y="185">P3</text>
+<rect class="box-muted" x="524" y="238" width="26" height="24" rx="3"/><text class="t-small t-mono t-mid" x="537" y="255">P2</text>
+<line class="wire-bus" x1="478" y1="180" x2="488" y2="180"/>
+<line class="wire-bus" x1="558" y1="180" x2="566" y2="180"/>
+<line class="wire-bus" x1="592" y1="180" x2="602" y2="180"/>
+<line id="l1-s2-d1" class="wire-bus" x1="602" y1="250" x2="550" y2="250"/>
+<line id="l1-s2-d2" class="wire-bus" x1="524" y1="250" x2="478" y2="250"/>
+<text class="t-small t-muted t-mid" x="540" y="294">P2、P3 未接线：闭合</text>
+</g>
+<g id="l1-s3">
+<rect class="box-drive" x="690" y="90" width="200" height="210" rx="8"/>
+<text class="t-title t-mid" x="790" y="116">从站 3</text>
+<rect class="box-muted" x="698" y="150" width="30" height="130" rx="4"/><text class="t-small t-mono t-mid" x="713" y="219">P0</text>
+<rect class="box-muted" x="852" y="150" width="30" height="130" rx="4"/><text class="t-small t-mono t-mid" x="867" y="219">P1</text>
+<rect id="l1-s3-epu" class="box-bus" x="738" y="140" width="70" height="65" rx="6"/><text class="t-small t-mid" x="773" y="158">处理单元</text>
+<rect class="box-muted" x="816" y="168" width="26" height="24" rx="3"/><text class="t-small t-mono t-mid" x="829" y="185">P3</text>
+<rect class="box-muted" x="774" y="238" width="26" height="24" rx="3"/><text class="t-small t-mono t-mid" x="787" y="255">P2</text>
+<line class="wire-bus" x1="728" y1="180" x2="738" y2="180"/>
+<line class="wire-bus" x1="808" y1="180" x2="816" y2="180"/>
+<line class="wire-bus" x1="842" y1="180" x2="852" y2="180"/>
+<line id="l1-s3-d1" class="wire-bus" x1="852" y1="250" x2="800" y2="250"/>
+<line id="l1-s3-d2" class="wire-bus" x1="774" y1="250" x2="728" y2="250"/>
+<text class="t-small t-muted t-mid" x="790" y="294">P2、P3 未接线：闭合</text>
+</g>
+<g id="l1-nolink"><line class="wire dashed" x1="890" y1="180" x2="940" y2="180"/><line class="wire dashed" x1="890" y1="250" x2="940" y2="250"/><text class="t-small t-muted t-mid" x="915" y="219">无链路</text></g>
+<g id="l1-loop" class="is-hidden"><path class="fill-none stroke-bus sw-3" d="M867,184 C888,190 888,240 867,246" marker-end="url(#l1-arr)"/><text class="t-small t-bus t-bold t-mid" x="820" y="325">端口 1 无链路 → 自动闭环</text></g>
+<g id="l1-frame" class="is-hidden"><rect class="fill-bus" x="193" y="168" width="40" height="24" rx="4"/><text class="t-small t-onfill t-mid t-bold" x="213" y="185">帧</text></g>
+<text id="l1-time" class="t-bus t-bold is-hidden" x="160" y="340">回到主站：一圈通常只要几十微秒（取决于帧长和从站数）</text>
+</svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>端口处理顺序是固定的</h3>
+    <p>ESC 内部只有一个处理单元，它挂在"端口 0 收到的帧"这条路上。帧处理完后按固定顺序依次交给下一个端口：端口打开就发出去，端口闭合就直接跳到再下一个。顺序只取决于芯片启用了哪些端口（ET1100 数据手册"帧处理顺序"一节）。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>启用的端口</th><th>帧处理顺序</th></tr>
+        <tr><td>0、1</td><td><code>0 → 处理单元 → 1 → 0</code></td></tr>
+        <tr><td>0、1、2</td><td><code>0 → 处理单元 → 1 → 2 → 0</code></td></tr>
+        <tr><td>0、1、3</td><td><code>0 → 处理单元 → 3 → 1 → 0</code></td></tr>
+        <tr><td>0、1、2、3</td><td><code>0 → 处理单元 → 3 → 1 → 2 → 0</code></td></tr>
+      </table>
+    </div>
+    <p>所以主站方向的网线要接端口 0（常标 IN），下游接端口 1（常标 OUT）；端口 2、3 用来做分支。</p>
+
+    <h3>自动闭环：没链路的端口自己闭合</h3>
+    <p>每个端口的"回环"状态由 DL Control 寄存器 <code>0x0101</code>（即 <code>0x0100</code> 起的第 2 字节）里的两位控制，默认是 Auto。Auto 模式下，PHY 报告有链路就打开端口、把帧发出去；没有链路就闭合端口、帧在芯片内部直接转给顺序里的下一个端口。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>回环设置（每端口 2 位）</th><th>行为</th></tr>
+        <tr><td><code>00</code> Auto</td><td>有链路打开，无链路闭合，全自动</td></tr>
+        <tr><td><code>01</code> Auto close</td><td>断链时自动闭合；链路恢复后不会仅因链路恢复而打开：主站再次写入该设置，或该端口收到有效以太网帧，都会使它重新打开</td></tr>
+        <tr><td><code>10</code> Always open</td><td>始终打开（无链路时帧会丢在这里）</td></tr>
+        <tr><td><code>11</code> Always closed</td><td>始终闭合</td></tr>
+      </table>
+    </div>
+
+    <h3>线形拓扑为什么是环</h3>
+    <p>100BASE-TX 网线里有两对线，一对去、一对回（全双工）。帧沿去程线对穿过每台从站并被处理，到最后一台时端口 1 无链路自动闭合，同一帧转到回程线对，逐台只转发地回到主站。主站只需要一个网口，发出去的帧总会从同一个网口回来。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 170" role="img" aria-label="线形拓扑的逻辑环：去程线对向右经过每台从站的处理单元，末端闭环，回程线对向左只转发">
+        <defs><marker id="l1f-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="fill-bus" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="box-bus" x="20" y="40" width="110" height="90" rx="8"/>
+        <text class="t-title t-mid" x="75" y="90">主站</text>
+        <rect class="box-drive" x="260" y="40" width="120" height="90" rx="8"/>
+        <text class="t-mid" x="320" y="122">从站 1</text>
+        <rect class="box-drive" x="480" y="40" width="120" height="90" rx="8"/>
+        <text class="t-mid" x="540" y="122">从站 2</text>
+        <rect class="box-drive" x="700" y="40" width="120" height="90" rx="8"/>
+        <text class="t-mid" x="760" y="122">从站 3</text>
+        <rect class="fill-bus" x="300" y="60" width="40" height="20" rx="3"/>
+        <rect class="fill-bus" x="520" y="60" width="40" height="20" rx="3"/>
+        <rect class="fill-bus" x="740" y="60" width="40" height="20" rx="3"/>
+        <line class="wire-bus" x1="130" y1="70" x2="300" y2="70" marker-end="url(#l1f-arr)"/>
+        <line class="wire-bus" x1="340" y1="70" x2="520" y2="70" marker-end="url(#l1f-arr)"/>
+        <line class="wire-bus" x1="560" y1="70" x2="740" y2="70" marker-end="url(#l1f-arr)"/>
+        <path class="fill-none stroke-bus sw-3" d="M780,70 C818,70 818,100 780,100" marker-end="url(#l1f-arr)"/>
+        <line class="wire dashed" x1="780" y1="100" x2="130" y2="100" marker-end="url(#l1f-arr)"/>
+        <text class="t-small t-bus" x="150" y="58">去程：每台的处理单元读写</text>
+        <text class="t-small t-muted" x="150" y="152">回程：同一根网线的另一对线，只转发</text>
+        <text class="t-small t-bus" x="835" y="90">末端自动闭环</text>
+      </svg>
+      </div>
+      <figcaption>蓝色小块是各台的处理单元。线形接线 + 末端闭环 = 一个逻辑环。</figcaption>
+    </figure>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>只用一个网口发帧，也在同一个网口收回同一帧，不需要知道网络怎么接也能通信。</li>
+          <li>扫描时读每台从站的 DL Status（<code>0x0110</code>），根据哪些端口有链路推出拓扑：谁接在谁的哪个端口上。</li>
+          <li>发出的帧如果没回来（超时），就知道环在某处断了，再逐台读 DL Status 找断点。</li>
+          <li>冗余环（一句带过）：主站用第二个网口接到最后一台的端口 1；中间断线时两边各自闭环，两个网口分别收回一半，通信不中断。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>ESC 硬件完成全部转发，不需要从站 CPU 参与，也不需要固件运行。</li>
+          <li>只有从端口 0 收进来的帧才经过处理单元被读写；从其他端口收进来的帧只转发。</li>
+          <li>按每个端口的链路状态自动开合回环，并把链路、回环、通信状态写进 DL Status 给主站读。</li>
+          <li>断线发生在哪里，哪里的两侧 ESC 就各自闭环，断点之前的从站照样能通信。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>读第 0 台从站的 DL Status（2 字节，<code>0x0110</code>–<code>0x0111</code>）。不加类型时按字节打印，低地址字节在前；加 <code>--type uint16</code> 直接得到 16 位值（输出格式随 IgH 版本略有差别）。</p>
+    <pre><code>ethercat reg_read -p0 0x0110 2
+ethercat reg_read -p0 --type uint16 0x0110 2
+# 对每台都读一遍，看端口 1 的位在哪一台变成"无链路、闭合"
+ethercat graph           # IgH 1.5 起：以 DOT 格式输出主站推出的拓扑</code></pre>
+    <p>DL Status 位定义（ET1100 数据手册，寄存器 <code>0x0110:0x0111</code>）。只看你用到的端口；芯片里不存在或没接线的端口，其回环位读数因芯片配置而异，不要用来下结论。</p>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>位</th><th>含义</th><th>线形中间一台</th><th>线形最后一台</th></tr>
+        <tr><td>bit 0</td><td>PDI 就绪 / EEPROM 已正确加载</td><td>1</td><td>1</td></tr>
+        <tr><td>bit 4</td><td>端口 0 物理链路</td><td>1</td><td>1</td></tr>
+        <tr><td>bit 5</td><td>端口 1 物理链路</td><td>1</td><td>0</td></tr>
+        <tr><td>bit 8</td><td>端口 0 回环（1 = 闭合）</td><td>0</td><td>0</td></tr>
+        <tr><td>bit 9</td><td>端口 0 通信已建立</td><td>1</td><td>1</td></tr>
+        <tr><td>bit 10</td><td>端口 1 回环（1 = 闭合）</td><td>0</td><td>1</td></tr>
+        <tr><td>bit 11</td><td>端口 1 通信已建立</td><td>1</td><td>0</td></tr>
+      </table>
+    </div>
+    <p>其余位：bit 1 PDI 看门狗状态、bit 2 增强链路检测、bit 3 保留、bit 6/7 端口 2/3 物理链路、bit 12–15 端口 2/3 的回环与通信。把读到的 16 位值填进下面的解码器：</p>
+    <div class="l1-decoder">
+      <label for="l1-dl-in">DL Status =</label>
+      <input id="l1-dl-in" value="0x0A31" spellcheck="false" aria-label="输入 DL Status 十六进制值">
+      <span class="t-muted" id="l1-dl-msg"></span>
+    </div>
+    <div id="l1-dl-bits"></div>
+    <div class="table-wrap l1-ports">
+      <table id="l1-dl-ports">
+        <tr><th>端口</th><th>物理链路</th><th>回环</th><th>通信</th></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "四个端口都启用的 ESC，帧的处理顺序是？", "options": ["0 → 处理单元 → 1 → 2 → 3 → 0", "0 → 处理单元 → 3 → 1 → 2 → 0", "0 → 1 → 2 → 3 → 处理单元 → 0", "按端口收到链路的先后顺序"], "answer": 1, "explain": "处理单元挂在端口 0 的接收路径上，之后按 3 → 1 → 2 → 0 依次转发（ET1100 数据手册的帧处理顺序）。端口 3 排在端口 1 前面，是最容易记错的地方。"},
+  {"q": "线形接线的最后一台从站，端口 1 没有接网线。帧到了它那里会怎样？", "options": ["帧被丢弃，主站超时", "从站生成一个新的应答帧发回主站", "端口 1 自动闭合，同一帧在芯片内部转到回程方向，经端口 0 发回", "帧停在从站里等下一个周期"], "answer": 2, "explain": "Auto 回环模式下，无链路的端口自动闭合。帧不被丢弃也不被重新生成，是同一帧掉头走回程线对。"},
+  {"q": "帧在回程路上再次经过从站 2 时，从站 2 会做什么？", "options": ["再处理一次，WKC 再加一次", "只从端口 1 收进来、经端口 2（闭合）转到端口 0 发出，不经过处理单元", "把帧里的数据恢复成去程时的样子", "丢掉帧里已经处理过的数据报"], "answer": 1, "explain": "只有从端口 0 收进来的帧才经过处理单元。回程帧从端口 1 进入，按 1 → 2 → 0 的顺序只转发。"},
+  {"q": "某台从站 DL Status 读到 bit 5 = 0、bit 10 = 1、bit 11 = 0。说明什么？", "options": ["端口 1 无物理链路且已闭环：它是线形末端，或它后面的网线断了", "端口 0 断了，主站连不上它", "它的 EEPROM 没加载", "端口 1 正常通信"], "answer": 0, "explain": "bit 5 是端口 1 物理链路，bit 10 是端口 1 回环闭合，bit 11 是端口 1 通信。如果这台本不该是最后一台，就沿它的端口 1 往下找断线。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>最后一台从站收到帧后"应答"一个新帧给主站。<br><strong>实际上：</strong>没有应答帧。同一帧在末端被 ESC 硬件闭环，沿另一对线原路返回，主站收回的就是自己发出的那一帧（数据已被沿途改写）。</li>
+      <li><strong>误区：</strong>进线插 IN 还是 OUT 无所谓，反正都能通。<br><strong>实际上：</strong>处理单元只在端口 0 的接收路径上。插反后帧先被转发到下游、回来时才被这台处理，处理先后（位置编号）与接线顺序不一致，拓扑和 DC 延时测量都会乱。</li>
+      <li><strong>误区：</strong>DL Status 里某端口"物理链路 = 1"就说明通信正常。<br><strong>实际上：</strong>链路位只说明 PHY 检测到对端；还要看同一端口的"通信已建立"位和回环位。</li>
+    </ul>
+    <p>关联：本课的"处理单元"里到底怎么读写，是 u1-l3 的飞行读写；帧里装了什么，是下一课 u1-l2；插错端口、断线定位的完整排查流程见 u7-l2。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '三台从站线形连接', text: '主站网口接从站 1 的端口 0，从站 1 的端口 1 接从站 2 的端口 0，以此类推；每根网线里一对去、一对回。', apply: function () {} },
+    { title: '帧进入从站 1 的端口 0', text: '主站发出的帧沿去程线对到达从站 1，从端口 0 进入 ESC。', apply: function (svg) {
+      Academy.fx(svg).show('l1-frame');
+    } },
+    { title: '处理单元读写', text: '端口 0 收到的帧经过处理单元：与本站有关的数据报在帧流过时被读或写。', apply: function (svg) {
+      Academy.fx(svg).move('l1-frame', 60, 0).hot('l1-s1-epu');
+    } },
+    { title: '经端口 3、端口 1 到从站 2', text: '端口 3 闭合被跳过，帧从端口 1 发出，进入从站 2 的端口 0，在它的处理单元里同样被处理。', apply: function (svg) {
+      Academy.fx(svg).cool('l1-s1-epu').move('l1-frame', 310, 0).hot('l1-s2-epu');
+    } },
+    { title: '从站 3：端口 1 无链路，自动闭环', text: '从站 3 处理完后轮到端口 1，但它没有链路，ESC 自动闭合端口，帧在芯片内部掉头进入回程方向。', apply: function (svg) {
+      Academy.fx(svg).cool('l1-s2-epu').move('l1-frame', 654, 0).show('l1-loop');
+    } },
+    { title: '沿回程原路返回，不再处理', text: '回程帧从各台的端口 1 进入，经端口 2 转到端口 0 发出，不经过处理单元，只转发。', apply: function (svg) {
+      Academy.fx(svg).move('l1-frame', 363, 70).flow(['l1-c2d', 'l1-s3-d1', 'l1-s3-d2', 'l1-c1d', 'l1-s2-d1', 'l1-s2-d2', 'l1-c0d', 'l1-s1-d1', 'l1-s1-d2']);
+    } },
+    { title: '回到主站', text: '同一帧回到主站的同一个网口，一圈通常只要几十微秒。', apply: function (svg) {
+      Academy.fx(svg).move('l1-frame', -142, 70).show('l1-time');
+    } }
+  ]);
+
+  // DL Status 解码器（ET1100 数据手册 0x0110:0x0111）
+  var NAMES = ['PDI就绪/EEPROM', 'PDI看门狗', '增强链路检测', '保留',
+    'P0链路', 'P1链路', 'P2链路', 'P3链路',
+    'P0回环', 'P0通信', 'P1回环', 'P1通信',
+    'P2回环', 'P2通信', 'P3回环', 'P3通信'];
+  var input = document.getElementById('l1-dl-in');
+  var msg = document.getElementById('l1-dl-msg');
+  var bitsEl = document.getElementById('l1-dl-bits');
+  var ports = document.getElementById('l1-dl-ports');
+  function render() {
+    var s = input.value.trim().replace(/^0x/i, '');
+    if (!/^[0-9a-f]{1,4}$/i.test(s)) { msg.textContent = '请输入 1–4 位十六进制，例如 0x0A31'; return; }
+    var v = parseInt(s, 16);
+    msg.textContent = Academy.hex(v, 4);
+    Academy.bitsTable(bitsEl, v, NAMES, 16);
+    var rows = '<tr><th>端口</th><th>物理链路</th><th>回环</th><th>通信</th></tr>';
+    for (var p = 0; p < 4; p++) {
+      var link = (v >> (4 + p)) & 1, loop = (v >> (8 + 2 * p)) & 1, com = (v >> (9 + 2 * p)) & 1;
+      rows += '<tr><td>端口 ' + p + '</td><td>' + (link ? '有' : '无') + '</td><td>' + (loop ? '闭合' : '打开') + '</td><td>' + (com ? '已建立' : '无') + '</td></tr>';
+    }
+    ports.innerHTML = rows;
+  }
+  input.addEventListener('input', render);
+  render();
+
+  Academy.init('u1-l1');
+})();
+</script>
+</body>
+</html>

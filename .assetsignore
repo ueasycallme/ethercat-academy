@@ -1,0 +1,14 @@
+.git
+DESIGN.md
+REVIEW.md
+_AGENT_BRIEF.md
+_reports.md
+_check.py
+_template.html
+README.md
+CHANGELOG.md
+wrangler.jsonc
+.gitignore
+.assetsignore
+node_modules
+.wrangler

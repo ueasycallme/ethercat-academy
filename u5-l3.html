@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>故障、急停与抱闸 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .pager a, .lesson .next-card { overflow-wrap: anywhere; }
+  .lesson .u53-chip rect { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u53-chip.u53-cur rect { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 3.5; }
+  .lesson .u53-chip.u53-cur-f rect { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 3.5; }
+  .lesson .u53-blk rect { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u53-blk.u53-ok rect { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 2.5; }
+  .lesson .u53-blk.u53-bad rect { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 3; }
+  .lesson .u53-blk.u53-hold rect { fill: var(--power-soft); stroke: var(--power); stroke-width: 3; }
+  .lesson #u53-spd { transition: width .8s ease; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u5-l3">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">故障、急停与抱闸</h1>
+    <p class="lesson-lede">驱动器出错时不等主站：自己按 605E 停车、抱闸、关功率级；主站要做的是读懂 603F，并用一个上升沿把它复位。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>讲清故障反应路径：转换 13 → 14 → 15，以及 605E 决定怎么停。</li>
+          <li>解释 605A 快停选项码 0–8，区分停完回到禁止接通和停留在快速停止。</li>
+          <li>画出使能与停车时的抱闸时序，说明复位为什么是边沿而不是电平。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 480" role="img" aria-label="主动画：驱动器运行中过温，进入故障反应按 605E 减速、抱闸、关功率级进入故障；主站读 603F，写 0x0000 再写 0x0080 上升沿复位回到禁止接通；最后展示 605A 快停分支">
+        <defs>
+          <marker id="u53-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="fill-muted" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u53-ah-bus" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path class="fill-bus" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+
+        <!-- 主站侧 -->
+        <text class="t-title t-mid" x="140" y="28">主站</text>
+        <rect class="box-bus" x="20" y="44" width="240" height="70" rx="8"/>
+        <text class="t-mid t-small t-muted" x="140" y="66">写 6040 控制字</text>
+        <text id="u53-cw" class="t-mid t-mono t-bold" x="140" y="96">0x000F · Enable operation</text>
+        <rect class="box" x="20" y="130" width="240" height="70" rx="8"/>
+        <text class="t-mid t-small t-muted" x="140" y="152">读 6041 状态字</text>
+        <text id="u53-sw" class="t-mid t-mono t-bold" x="140" y="182">0x0237 · 运行使能</text>
+        <rect class="box" x="20" y="216" width="240" height="70" rx="8"/>
+        <text class="t-mid t-small t-muted" x="140" y="238">读 603F 错误码</text>
+        <text id="u53-err" class="t-mid t-mono t-bold" x="140" y="268">0x0000 · 无错误</text>
+        <rect class="box-mail" x="20" y="302" width="240" height="96" rx="8"/>
+        <text class="t-mid t-small t-muted" x="140" y="324">停车选项（PREOP 用 SDO 预设）</text>
+        <text class="t-mid t-mono" x="140" y="352">605E 故障反应 = 2</text>
+        <text class="t-mid t-mono" x="140" y="378">605A 快停选项 = 2</text>
+
+        <!-- 网线 -->
+        <path id="u53-w-cw" class="wire-bus" d="M260 80 H334" marker-end="url(#u53-ah-bus)"/>
+        <path id="u53-w-sw" class="wire" d="M338 165 H264" marker-end="url(#u53-ah)"/>
+        <path id="u53-w-err" class="wire" d="M338 251 H264" marker-end="url(#u53-ah)"/>
+
+        <!-- 从站侧：驱动器 -->
+        <rect class="box stroke-drive" x="338" y="4" width="612" height="470" rx="10"/>
+        <text class="t-title t-end t-drive" x="936" y="28">驱动器</text>
+
+        <g id="u53-st-oe" class="u53-chip u53-cur"><rect x="352" y="40" width="110" height="50" rx="8"/><text class="t-mid t-bold" x="407" y="62">OE</text><text class="t-mid t-small t-muted" x="407" y="80">运行使能</text></g>
+        <g id="u53-st-qsa" class="u53-chip"><rect x="470" y="40" width="110" height="50" rx="8"/><text class="t-mid t-bold" x="525" y="62">QSA</text><text class="t-mid t-small t-muted" x="525" y="80">快速停止</text></g>
+        <g id="u53-st-fra" class="u53-chip"><rect x="588" y="40" width="110" height="50" rx="8"/><text class="t-mid t-bold" x="643" y="62">FRA</text><text class="t-mid t-small t-muted" x="643" y="80">故障反应</text></g>
+        <g id="u53-st-flt" class="u53-chip"><rect x="706" y="40" width="110" height="50" rx="8"/><text class="t-mid t-bold" x="761" y="62">Fault</text><text class="t-mid t-small t-muted" x="761" y="80">故障</text></g>
+        <g id="u53-st-sod" class="u53-chip"><rect x="824" y="40" width="110" height="50" rx="8"/><text class="t-mid t-bold" x="879" y="62">SOD</text><text class="t-mid t-small t-muted" x="879" y="80">禁止接通</text></g>
+
+        <g id="u53-temp" class="u53-blk u53-ok"><rect x="352" y="106" width="180" height="64" rx="8"/><text class="t-mid t-bold" x="442" y="130">驱动器温度</text><text id="u53-temp-t" class="t-mid t-small" x="442" y="154">正常</text></g>
+        <g id="u53-pwr" class="u53-blk u53-ok"><rect x="546" y="106" width="180" height="64" rx="8"/><text class="t-mid t-bold" x="636" y="130">功率级 PWM</text><text id="u53-pwr-t" class="t-mid t-small" x="636" y="154">出力中</text></g>
+        <g id="u53-brk" class="u53-blk u53-ok"><rect x="740" y="106" width="194" height="64" rx="8"/><text class="t-mid t-bold" x="837" y="130">抱闸</text><text id="u53-brk-t" class="t-mid t-small" x="837" y="154">松开（线圈通电）</text></g>
+
+        <rect class="box" x="352" y="186" width="582" height="86" rx="8"/>
+        <text class="t-bold" x="368" y="224">电机速度</text>
+        <rect class="fill-panel2 stroke-line sw-1" x="460" y="206" width="450" height="24" rx="4"/>
+        <rect id="u53-spd" class="fill-drive" x="460" y="206" width="450" height="24" rx="4"/>
+        <text id="u53-spd-t" class="t-small t-muted" x="460" y="256">按主站指令运行</text>
+
+        <g id="u53-rx" class="u53-blk"><rect x="352" y="288" width="582" height="60" rx="8"/><text id="u53-rx-t" class="t-mid" x="643" y="324">运行中：6040 = 0x000F，电机按指令转动</text></g>
+
+        <g id="u53-qsb" class="is-hidden">
+          <rect class="box-mail" x="352" y="360" width="582" height="104" rx="8"/>
+          <text class="t-bold" x="368" y="384">Quick stop 分支：运行使能下收到 6040 = 0x0002（转换 11）</text>
+          <text class="t-small" x="368" y="406">605A = 0：立即关闭驱动功能，电机自由停转，回到禁止接通</text>
+          <text class="t-small" x="368" y="428">605A = 1…4：按减速斜坡 / 快停斜坡 / 电流极限 / 电压极限停车，自动走转换 12 到禁止接通</text>
+          <text class="t-small" x="368" y="450">605A = 5…8：同样四种方式停车，但停留在快速停止保持出力，可用 0x000F 回运行使能（转换 16）</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>故障反应路径：13 → 14 → 15</h3>
+    <p>驱动器检测到故障后不等主站，自己走转换 13 进入故障反应（Fault reaction active），按 605E 停车；反应完成后自动走 14 进入故障（Fault），驱动功能关闭。离开故障只有一条路：主站在 6040 bit7 上产生上升沿（转换 15），而且故障原因必须已经消失，否则驱动器会立刻再次进入故障反应。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>605E 取值</th><th>故障反应（Fault reaction option code）</th></tr>
+        <tr><td>0</td><td>关闭驱动功能，电机自由停转</td></tr>
+        <tr><td>1</td><td>按减速斜坡（slow down ramp）停车</td></tr>
+        <tr><td>2</td><td>按快停斜坡（quick stop ramp，减速度见 6085）停车</td></tr>
+        <tr><td>3</td><td>按电流极限停车</td></tr>
+        <tr><td>4</td><td>按电压极限停车</td></tr>
+        <tr><td>负值</td><td>厂商定义</td></tr>
+      </table>
+    </div>
+    <p class="note">功率级自身的故障（例如过流、短路）往往已无法按斜坡减速，驱动器会直接关断；哪些故障遵循 605E、默认值是多少，因厂商而异。</p>
+
+    <h3>Quick stop：605A 决定怎么停、停完去哪</h3>
+    <p>6040 bit2 清零即 Quick stop 命令（低有效），在运行使能下触发转换 11。605A 的 1–4 与 5–8 停车方式一一对应，区别只在停完后：1–4 自动回禁止接通并关断功率级，5–8 停留在快速停止继续出力保持位置。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>605A</th><th>停车方式</th><th>停完后</th></tr>
+        <tr><td>0</td><td>关闭驱动功能，自由停转</td><td>禁止接通</td></tr>
+        <tr><td>1</td><td>减速斜坡</td><td>禁止接通（转换 12）</td></tr>
+        <tr><td>2</td><td>快停斜坡（6085）</td><td>禁止接通（转换 12）</td></tr>
+        <tr><td>3</td><td>电流极限</td><td>禁止接通（转换 12）</td></tr>
+        <tr><td>4</td><td>电压极限</td><td>禁止接通（转换 12）</td></tr>
+        <tr><td>5</td><td>减速斜坡</td><td>停留在快速停止</td></tr>
+        <tr><td>6</td><td>快停斜坡（6085）</td><td>停留在快速停止</td></tr>
+        <tr><td>7</td><td>电流极限</td><td>停留在快速停止</td></tr>
+        <tr><td>8</td><td>电压极限</td><td>停留在快速停止</td></tr>
+      </table>
+    </div>
+    <p>同类的还有 605B Shutdown 选项码（转换 8）和 605C Disable operation 选项码（转换 5），取值 0 = 直接关闭驱动功能、1 = 按减速斜坡停车后关闭；605D Halt 选项码 1–4 与 605A 的 1–4 停车方式相同，但停完仍留在运行使能。减速斜坡通常取 6084 Profile deceleration，具体因模式与厂商而异。</p>
+
+    <h3>抱闸时序</h3>
+    <p>弹簧式抱闸断电抱住、通电松开，机械动作需要几十到上百毫秒。使能时驱动器先让电机出力，再松闸，等抱闸真正松开才开始运动；停车时先把速度降到 0，再抱闸，等抱闸真正压紧后才关功率级。两段等待时间由驱动器参数设定，对象号与默认值因厂商而异。</p>
+    <figure>
+      <div class="fig-scroll">
+      <svg viewBox="0 0 960 310" role="img" aria-label="抱闸时序图：使能时先出力再松闸再运动；停车时先减速到零，再抱闸，等待抱闸延时后关功率级">
+        <text class="t-bold" x="20" y="62">CiA402 状态</text>
+        <text class="t-bold" x="20" y="124">功率级出力</text>
+        <text class="t-bold" x="20" y="184">抱闸（高=松开）</text>
+        <text class="t-bold" x="20" y="244">电机速度</text>
+
+        <line class="stroke-line sw-1 dashed" x1="260" y1="40" x2="260" y2="266"/>
+        <line class="stroke-line sw-1 dashed" x1="360" y1="40" x2="360" y2="266"/>
+        <line class="stroke-line sw-1 dashed" x1="420" y1="40" x2="420" y2="266"/>
+        <line class="stroke-line sw-1 dashed" x1="620" y1="40" x2="620" y2="266"/>
+        <line class="stroke-line sw-1 dashed" x1="760" y1="40" x2="760" y2="266"/>
+        <line class="stroke-line sw-1 dashed" x1="860" y1="40" x2="860" y2="266"/>
+
+        <rect class="box-muted" x="170" y="44" width="90" height="26" rx="4"/><text class="t-small t-mid" x="215" y="62">已接通</text>
+        <rect class="box-drive" x="260" y="44" width="360" height="26" rx="4"/><text class="t-small t-mid" x="440" y="62">运行使能</text>
+        <rect class="box-power" x="620" y="44" width="240" height="26" rx="4"/><text class="t-small t-mid" x="740" y="62">停车中（快停 / 故障反应）</text>
+        <rect class="box-muted" x="860" y="44" width="80" height="26" rx="4"/><text class="t-small t-mid" x="900" y="62">SOD / 故障</text>
+
+        <polyline class="fill-none stroke-power sw-3" points="170,135 260,135 260,105 860,105 860,135 940,135"/>
+        <polyline class="fill-none stroke-ink sw-2" points="170,195 360,195 360,165 760,165 760,195 940,195"/>
+        <polyline class="fill-none stroke-drive sw-3" points="170,255 420,255 490,225 620,225 740,255 940,255"/>
+
+        <line class="stroke-muted sw-1" x1="262" y1="158" x2="358" y2="158"/>
+        <text class="t-small t-mid t-muted" x="310" y="152">松闸延时</text>
+        <line class="stroke-muted sw-1" x1="762" y1="158" x2="858" y2="158"/>
+        <text class="t-small t-mid t-muted" x="810" y="152">抱闸延时</text>
+
+        <text class="t-small t-mid" x="260" y="284">写 0x000F</text>
+        <text class="t-small t-mid" x="360" y="302">抱闸已松开</text>
+        <text class="t-small t-mid" x="428" y="284">开始运动</text>
+        <text class="t-small t-mid" x="620" y="284">停车命令 / 故障</text>
+        <text class="t-small t-mid" x="760" y="302">速度≈0，抱闸</text>
+        <text class="t-small t-mid" x="870" y="284">关功率级</text>
+      </svg>
+      </div>
+      <figcaption>抱闸延时内功率级仍出力"扶住"负载；若先关功率级再抱闸，垂直轴会在这段时间里下坠。</figcaption>
+    </figure>
+
+    <h3>603F 错误码与复位</h3>
+    <p>603F Error code 是 16 位，编码沿用 CiA 301 紧急报文：第一位十六进制数是大类（2 电流、3 电压、4 温度、5 设备硬件、6 设备软件、7 附加模块、8 监控、9 外部错误、F 附加功能），0xFF00–0xFFFF 留给厂商。1001 Error register 是 8 位快速分类：bit0 通用、bit1 电流、bit2 电压、bit3 温度、bit4 通信、bit5 设备行规、bit7 厂商。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>603F</th><th>含义</th><th>大类</th></tr>
+        <tr><td><code>0x0000</code></td><td>无错误</td><td>—</td></tr>
+        <tr><td><code>0x2310</code></td><td>持续过流（Continuous over current）</td><td>电流</td></tr>
+        <tr><td><code>0x3210</code></td><td>直流母线过压（DC link over-voltage）</td><td>电压</td></tr>
+        <tr><td><code>0x3220</code></td><td>直流母线欠压（DC link under-voltage）</td><td>电压</td></tr>
+        <tr><td><code>0x4310</code></td><td>驱动器过温（Excess temperature drive）</td><td>温度</td></tr>
+        <tr><td><code>0x8611</code></td><td>跟随误差（Following error）</td><td>监控</td></tr>
+        <tr><td><code>0xFF00</code>–<code>0xFFFF</code></td><td>厂商自定义，查驱动器手册</td><td>厂商</td></tr>
+      </table>
+    </div>
+    <p>复位只认 bit7 的 0 → 1 边沿：一直写 <code>0x0080</code> 只会复位一次；若第一次复位时原因仍在，之后必须先写回 bit7 = 0 再置 1 才会再试。复位后驱动器在禁止接通，主站要重新走 <code>0x0006</code> → <code>0x0007</code> → <code>0x000F</code>。</p>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>PREOP 阶段用 SDO 设好 605A、605E、6085 等停车参数。</li>
+          <li>每周期检查 6041 bit3，一旦故障就读 603F 并记录；CoE 紧急报文会主动推送同一错误码，IgH 可用 <code>ecrt_slave_config_emerg_pop()</code> 取（以所用版本的 ecrt.h 为准）。</li>
+          <li>复位：先排除原因，保持 bit7 = 0 至少一个周期再置 1；复位后重走 0x0006 → 0x0007 → 0x000F，并让 607A 对齐 6064。</li>
+          <li>需要受控停车时发 Quick stop（0x0002），不要直接发 Disable voltage（0x0000），后者在运行使能下会立即关断、自由停转。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>持续监测过流、过压、欠压、过温、跟随误差等，出错立即走转换 13，不等主站。</li>
+          <li>按 605E 或 605A 执行停车，并在内部完成抱闸与关功率级的先后顺序。</li>
+          <li>写 603F、1001，并通过 CoE Emergency 报文上报。</li>
+          <li>只在 bit7 上升沿且故障原因已消失时走转换 15 回到禁止接通。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>驱动器报故障时，按"状态 → 错误码 → 分类 → 停车配置"的顺序读：</p>
+    <pre><code>ethercat upload -p0 0x6041 0 --type uint16   # 是否在故障：& 0x004F == 0x0008
+ethercat upload -p0 0x603F 0 --type uint16   # 错误码
+ethercat upload -p0 0x1001 0 --type uint8    # 错误寄存器（CiA 301）
+ethercat upload -p0 0x605A 0 --type int16    # 快停选项码
+ethercat upload -p0 0x605E 0 --type int16    # 故障反应选项码
+ethercat upload -p0 0x6085 0 --type uint32   # 快停减速度
+ethercat upload -p0 0x60FD 0 --type uint32   # 数字输入（限位、原点、厂商位）
+ethercat upload -p0 0x60FE 1 --type uint32   # 数字输出（标准 bit0 为 set brake，是否实现因厂商而异）</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值（示例）</th><th>说明</th></tr>
+        <tr><td>6041</td><td><code>0x0218</code></td><td>掩码 0x004F 后为 0x0008，故障</td></tr>
+        <tr><td>603F</td><td><code>0x4310</code></td><td>驱动器过温；0xFF00 以上查厂商手册</td></tr>
+        <tr><td>1001</td><td><code>0x09</code></td><td>bit0 通用 + bit3 温度；故障清除后回 0</td></tr>
+        <tr><td>605A / 605E</td><td>常见 2</td><td>快停斜坡停车；默认值因厂商而异</td></tr>
+        <tr><td>60FD</td><td>bit0 / bit1 / bit2</td><td>负限位 / 正限位 / 原点开关；bit3 为 interlock，bit16–31 厂商定义</td></tr>
+        <tr><td>抱闸状态</td><td>因厂商而异</td><td>60FD 的标准位里没有抱闸位；有抱闸反馈的驱动器一般放在 60FD bit16–31 或厂商对象，位号查手册</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "605A = 6，驱动器在运行使能时收到 6040 = <code>0x0002</code>，结果是？", "options": ["按快停斜坡停车后自动回到禁止接通", "按快停斜坡停车后停留在快速停止，功率级继续出力", "立即关断，电机自由停转", "进入故障"], "answer": 1, "explain": "605A 的 5–8 与 1–4 停车方式相同，区别是停完留在 Quick stop active。6 = 快停斜坡 + 停留。"},
+  {"q": "驱动器在故障状态，主站每个周期都写 6040 = <code>0x0080</code>，却一直不复位（原因已排除）。最可能的原因是？", "options": ["605E 设成了 0", "必须先写 <code>0x0006</code>", "bit7 一直是 1，没有 0 → 1 的上升沿", "603F 需要先写 0"], "answer": 2, "explain": "Fault reset 只认 bit7 的上升沿。原因排除前那次边沿已被消耗，要先写回 bit7 = 0 至少一个周期，再写 <code>0x0080</code>。"},
+  {"q": "垂直轴停车时，正确的顺序是？", "options": ["先关功率级，再抱闸", "先抱闸，等抱闸延时后再关功率级", "抱闸与关功率级同时进行", "只要 605A = 0 就不需要抱闸"], "answer": 1, "explain": "抱闸机械压紧需要时间，这段时间里必须靠电机出力扶住负载，否则负载会下坠。"},
+  {"q": "603F = <code>0x2310</code> 属于哪一大类故障？", "options": ["电流", "电压", "温度", "通信"], "answer": 0, "explain": "第一位十六进制数 2 表示电流类，<code>0x2310</code> 是持续过流；3 是电压、4 是温度。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>故障复位是电平，一直写 <code>0x0080</code> 就行。<br><strong>实际上：</strong>只认 bit7 的 0 → 1 边沿；每次重试都要先写回 0。</li>
+      <li><strong>误区：</strong>605A 或 605E = 0 也会减速停车。<br><strong>实际上：</strong>0 表示直接关闭驱动功能，电机自由停转；垂直轴只剩抱闸兜底。</li>
+      <li><strong>误区：</strong>6040 的 Quick stop 就是急停安全功能。<br><strong>实际上：</strong>Quick stop 是经过总线的普通命令，依赖通信和状态机；安全转矩关断（STO）等安全功能走硬接线或安全通信，不经过 CiA402 状态机，本课不展开。</li>
+    </ul>
+    <p>关联：状态与转换编号见 u5-l1；跟随误差 6065 与三环见 u6-l3；把 603F 放进整体诊断流程见 u7-l2。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function chip(f, from, to, fault) {
+    f.cls('u53-st-' + from, 'u53-cur', false).cls('u53-st-' + from, 'u53-cur-f', false)
+     .cls('u53-st-' + to, fault ? 'u53-cur-f' : 'u53-cur', true);
+  }
+  function blk(f, id, state) {
+    f.cls(id, 'u53-ok', state === 'ok').cls(id, 'u53-bad', state === 'bad').cls(id, 'u53-hold', state === 'hold');
+  }
+
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始：运行使能中', text: '驱动器在运行使能，功率级出力、抱闸松开、电机按主站指令转动；605E、605A 已在 PREOP 预设为 2。', apply: function () {} },
+    { title: '驱动器过温：转换 13', text: '驱动器检测到过温，不等主站，立刻进入故障反应（FRA），6041 = 0x021F，bit3 故障位置 1。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      blk(f, 'u53-temp', 'bad'); f.text('u53-temp-t', '过温！');
+      chip(f, 'oe', 'fra', true);
+      f.text('u53-sw', '0x021F · 故障反应').cls('u53-sw', 't-fault', true).flow('u53-w-sw');
+      blk(f, 'u53-rx', 'bad'); f.text('u53-rx-t', '转换 13：进入故障反应，主站的运动指令不再被执行');
+    } },
+    { title: '按 605E 减速到零', text: '605E = 2：驱动器沿快停斜坡（6085）把速度降到 0，这段时间功率级仍在出力。', apply: function (svg) {
+      Academy.fx(svg).attr('u53-spd', 'width', '0').text('u53-spd-t', '按 605E = 2 沿快停斜坡（6085）减速到 0');
+    } },
+    { title: '抱闸吸合', text: '速度到 0 后驱动器让抱闸线圈断电，弹簧压紧；等抱闸真正压紧前功率级继续扶住负载。', apply: function (svg) {
+      var f = Academy.fx(svg); blk(f, 'u53-brk', 'hold'); f.text('u53-brk-t', '抱住（线圈断电，弹簧压紧）');
+    } },
+    { title: '关功率级：转换 14 进入故障', text: '故障反应完成，驱动器关断功率级并自动走转换 14 进入故障，6041 = 0x0218。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      blk(f, 'u53-pwr', 'none'); f.text('u53-pwr-t', '关断，不出力');
+      chip(f, 'fra', 'flt', true);
+      f.text('u53-sw', '0x0218 · 故障').text('u53-rx-t', '转换 14：故障反应完成，驱动功能关闭，等待主站复位');
+    } },
+    { title: '主站读 603F', text: '主站读 603F = 0x4310（驱动器过温），首位 4 表示温度类；同一错误码也会通过 CoE 紧急报文推送。', apply: function (svg) {
+      Academy.fx(svg).text('u53-err', '0x4310 · 驱动器过温').cls('u53-err', 't-fault', true).flow('u53-w-sw', false).flow('u53-w-err');
+    } },
+    { title: '原因排除，主站写 0x0000', text: '等温度回落到正常后，主站写 0x0000，让 bit7 先为 0，为下一步的上升沿做准备。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      blk(f, 'u53-temp', 'ok'); f.text('u53-temp-t', '已回落，正常');
+      f.text('u53-cw', '0x0000 · bit7 = 0').flow('u53-w-err', false).flow('u53-w-cw');
+    } },
+    { title: '主站写 0x0080：上升沿复位，转换 15', text: 'bit7 从 0 变 1，驱动器走转换 15 回到禁止接通（0x0250），抱闸保持抱住；要重新走 0x0006 → 0x0007 → 0x000F 才能再动。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      f.text('u53-cw', '0x0080 · Fault reset ↑');
+      chip(f, 'flt', 'sod', false);
+      f.text('u53-sw', '0x0250 · 禁止接通').cls('u53-sw', 't-fault', false);
+      blk(f, 'u53-rx', 'none'); f.text('u53-rx-t', '转换 15：回到禁止接通，抱闸保持，等待重新使能');
+    } },
+    { title: 'Quick stop 分支：按 605A', text: '如果不是故障而是主站主动发 0x0002 快停，停车方式和停完去哪由 605A 决定：0–4 回禁止接通，5–8 停留在快速停止。', apply: function (svg) {
+      Academy.fx(svg).show('u53-qsb');
+    } }
+  ]);
+
+  Academy.init('u5-l3');
+})();
+</script>
+</body>
+</html>

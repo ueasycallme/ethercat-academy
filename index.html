@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EtherCAT 学院</title>
+<meta name="description" content="用可步进的图示从零学会 EtherCAT 关节控制：帧、ESC、状态机、DC、CiA402、主站与从站软件、故障诊断。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main id="home">
+
+  <header class="home-hero">
+    <h1>EtherCAT 学院</h1>
+    <p>从一根网线到电机的电流环：8 个单元、21 课，约 30 小时。每课一张可步进的主动画、一组主站/从站对照、一段在真机上验证的命令，以及 4 道自测题。</p>
+    <div class="home-actions">
+      <a class="btn btn-primary" id="continue-btn" href="u0-l1.html">从第一课开始</a>
+      <a class="btn" href="glossary.html">术语表</a>
+    </div>
+  </header>
+
+  <section class="lesson-block" id="map">
+    <h2>系统总图</h2>
+    <p>整个课程都挂在这张图上：左边是主站，右边是从站，中间是网线。一个目标位置从左上的规划器往下走，过网线，再从右下的 ESC 往上走到电机；实际位置沿原路返回。</p>
+    <div class="home-map">
+      <div id="home-map-svg"></div>
+      <div class="layer-panel" id="layer-panel" aria-live="polite"></div>
+    </div>
+    <div class="note">两件最容易混的事在图中间用虚线标出来了：<strong>ESM</strong>（总线状态机，INIT→OP）和 <strong>CiA402</strong>（驱动器状态机，6040/6041）是两台独立的状态机；<strong>邮箱 SDO</strong>（一问一答）和<strong>过程数据 PDO</strong>（周期镜像拷贝）是两条独立的通路。</div>
+  </section>
+
+  <section class="lesson-block" id="units">
+    <h2>课表</h2>
+    <p>由硬到软、由底到顶。每课的自测全部答对才会打勾。</p>
+    <div class="unit-grid" id="home-units"></div>
+  </section>
+
+</main>
+</div>
+
+<script>Academy.init('index');</script>
+</body>
+</html>

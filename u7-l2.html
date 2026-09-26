@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>故障案例集与诊断决策树 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+.lesson .u72-tree { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 12px 14px; }
+.lesson .u72-node { border-left: 4px solid var(--mail); background: var(--panel); border-radius: 0 6px 6px 0; padding: 8px 12px; margin: 0 0 10px; }
+.lesson .u72-node .u72-q { font-weight: 700; margin: 0 0 6px; }
+.lesson .u72-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lesson .u72-opt { border: 1px solid var(--line); background: var(--panel2); border-radius: 8px; padding: 4px 10px; cursor: pointer; text-align: left; line-height: 1.45; }
+.lesson .u72-opt:hover { border-color: var(--mail); }
+.lesson .u72-opt.is-on { border-color: var(--mail); background: var(--mail-soft); font-weight: 600; }
+.lesson .u72-opt.is-off { opacity: .5; }
+.lesson .u72-leaf { border-left: 4px solid var(--drive); background: var(--drive-soft); border-radius: 0 6px 6px 0; padding: 8px 12px; margin: 0 0 10px; }
+.lesson .u72-leaf p { margin: .2em 0; }
+.lesson .u72-tree-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.lesson .u72-count { color: var(--muted); font-size: .88rem; }
+.lesson .u72-reset { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 2px 10px; cursor: pointer; font-size: .88rem; }
+.lesson .u72-reset:hover { border-color: var(--bus); color: var(--bus); }
+.lesson details.u72-case { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); margin: 8px 0; padding: 0 12px; }
+.lesson details.u72-case[open] { border-color: var(--mail); }
+.lesson details.u72-case > summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.lesson details.u72-case > summary .lid { font-family: var(--font-mono); color: var(--muted); font-weight: 400; margin-right: 6px; }
+.lesson .u72-case table th { width: 7em; white-space: nowrap; }
+.lesson .u72-case.is-flash { box-shadow: 0 0 0 3px var(--mail-soft); }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u7-l2">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">故障案例集与诊断决策树</h1>
+    <p class="lesson-lede">任何症状都先回答三个问题：哪台状态机、哪条通路、哪一层。本课用一棵决策树把 12 个常见故障分到位，并给出先看哪里、怎么推理、怎么修。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>用决策树把一个症状分到 ESM 或 CiA402、邮箱或过程数据、以及具体的层。</li>
+          <li>对 12 个典型案例说出第一条该敲的命令和该读的寄存器或对象。</li>
+          <li>能对一个判不出标准状态的 6041 读数（如 0x0668）给出可执行的结论。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 540" role="img" aria-label="主动画：以使能后电机不动、6041 读到 0x0668 为例，沿诊断决策树从根走到叶：ESM 正常、WKC 正常、6041 不在 Operation Enabled，落到 CiA402 故障分支并复位">
+        <!-- 根 -->
+        <rect id="u72-root" class="box" x="110" y="16" width="300" height="44" rx="8"/>
+        <text class="t-bold t-mid" x="260" y="43">症状：使能后电机不动</text>
+
+        <!-- 问题节点 -->
+        <rect id="u72-q1" class="box-mail" x="110" y="96" width="300" height="50" rx="8"/>
+        <text class="t-mid" x="260" y="126">① slaves：全部 OP 且无 E？</text>
+        <rect id="u72-q2" class="box-mail" x="110" y="190" width="300" height="50" rx="8"/>
+        <text class="t-mid" x="260" y="220">② 域 WKC = 期望？</text>
+        <rect id="u72-q3" class="box-mail" x="110" y="284" width="300" height="50" rx="8"/>
+        <text class="t-mid" x="260" y="314">③ 6041 = Operation Enabled？</text>
+        <rect id="u72-q4" class="box-mail" x="110" y="378" width="300" height="50" rx="8"/>
+        <text class="t-mid" x="260" y="408">④ 6061 与目标值都对？</text>
+        <rect id="u72-l5" class="box-drive" x="110" y="472" width="300" height="50" rx="8"/>
+        <text class="t-mid" x="260" y="502">电机控制层：跟随误差、增益、抱闸</text>
+
+        <!-- 连线：是（竖向） -->
+        <line class="wire" x1="260" y1="60" x2="260" y2="96"/>
+        <line id="u72-y1" class="wire" x1="260" y1="146" x2="260" y2="190"/>
+        <line id="u72-y2" class="wire" x1="260" y1="240" x2="260" y2="284"/>
+        <line class="wire" x1="260" y1="334" x2="260" y2="378"/>
+        <line class="wire" x1="260" y1="428" x2="260" y2="472"/>
+        <text class="t-small t-muted" x="268" y="174">是</text>
+        <text class="t-small t-muted" x="268" y="268">是</text>
+        <text class="t-small t-muted" x="268" y="362">是</text>
+        <text class="t-small t-muted" x="268" y="456">是</text>
+
+        <!-- 连线：否（横向） -->
+        <line class="wire" x1="410" y1="121" x2="520" y2="121"/>
+        <line class="wire" x1="410" y1="215" x2="520" y2="215"/>
+        <line id="u72-n3" class="wire" x1="410" y1="309" x2="520" y2="309"/>
+        <line class="wire" x1="410" y1="403" x2="520" y2="403"/>
+        <text class="t-small t-muted t-mid" x="465" y="113">否</text>
+        <text class="t-small t-muted t-mid" x="465" y="207">否</text>
+        <text class="t-small t-muted t-mid" x="465" y="301">否</text>
+        <text class="t-small t-muted t-mid" x="465" y="395">否</text>
+
+        <!-- 叶子 -->
+        <rect id="u72-l1" class="box" x="520" y="96" width="420" height="50" rx="8"/>
+        <text x="536" y="118">总线状态机 ESM：读 0x0130 / 0x0134</text>
+        <text class="t-small t-muted" x="536" y="137">u3-l1 · 案例 1 2 8 9 10 11 12</text>
+        <rect id="u72-l2" class="box" x="520" y="190" width="420" height="50" rx="8"/>
+        <text x="536" y="212">过程数据通路：拓扑、FMMU、掉站</text>
+        <text class="t-small t-muted" x="536" y="231">u1-l3 u2-l3 · 案例 3</text>
+        <rect id="u72-l3" class="box" x="520" y="284" width="420" height="50" rx="8"/>
+        <text x="536" y="306">CiA402 状态机：解码 6041，读 603F</text>
+        <text class="t-small t-muted" x="536" y="325">u5-l1 u5-l3 · 案例 4</text>
+        <rect id="u72-l4" class="box" x="520" y="378" width="420" height="50" rx="8"/>
+        <text x="536" y="400">模式与映射：6060/6061、PDO 映射</text>
+        <text class="t-small t-muted" x="536" y="419">u5-l2 u3-l3 · 案例 5 7</text>
+
+        <!-- 读数标注（逐步出现） -->
+        <text id="u72-r1" class="t-small t-mono t-bus is-hidden" x="16" y="126">4× OP +</text>
+        <text id="u72-r2" class="t-small t-mono t-bus is-hidden" x="16" y="220">WKC 12/12</text>
+        <text id="u72-r3" class="t-small t-mono t-fault is-hidden" x="16" y="314">0x0668</text>
+        <g id="u72-fix" class="is-hidden">
+          <rect class="box-drive" x="520" y="472" width="420" height="50" rx="8"/>
+          <text x="536" y="494">修复：603F 查因 → 6040 0x00→0x80 复位</text>
+          <text class="t-small t-mono" x="536" y="513">→ 0x06 → 0x07 → 0x0F，6041 &amp; 0x006F = 0x0027</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>决策树的三问</h3>
+    <p>决策树的每个问题都对应一个可以直接读到的数字。顺序从底到顶：总线没到 OP，WKC 和 6041 都没有意义；WKC 不对，6041 可能是过期数据。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>问</th><th>读什么</th><th>回答"否"说明问题在</th><th>课</th></tr>
+        <tr><td>哪台状态机？（总线）</td><td><code>ethercat slaves</code>、<code>0x0130</code>、<code>0x0134</code></td><td>ESM：配置、看门狗、同步</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+        <tr><td>哪条通路？（周期）</td><td><code>ethercat domains</code> 的 WKC</td><td>过程数据：拓扑、FMMU、某台没处理</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+        <tr><td>哪台状态机？（驱动器）</td><td>6041 按 0x004F / 0x006F 掩码</td><td>CiA402：故障、控制字序列</td><td><a href="u5-l1.html">u5-l1</a></td></tr>
+        <tr><td>哪条通路？（配置）</td><td>SDO 是否报 abort 或超时</td><td>邮箱：状态不允许、固件不应答</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+        <tr><td>哪一层？（运动）</td><td>6061、607A 与 6064、6065/606C</td><td>模式、插补、电机控制环</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+      </table>
+    </div>
+
+    <h3>互动决策树</h3>
+    <p>从第一个问题开始，点选与你现场最接近的答案，下一个问题会展开；到达叶子时给出案例编号和相关课。点叶子里的案例链接会跳到下方并展开该案例。</p>
+    <div class="u72-tree" id="u72-tree" aria-live="polite"></div>
+
+    <h3>12 个案例</h3>
+    <p>每个案例按"现象 → 先看哪里 → 推理 → 修复 → 关联课"写。先扫下表找最像的症状，再展开细看。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>#</th><th>症状</th><th>状态机 / 通路</th><th>层</th></tr>
+        <tr><td>1</td><td><a href="#case-1">PREOP 不升 OP</a></td><td>ESM</td><td>主站配置 · 从站栈</td></tr>
+        <tr><td>2</td><td><a href="#case-2">E 标志与 0x001B</a></td><td>ESM · 过程数据</td><td>ESC 看门狗 · 主站周期</td></tr>
+        <tr><td>3</td><td><a href="#case-3">WKC 比期望少 1</a></td><td>过程数据</td><td>ESC · FMMU</td></tr>
+        <tr><td>4</td><td><a href="#case-4">6041 = 0x0668</a></td><td>CiA402</td><td>驱动器</td></tr>
+        <tr><td>5</td><td><a href="#case-5">SDO abort 0x08000022</a></td><td>邮箱</td><td>从站栈</td></tr>
+        <tr><td>6</td><td><a href="#case-6">upload 超时</a></td><td>邮箱</td><td>ESC SM0/SM1 · 固件</td></tr>
+        <tr><td>7</td><td><a href="#case-7">使能瞬间猛冲</a></td><td>过程数据 · CiA402</td><td>主站实时循环 · 位置环</td></tr>
+        <tr><td>8</td><td><a href="#case-8">间歇性 0x001A</a></td><td>ESM</td><td>主站实时性 · 同步</td></tr>
+        <tr><td>9</td><td><a href="#case-9">DC 不同步</a></td><td>ESM · 同步</td><td>DC · 主站周期</td></tr>
+        <tr><td>10</td><td><a href="#case-10">网线插错端口</a></td><td>总线</td><td>拓扑 · 端口</td></tr>
+        <tr><td>11</td><td><a href="#case-11">ESI / 身份不匹配</a></td><td>ESM</td><td>主站配置 · SII</td></tr>
+        <tr><td>12</td><td><a href="#case-12">程序退出后停在 SAFEOP</a></td><td>ESM · 过程数据</td><td>主站程序 · 看门狗</td></tr>
+      </table>
+    </div>
+
+    <details class="u72-case" id="case-1"><summary><span class="lid">案例 1</span>从站停在 PREOP，不升 OP</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td><code>ethercat slaves</code> 显示 PREOP，程序在跑却一直到不了 OP；或短暂到 SAFEOP 又带 E 退回。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat master</code> 的 Phase；<code>ethercat config</code> 是否已挂上从站；<code>dmesg | tail</code>；<code>reg_read -p0 0x0134 2</code>。</td></tr>
+        <tr><th>推理</th><td>IgH 只在应用 activate 且配置挂上从站后才把它往 OP 带。启动时 SDO 或 PDO 配置失败，主站停在 PREOP 并在 dmesg 写出失败对象；从站若拒绝映射，会带 E 并在 0x0134 报 0x001D/0x001E/0x0024/0x0025 等码。</td></tr>
+        <tr><th>修复</th><td>按 dmesg 与 AL 码修正 <code>ecrt_slave_config_sdo*</code>、<code>ecrt_slave_config_pdos</code> 的内容；确认 <code>ecrt_master_activate</code> 已调用、周期任务在收发。身份不符转案例 11。</td></tr>
+        <tr><th>关联课</th><td><a href="u3-l1.html">u3-l1</a> · <a href="u3-l3.html">u3-l3</a> · <a href="u6-l1.html">u6-l1</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-2"><summary><span class="lid">案例 2</span>E 标志与 AL 状态码 0x001B</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>运行中从站变成 SAFEOP 且带 E，<code>0x0134</code> = 0x001B（同步管理器看门狗）。</td></tr>
+        <tr><th>先看哪里</th><td><code>reg_read -p0 0x0134 2</code>；<code>reg_read -p0 0x0440 2</code> 看门狗状态；主站周期实测间隔的最大值；看门狗时间 = <code>0x0400</code> 分频 × <code>0x0420</code>。</td></tr>
+        <tr><th>推理</th><td>0x001B 表示输出 SM 在看门狗时间内没被写过，从站按规范退到 SAFEOP 并把输出置安全值。原因几乎总在主站侧：周期任务卡住、被抢占、程序退出，或看门狗设得比实际周期间隔还短。ESC 复位默认值约 100 ms，主站或 ESI 常会改写。</td></tr>
+        <tr><th>修复</th><td>保证周期连续（PREEMPT_RT、SCHED_FIFO、mlockall）；看门狗按周期的若干倍设置（IgH：<code>ecrt_slave_config_watchdog</code>）。周期恢复后 IgH 会确认错误并重新请求 OP。</td></tr>
+        <tr><th>关联课</th><td><a href="u2-l2.html">u2-l2</a> · <a href="u3-l1.html">u3-l1</a> · <a href="u4-l2.html">u4-l2</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-3"><summary><span class="lid">案例 3</span>域 WKC 比期望少 1</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td><code>ethercat domains</code> 稳定显示 <code>WorkingCounter 5/6</code>，<code>ecrt_domain_state</code> 报 WC 不完整。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat slaves</code> 各台状态；<code>ethercat domains -v</code> 看每段 FMMU 属于哪台从站；<code>ethercat config</code>。</td></tr>
+        <tr><th>推理</th><td>IgH 的期望 WKC 按每台从站"有输出 +2、有输入 +1"累加；少 1 意味着某一段输入没被计数，少 2 是一段输出，少 3 是一整台读写都没发生。从站不在 SAFEOP/OP、过程数据 SM 未启用或从站掉线时，ESC 就不会为这段逻辑地址加 WKC。</td></tr>
+        <tr><th>修复</th><td>找到那台从站，按案例 1、2 让它回到 OP；拓扑变化（掉站、多出一台）也会改变实际 WKC，要同步改配置。</td></tr>
+        <tr><th>关联课</th><td><a href="u1-l3.html">u1-l3</a> · <a href="u2-l3.html">u2-l3</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-4"><summary><span class="lid">案例 4</span>6041 = 0x0668，使能不上</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>总线全 OP、WKC 正常，但写 0x0F 驱动器不进 Operation Enabled；6041 读到 0x0668。</td></tr>
+        <tr><th>先看哪里</th><td>下方逐位表；<code>ethercat upload -p0 --type uint16 0x603F 0</code> 读错误码。</td></tr>
+        <tr><th>推理</th><td>0x0668 &amp; 0x004F = 0x0048，&amp; 0x006F = 0x0068，都不对应 CiA402 状态表里的任何状态。决定性的是 bit3 Fault = 1；标准 Fault 应为掩码 0x004F 取 0x0008（bit6 = 0），这台驱动器同时置了 bit6 Switch On Disabled，属于厂商实现偏差或状态过渡时刻的读数。实用规则：bit3 = 1 就按故障处理。</td></tr>
+        <tr><th>修复</th><td>按 603F 排除原因；6040 先写 0x00 再写 0x80，给 bit7 一个上升沿复位；回到 Switch On Disabled 后按 0x06 → 0x07 → 0x0F 使能，每步等 6041 确认。</td></tr>
+        <tr><th>关联课</th><td><a href="u5-l1.html">u5-l1</a> · <a href="u5-l3.html">u5-l3</a></td></tr>
+      </table></div>
+      <div id="u72-bits"></div>
+    </details>
+
+    <details class="u72-case" id="case-5"><summary><span class="lid">案例 5</span>SDO abort 0x08000022</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>OP 下执行 <code>ethercat download -p0 0x1C12 0 0</code> 之类的写入，返回 abort 0x08000022。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat slaves</code> 当前 ESM 状态；你写的是哪个对象；驱动器手册里该对象的"可写状态"。</td></tr>
+        <tr><th>推理</th><td>0x08000022 的含义是"因当前设备状态，数据不能传送或保存到应用"。典型是在 SAFEOP/OP 下改 PDO 分配或映射（1C12/1C13/1600/1A00），或驱动器在 Operation Enabled 时拒绝改某些参数（因厂商而异）。</td></tr>
+        <tr><th>修复</th><td>PDO 映射交给 <code>ecrt_slave_config_pdos</code>，主站在 PREOP→SAFEOP 之间下发；参数类写入按手册先让驱动器或总线退到允许的状态。</td></tr>
+        <tr><th>关联课</th><td><a href="u3-l2.html">u3-l2</a> · <a href="u3-l3.html">u3-l3</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-6"><summary><span class="lid">案例 6</span>ethercat upload 超时</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td><code>ethercat upload</code> 卡几秒后失败，dmesg 有超时记录，或返回 abort 0x05040000（SDO 协议超时）。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat slaves</code>（INIT 下没有邮箱）；<code>ethercat reg_read -p0 0x0800 16</code> 看 SM0/SM1 的地址与长度；<code>sii_read</code> 里的邮箱配置。</td></tr>
+        <tr><th>推理</th><td>邮箱通路要求 SM0/SM1 已配置且固件在处理请求。从站在 INIT、邮箱 SM 的地址或大小与固件期望不一致、或固件主循环被高优先级任务饿死，应答就回不来。</td></tr>
+        <tr><th>修复</th><td>确认从站 ≥ PREOP；按 SII/ESI 核对邮箱配置；从站侧检查主循环是否被中断或长任务阻塞。</td></tr>
+        <tr><th>关联课</th><td><a href="u2-l2.html">u2-l2</a> · <a href="u3-l2.html">u3-l2</a> · <a href="u6-l2.html">u6-l2</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-7"><summary><span class="lid">案例 7</span>使能瞬间电机猛冲</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>CSP 模式下 6040 写 0x0F 的一瞬间，电机猛转一下，甚至报跟随误差。</td></tr>
+        <tr><th>先看哪里</th><td>使能前后几个周期的 607A 与 6064（主站日志或 Wireshark 里的过程数据）；6065 跟随误差窗口。</td></tr>
+        <tr><th>推理</th><td>CSP 下驱动器每周期把 607A 当作位置指令。使能那一刻 607A 若还是 0 或上次的值，而 6064 在别处，位置环会瞬间追一个大误差。</td></tr>
+        <tr><th>修复</th><td>进入 Operation Enabled 之前每个周期令 607A = 6064；使能后从当前实际位置开始插补；把 6065 设为合理值作为最后保护。</td></tr>
+        <tr><th>关联课</th><td><a href="u5-l2.html">u5-l2</a> · <a href="u6-l1.html">u6-l1</a> · <a href="u6-l3.html">u6-l3</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-8"><summary><span class="lid">案例 8</span>间歇性 0x001A 同步错误</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>几小时出现一次 SAFEOP + E，<code>0x0134</code> = 0x001A，重新请求 OP 又恢复。</td></tr>
+        <tr><th>先看哪里</th><td>主站周期间隔的最大值与分布；<code>cyclictest</code>；驱动器若实现了 0x1C32 的错误计数子索引也可读（因厂商而异）。</td></tr>
+        <tr><th>推理</th><td>DC 同步模式下从站要求过程数据在 SYNC0 之前到达。主站偶发迟到（调度抖动、中断、节能状态切换），从站累计到阈值就报同步错误。</td></tr>
+        <tr><th>修复</th><td>PREEMPT_RT、隔离 CPU、SCHED_FIFO、mlockall；关闭深度节能状态；让发帧时刻相对 SYNC0 留足余量（调整 SYNC0 shift）。</td></tr>
+        <tr><th>关联课</th><td><a href="u4-l2.html">u4-l2</a> · <a href="u6-l1.html">u6-l1</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-9"><summary><span class="lid">案例 9</span>DC 不同步</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>多轴在相同指令下动作不齐，或从站报 0x002C、0x0030 等 DC 相关 AL 码。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat slaves -v</code> 的 DC 信息；各从站 <code>reg_read -pN 0x092C 4</code>（系统时间差）是否收敛到很小。</td></tr>
+        <tr><th>推理</th><td>从站间漂移补偿依赖主站每周期把参考时钟的时间分发出去。主站没调用 <code>ecrt_master_sync_slave_clocks</code>、没设 application time，或 SYNC0 激活配置不对，时间差就会发散或 SYNC0 根本不出。</td></tr>
+        <tr><th>修复</th><td>周期里调用 <code>ecrt_master_application_time</code>、<code>ecrt_master_sync_reference_clock</code>、<code>ecrt_master_sync_slave_clocks</code>；<code>ecrt_slave_config_dc</code> 的 assign-activate 值以 ESI 为准（驱动器常见 0x0300）。</td></tr>
+        <tr><th>关联课</th><td><a href="u4-l1.html">u4-l1</a> · <a href="u6-l1.html">u6-l1</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-10"><summary><span class="lid">案例 10</span>网线插错端口</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>从站顺序与接线预期不符、某台之后的从站扫不到，或 DC 延时明显不对。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat slaves -v</code> 的端口信息；<code>reg_read -pN 0x0110 2</code> 的 bit4–7（端口 0–3 物理链路）；<code>ethercat graph</code>。</td></tr>
+        <tr><th>推理</th><td>约定端口 0 朝主站（IN）、端口 1 往下游（OUT）。插反后帧的处理顺序与回程路径改变，主站按端口推算的拓扑和传播延时都会错，具体表现因拓扑而异。</td></tr>
+        <tr><th>修复</th><td>按端口 0 进、端口 1 出重新接线，再用 0x0110 确认每台只有期望的端口有链路。</td></tr>
+        <tr><th>关联课</th><td><a href="u1-l1.html">u1-l1</a> · <a href="u4-l1.html">u4-l1</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-11"><summary><span class="lid">案例 11</span>ESI / 身份不匹配</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>从站停在 PREOP，<code>ethercat config</code> 显示该配置没有挂上从站，dmesg 报厂商号或产品号不一致（措辞随版本不同）。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat slaves -v</code> 的 Vendor Id / Product code；程序里 <code>ecrt_master_slave_config</code> 的参数；<code>sii_read</code> 的字 0x0008、0x000A。</td></tr>
+        <tr><th>推理</th><td>IgH 只把配置挂到身份一致的从站上。程序或 ESI 按另一个型号或版本写，从站就没有配置可用，主站不会把它往 OP 带。</td></tr>
+        <tr><th>修复</th><td>用 <code>slaves -v</code> 或 <code>cstruct</code> 的实际值更新程序；换过固件的从站 PDO 可能也变了，重新 <code>pdos</code> 核对。</td></tr>
+        <tr><th>关联课</th><td><a href="u2-l4.html">u2-l4</a> · <a href="u6-l1.html">u6-l1</a></td></tr>
+      </table></div>
+    </details>
+
+    <details class="u72-case" id="case-12"><summary><span class="lid">案例 12</span>主站程序退出后从站停在 SAFEOP</summary>
+      <div class="table-wrap"><table>
+        <tr><th>现象</th><td>Ctrl+C 或程序崩溃后，<code>ethercat slaves</code> 显示 SAFEOP + E，<code>0x0134</code> = 0x001B。</td></tr>
+        <tr><th>先看哪里</th><td><code>ethercat master</code> 的 Phase；进程是否真的退出（<code>ps</code>）；<code>0x0134</code>。</td></tr>
+        <tr><th>推理</th><td>周期帧一停，输出 SM 看门狗到期，从站自己退到 SAFEOP 并把输出置安全值，这是设计出来的保护。之后是否回 PREOP 取决于主站：程序已释放主站时 IgH 一般会把从站请求回 PREOP；程序挂住仍占着主站时就停在那里。</td></tr>
+        <tr><th>修复</th><td>写有序退出：先把 6040 降到 0x06 或 0x00 让驱动器停机断使能，再 <code>ecrt_release_master</code>；捕获 SIGINT/SIGTERM 走同一路径。</td></tr>
+        <tr><th>关联课</th><td><a href="u2-l2.html">u2-l2</a> · <a href="u3-l1.html">u3-l1</a> · <a href="u6-l1.html">u6-l1</a></td></tr>
+      </table></div>
+    </details>
+
+    <h3>案例 4 细看：0x0668 逐位</h3>
+    <p>6041 判定先用掩码 0x004F，匹配不上再用 0x006F。0x0668 两次都匹配不上，此时不要猜状态，看 bit3。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>状态</th><th>掩码</th><th>标准值</th><th>0x0668 取掩码后</th><th>匹配？</th></tr>
+        <tr><td>Not Ready to Switch On</td><td><code>0x004F</code></td><td><code>0x0000</code></td><td><code>0x0048</code></td><td>否</td></tr>
+        <tr><td>Switch On Disabled</td><td><code>0x004F</code></td><td><code>0x0040</code></td><td><code>0x0048</code></td><td>否（多了 bit3）</td></tr>
+        <tr><td>Ready to Switch On</td><td><code>0x006F</code></td><td><code>0x0021</code></td><td><code>0x0068</code></td><td>否</td></tr>
+        <tr><td>Switched On</td><td><code>0x006F</code></td><td><code>0x0023</code></td><td><code>0x0068</code></td><td>否</td></tr>
+        <tr><td>Operation Enabled</td><td><code>0x006F</code></td><td><code>0x0027</code></td><td><code>0x0068</code></td><td>否</td></tr>
+        <tr><td>Quick Stop Active</td><td><code>0x006F</code></td><td><code>0x0007</code></td><td><code>0x0068</code></td><td>否</td></tr>
+        <tr><td>Fault Reaction Active</td><td><code>0x004F</code></td><td><code>0x000F</code></td><td><code>0x0048</code></td><td>否</td></tr>
+        <tr><td>Fault</td><td><code>0x004F</code></td><td><code>0x0008</code></td><td><code>0x0048</code></td><td>否（多了 bit6）</td></tr>
+      </table>
+    </div>
+    <p>其余置位：bit5 Quick Stop = 1（未在快停）、bit9 Remote = 1、bit10 Target Reached = 1；bit4 Voltage Enabled = 0。</p>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站侧能看到的证据</h3>
+        <ul>
+          <li><code>ethercat master</code>：阶段、丢帧计数。</li>
+          <li><code>ethercat domains</code> / <code>ecrt_domain_state</code>：WKC 当前与期望。</li>
+          <li><code>ethercat config</code>：配置是否挂上、请求的状态。</li>
+          <li>dmesg：SDO/PDO 配置失败、身份不符、状态切换被拒的原文。</li>
+          <li>应用自己记录的周期间隔、607A 与 6064 轨迹。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站侧留下的证据</h3>
+        <ul>
+          <li><code>0x0130</code>/<code>0x0134</code>：ESM 状态、错误位、AL 状态码。</li>
+          <li><code>0x0110</code>、<code>0x0300</code> 起：端口链路与错误计数。</li>
+          <li><code>0x0440</code>：SM 看门狗；<code>0x092C</code>：DC 时间差。</li>
+          <li>6041、603F：驱动器状态与错误码。</li>
+          <li>SDO abort code：邮箱请求为什么被拒。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>现场一分钟诊断清单，按顺序敲，第一条不符合期望的就是入口：</p>
+<pre><code>ethercat master | grep -E 'Phase|Lost'
+ethercat slaves
+ethercat reg_read -p0 0x0134 2
+ethercat domains
+ethercat upload -p0 --type uint16 0x6041 0
+ethercat upload -p0 --type uint16 0x603F 0
+ethercat upload -p0 --type int8   0x6061 0
+dmesg | tail -n 30</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值</th><th>不符时去</th></tr>
+        <tr><td>Phase</td><td>Operation</td><td>案例 1、12</td></tr>
+        <tr><td>Lost frames</td><td>不增长</td><td>案例 10、u7-l1</td></tr>
+        <tr><td>slaves</td><td>全部 OP +</td><td>案例 1、2、8、9、11</td></tr>
+        <tr><td>0x0134</td><td>0x00 0x00</td><td>按码查 u3-l1</td></tr>
+        <tr><td>WorkingCounter</td><td>当前 = 期望</td><td>案例 3</td></tr>
+        <tr><td>6041 &amp; 0x006F</td><td>0x0027</td><td>案例 4</td></tr>
+        <tr><td>603F</td><td>0x0000</td><td>案例 4、u5-l3</td></tr>
+        <tr><td>6061</td><td>= 6060 设定（CSP 为 8）</td><td>案例 7、u5-l2</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "电机不动。<code>ethercat slaves</code> 显示一台从站 SAFEOP + E。下一步最该读什么？", "options": ["6041", "<code>0x0134</code> AL Status Code", "6064 实际位置", "Wireshark 里 LRW 的数据"], "answer": 1, "explain": "总线状态机没到 OP，先在 ESM 这一层找原因：0x0134 给出拒绝或退出的原因码。此时 6041 和过程数据都可能是过期的。"},
+  {"q": "6041 = 0x0668。按 CiA402 掩码判定，下面哪个结论正确？", "options": ["&amp; 0x006F = 0x0027，Operation Enabled", "&amp; 0x004F = 0x0040，Switch On Disabled", "两种掩码都匹配不上标准状态，但 bit3 Fault = 1，应按故障处理并读 603F", "&amp; 0x006F = 0x0028，Fault"], "answer": 2, "explain": "0x0668 &amp; 0x004F = 0x0048，&amp; 0x006F = 0x0068，都不在状态表里；bit3 = 1 是故障位，先读 603F 再用 6040 bit7 上升沿复位。"},
+  {"q": "OP 下 <code>ethercat download</code> 改 0x1C12 返回 abort 0x08000022，最合理的做法是？", "options": ["反复重试直到成功", "在 PREOP 由 <code>ecrt_slave_config_pdos</code> 配置映射，让主站在进入 SAFEOP 前下发", "改用 <code>reg_write</code> 直接写 SM2", "把看门狗时间加大"], "answer": 1, "explain": "0x08000022 表示当前设备状态不允许这次写入；PDO 分配与映射只能在 PREOP 改，IgH 在 PREOP→SAFEOP 之间按配置下发。"},
+  {"q": "程序 Ctrl+C 后从站显示 SAFEOP + E，<code>0x0134</code> = 0x001B。这说明什么？", "options": ["从站硬件损坏", "网线断了", "周期帧停止后输出 SM 看门狗到期，从站按设计退到 SAFEOP 并把输出置安全值", "DC 参考时钟丢失"], "answer": 2, "explain": "0x001B 是同步管理器看门狗超时。这是保护动作；正确做法是有序退出：先让驱动器断使能，再释放主站。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>电机不动就先查驱动器参数。<br><strong>实际上：</strong>先确认总线在 OP、WKC 完整；ESM 或通路有问题时，驱动器读到的是过期或安全值，查参数只会浪费时间。</li>
+      <li><strong>误区：</strong>6041 一定能对上状态表中的某一行。<br><strong>实际上：</strong>厂商实现和过渡时刻都会出现"判不出"的值；按掩码逐个比对，匹配不上时以 bit3 Fault 为准，并读 603F。</li>
+      <li><strong>误区：</strong>从站掉到 SAFEOP 就是故障。<br><strong>实际上：</strong>看门狗触发的 SAFEOP 是从站在执行保护；真正要修的是让它失去周期数据的主站侧原因。</li>
+    </ul>
+    <p>关联：命令用法回看 <a href="u7-l1.html">u7-l1</a>；AL 状态码 <a href="u3-l1.html">u3-l1</a>；abort code <a href="u3-l2.html">u3-l2</a>；6041 解码 <a href="u5-l1.html">u5-l1</a>。这是最后一课，建议从系统总图再走一遍全链路。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '一棵诊断决策树：左列是依次要问的问题，回答"否"就向右落到对应的层。', apply: function () {} },
+    { title: '从症状出发', text: '现场症状：使能后电机不动。先不猜原因，从根节点开始问。',
+      apply: function (svg) { Academy.fx(svg).hot('u72-root'); } },
+    { title: '① 总线状态机正常', text: 'ethercat slaves 显示 4 台全部 OP 且都是 +，ESM 这层排除，沿"是"往下。',
+      apply: function (svg) { Academy.fx(svg).cool('u72-root').hot('u72-q1').show('u72-r1').flow('u72-y1').dim('u72-l1'); } },
+    { title: '② 过程数据通路正常', text: 'ethercat domains 显示 WorkingCounter 12/12，周期数据完整，通路排除。',
+      apply: function (svg) { Academy.fx(svg).cool('u72-q1').hot('u72-q2').show('u72-r2').flow('u72-y2').dim('u72-l2'); } },
+    { title: '③ 驱动器状态机不对', text: '6041 读到 0x0668：两种掩码都匹配不上 Operation Enabled，沿"否"向右。',
+      apply: function (svg) { Academy.fx(svg).cool('u72-q2').fault('u72-q3').show('u72-r3').flow('u72-n3'); } },
+    { title: '落到 CiA402 叶子', text: 'bit3 Fault = 1，问题在驱动器状态机；上面的 ESM 和通路已排除，下面的模式与电机层不用再看。',
+      apply: function (svg) { Academy.fx(svg).hot('u72-l3').dim(['u72-q4', 'u72-l4', 'u72-l5']); } },
+    { title: '修复', text: '读 603F 排除原因，6040 用 0x00→0x80 上升沿复位，再 0x06→0x07→0x0F 使能。',
+      apply: function (svg) { Academy.fx(svg).show('u72-fix'); } }
+  ]);
+
+  // 案例 4 的逐位表
+  Academy.bitsTable(document.getElementById('u72-bits'), 0x0668,
+    ['RtSO', 'SO', 'OE', 'Fault', 'VE', 'QS', 'SOD', 'Warn', 'MS', 'Remote', 'TR', 'ILA', 'OMS', 'OMS', 'MS', 'MS'], 16);
+
+  // 互动决策树
+  var T = {
+    root: { q: '问题最先出现在哪里？', opts: [
+      ['启动：从站升不到 OP，或带 E 标志', 'esm'],
+      ['运行中：总线在 OP，但 WKC 不对或多轴不齐', 'run'],
+      ['驱动器：总线正常，电机不使能、不动或乱动', 'drv'],
+      ['配置：SDO 读写失败', 'sdo']] },
+    esm: { q: 'ethercat slaves 里这台从站怎样？', opts: [
+      ['停在 PREOP，没有 E', 'esmPre'],
+      ['带 E，退到 SAFEOP 或 PREOP', 'esmE'],
+      ['顺序不对，或某台之后的从站不见了', 'c10']] },
+    esmPre: { q: 'ethercat config 里它的配置挂上了吗？', opts: [
+      ['没挂上，dmesg 说厂商号/产品号不符', 'c11'],
+      ['主站 Phase 是 Idle，程序已退出', 'c12'],
+      ['挂上了，程序在跑，仍然不升', 'c1']] },
+    esmE: { q: 'reg_read 0x0134 读到的 AL 状态码是？', opts: [
+      ['0x001B 同步管理器看门狗', 'esmWd'],
+      ['0x001A 同步错误，间歇出现', 'c8'],
+      ['0x002C、0x0030 等 DC 相关码', 'c9'],
+      ['0x001D / 0x001E / 0x0024 / 0x0025 配置或映射无效', 'c1']] },
+    esmWd: { q: '看门狗到期时主站程序在做什么？', opts: [
+      ['程序在跑，但周期偶尔卡顿', 'c2'],
+      ['程序刚被 Ctrl+C 或崩溃', 'c12']] },
+    run: { q: '域 WKC 与期望的关系？', opts: [
+      ['稳定地少 1、2 或 3', 'c3'],
+      ['偶尔掉下来又恢复，伴随 0x001A', 'c8'],
+      ['WKC 正常，但多轴动作不齐', 'c9']] },
+    drv: { q: '6041 按掩码解码后是什么？', opts: [
+      ['Fault，或两种掩码都判不出（如 0x0668）', 'c4'],
+      ['Operation Enabled，但一使能就猛冲', 'c7'],
+      ['Switch On Disabled / Ready to Switch On，停着不前进', 'seq']] },
+    sdo: { q: '失败的形式？', opts: [
+      ['立刻返回 abort 0x08000022', 'c5'],
+      ['等很久后超时，或 abort 0x05040000', 'c6'],
+      ['其他 abort code', 'abort']] },
+    seq: { leaf: '驱动器在等控制字序列', text: '确认 6040 在 PDO 里且每周期都写；按 0x06 → 0x07 → 0x0F 逐步写，每步等 6041 确认；bit2 Quick Stop 是低有效，写 0 会进快停。', lessons: ['u5-l1', 'u6-l1'], cases: [4] },
+    abort: { leaf: '按 abort code 查表', text: '0x06020000 对象不存在、0x06090011 子索引不存在、0x06070010 类型或长度不符、0x06010000 访问方式不支持。先对照 sdos 列出的对象字典。', lessons: ['u3-l2'], cases: [] }
+  };
+  var CASE = {
+    c1: [1, 'PREOP 不升 OP', ['u3-l1', 'u3-l3', 'u6-l1']],
+    c2: [2, 'E 标志与 0x001B', ['u2-l2', 'u3-l1', 'u4-l2']],
+    c3: [3, 'WKC 比期望少', ['u1-l3', 'u2-l3']],
+    c4: [4, '6041 故障或判不出', ['u5-l1', 'u5-l3']],
+    c5: [5, 'SDO abort 0x08000022', ['u3-l2', 'u3-l3']],
+    c6: [6, 'upload 超时', ['u2-l2', 'u3-l2', 'u6-l2']],
+    c7: [7, '使能瞬间猛冲', ['u5-l2', 'u6-l1', 'u6-l3']],
+    c8: [8, '间歇性 0x001A', ['u4-l2', 'u6-l1']],
+    c9: [9, 'DC 不同步', ['u4-l1', 'u6-l1']],
+    c10: [10, '网线插错端口', ['u1-l1', 'u4-l1']],
+    c11: [11, 'ESI / 身份不匹配', ['u2-l4', 'u6-l1']],
+    c12: [12, '程序退出后停在 SAFEOP', ['u2-l2', 'u3-l1', 'u6-l1']]
+  };
+  var tree = document.getElementById('u72-tree');
+  var path = [];
+  function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
+  function lessonLinks(ids) { return ids.map(function (id) { return '<a href="' + id + '.html">' + id + '</a>'; }).join(' · '); }
+  function caseLinks(nums) { return nums.map(function (k) { return '<a href="#case-' + k + '" data-case="' + k + '">案例 ' + k + '</a>'; }).join(' · '); }
+  function leafBox(key) {
+    var box = el('div', 'u72-leaf');
+    if (CASE[key]) {
+      var c = CASE[key];
+      box.innerHTML = '<p><strong>结论：</strong>' + caseLinks([c[0]]) + '（' + c[1] + '）</p><p>相关课：' + lessonLinks(c[2]) + '</p>';
+    } else {
+      var t = T[key];
+      box.innerHTML = '<p><strong>结论：</strong>' + t.leaf + '</p><p>' + t.text + '</p><p>相关课：' + lessonLinks(t.lessons) +
+        (t.cases.length ? '　参考：' + caseLinks(t.cases) : '') + '</p>';
+    }
+    return box;
+  }
+  function render() {
+    tree.innerHTML = '';
+    var bar = el('div', 'u72-tree-bar', '<span class="u72-count">已选 ' + path.length + ' 步</span>');
+    var reset = el('button', 'u72-reset', '从头再来');
+    reset.type = 'button';
+    reset.addEventListener('click', function () { path = []; render(); });
+    bar.appendChild(reset);
+    tree.appendChild(bar);
+    var key = 'root', depth = 0;
+    while (key) {
+      var node = T[key];
+      if (!node || node.leaf || CASE[key]) { tree.appendChild(leafBox(key)); break; }
+      var box = el('div', 'u72-node');
+      box.appendChild(el('p', 'u72-q', node.q));
+      var opts = el('div', 'u72-opts');
+      var chosen = path[depth];
+      node.opts.forEach(function (o, i) {
+        var b = el('button', 'u72-opt' + (chosen === i ? ' is-on' : (chosen != null ? ' is-off' : '')), o[0]);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', chosen === i ? 'true' : 'false');
+        (function (d, idx) {
+          b.addEventListener('click', function () { path = path.slice(0, d); path[d] = idx; render(); });
+        })(depth, i);
+        opts.appendChild(b);
+      });
+      box.appendChild(opts);
+      tree.appendChild(box);
+      if (chosen == null) break;
+      key = node.opts[chosen][1];
+      depth++;
+    }
+  }
+  tree.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-case]');
+    if (!a) return;
+    var d = document.getElementById('case-' + a.getAttribute('data-case'));
+    if (d) {
+      d.open = true;
+      d.classList.add('is-flash');
+      setTimeout(function () { d.classList.remove('is-flash'); }, 1500);
+    }
+  });
+  // 摘要表中的锚点也自动展开对应案例
+  document.querySelectorAll('.lesson-mech a[href^="#case-"]').forEach(function (a) {
+    a.addEventListener('click', function () {
+      var d = document.getElementById(a.getAttribute('href').slice(1));
+      if (d) d.open = true;
+    });
+  });
+  render();
+
+  Academy.init('u7-l2');
+})();
+</script>
+</body>
+</html>

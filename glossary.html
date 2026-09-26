@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>术语表 · EtherCAT 学院</title>
+<meta name="description" content="EtherCAT 学院全站缩写、对象号与 ESC 寄存器速查，每条链回首次出现的课。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+#glossary .gl-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+#glossary .gl-search { flex: 1 1 240px; min-width: 0; font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+#glossary .gl-cat { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 2px 12px; cursor: pointer; font-size: .9rem; }
+#glossary .gl-cat.is-on { background: var(--bus); border-color: var(--bus); color: #fff; }
+#glossary .gl-count { color: var(--muted); font-size: .88rem; }
+#glossary .gl-table td:first-child { white-space: nowrap; }
+#glossary .gl-table td:nth-child(2) { color: var(--muted); font-size: .88rem; }
+#glossary .gl-table td:last-child { font-family: var(--font-mono); font-size: .85rem; white-space: nowrap; }
+#glossary .gl-empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main id="glossary">
+
+  <header class="lesson-head">
+    <h1>术语表</h1>
+    <p class="lesson-lede">全站缩写、CoE 对象号、ESC 寄存器与常见错误码。每条链回它首次被讲解的课。</p>
+  </header>
+
+  <section class="lesson-block">
+    <div class="gl-tools">
+      <input class="gl-search" id="gl-q" type="search" placeholder="搜索：缩写、全称、对象号（如 6041、WKC、看门狗）" aria-label="搜索术语">
+      <div id="gl-cats" role="group" aria-label="按类别筛选">
+        <button type="button" class="gl-cat is-on" data-cat="">全部</button>
+        <button type="button" class="gl-cat" data-cat="缩写">缩写</button>
+        <button type="button" class="gl-cat" data-cat="概念">概念</button>
+        <button type="button" class="gl-cat" data-cat="对象">对象</button>
+        <button type="button" class="gl-cat" data-cat="寄存器">寄存器</button>
+        <button type="button" class="gl-cat" data-cat="代码">代码与错误码</button>
+      </div>
+      <span class="gl-count" id="gl-count" aria-live="polite"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="gl-table" id="gl-table">
+<tr><th>术语</th><th>全称</th><th>一句话解释</th><th>首次出现</th></tr>
+<tr data-cat="缩写"><td><code>EtherCAT</code></td><td>Ethernet for Control Automation Technology</td><td>基于以太网帧的实时现场总线，帧在经过从站时被&quot;飞行&quot;读写。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>ETG</code></td><td>EtherCAT Technology Group</td><td>维护 EtherCAT 规范（ETG.1000、ETG.1020 等）的组织。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>ESC</code></td><td>EtherCAT Slave Controller</td><td>从站芯片（如 ET1100、LAN9252），硬件完成帧处理、SM、FMMU 与 DC。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="概念"><td><code>IgH</code></td><td>IgH EtherCAT Master</td><td>Linux 下开源的 EtherCAT 主站，内核模块加用户库 libethercat 与 ethercat 命令行。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="概念"><td><code>ethercat CLI</code></td><td>ethercat 命令行工具</td><td>IgH 自带的诊断工具，经 /dev/EtherCATx 向主站模块查询和下发请求。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="概念"><td><code>EtherType 0x88A4</code></td><td>—</td><td>以太网头里标识 EtherCAT 帧的类型值，不走 IP/TCP。</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>PHY</code></td><td>Physical Layer Transceiver</td><td>以太网物理层收发器，ESC 每个 MII 端口接一个。</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+<tr data-cat="概念"><td><code>端口 0–3</code></td><td>ESC Port 0–3</td><td>ESC 最多 4 个端口，处理顺序 0→3→1→2；端口 0 朝主站。</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+<tr data-cat="概念"><td><code>自动闭环</code></td><td>Auto-close / Loop</td><td>端口无链路时 ESC 自动把帧转回，线形拓扑因此在物理上是环。</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+<tr data-cat="概念"><td><code>冗余环</code></td><td>Cable Redundancy</td><td>主站用第二个网口接住环的另一端，单点断线时仍能通信。</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>DL</code></td><td>Data Link Layer</td><td>数据链路层；ESC 里 0x0100 起是 DL 控制与状态寄存器。</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>MAC</code></td><td>Media Access Control</td><td>以太网地址与介质访问层；EtherCAT 帧的目的/源地址在以太网头里。</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+<tr data-cat="概念"><td><code>数据报</code></td><td>Datagram</td><td>EtherCAT 帧内的一个命令单元：头、数据、WKC；一帧可装多个。</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>WKC</code></td><td>Working Counter</td><td>数据报末尾 16 位计数，被成功处理的从站按规则累加，用于判定通信是否完整。</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>FCS</code></td><td>Frame Check Sequence</td><td>以太网帧尾 32 位 CRC 校验。</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+<tr data-cat="概念"><td><code>M 位</code></td><td>More Datagrams</td><td>数据报头中的一位，置 1 表示后面还有数据报。</td><td><a href="u1-l2.html">u1-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>NOP</code></td><td>No Operation（命令码 0）</td><td>空操作，从站不处理。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>APRD</code></td><td>Auto Increment Physical Read（1）</td><td>按位置自增寻址读，地址为 0 的从站命中。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>APWR</code></td><td>Auto Increment Physical Write（2）</td><td>按位置自增寻址写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>APRW</code></td><td>Auto Increment Physical ReadWrite（3）</td><td>按位置自增寻址读写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>FPRD</code></td><td>Configured Address Physical Read（4）</td><td>按配置的站地址（0x0010）读。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>FPWR</code></td><td>Configured Address Physical Write（5）</td><td>按站地址写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>FPRW</code></td><td>Configured Address Physical ReadWrite（6）</td><td>按站地址读写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>BRD</code></td><td>Broadcast Read（7）</td><td>广播读，所有从站都处理，WKC 逐台累加。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>BWR</code></td><td>Broadcast Write（8）</td><td>广播写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>BRW</code></td><td>Broadcast ReadWrite（9）</td><td>广播读写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>LRD</code></td><td>Logical Read（10）</td><td>按逻辑地址读，经 FMMU 映射到各从站。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>LWR</code></td><td>Logical Write（11）</td><td>按逻辑地址写。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>LRW</code></td><td>Logical ReadWrite（12）</td><td>按逻辑地址读写，周期过程数据通常用一个 LRW 服务全部从站。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>ARMW</code></td><td>Auto Increment Read Multiple Write（13）</td><td>自增寻址的从站被读，其余从站被写；用于分发 DC 参考时间。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>FRMW</code></td><td>Configured Address Read Multiple Write（14）</td><td>站地址寻址的从站被读，其余被写；同样用于 DC 同步。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="概念"><td><code>飞行读写</code></td><td>Processing on the fly</td><td>帧不在从站停留，ESC 在帧经过时读出或插入数据。</td><td><a href="u1-l3.html">u1-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>PDI</code></td><td>Process Data Interface</td><td>ESC 与从站 MCU 之间的接口（SPI、并行总线等）。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>AL</code></td><td>Application Layer</td><td>应用层；AL Control/Status 寄存器承载 ESM 状态。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="概念"><td><code>用户 RAM</code></td><td>Process Data RAM</td><td>0x1000 起的 ESC 内存，存放邮箱与过程数据，大小因芯片而异。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>SM</code></td><td>Sync Manager</td><td>同步管理器，保护 ESC 内存区的一致访问：邮箱模式或三缓冲模式。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="概念"><td><code>邮箱模式</code></td><td>Mailbox (1-buffer) mode</td><td>SM 单缓冲，写满后必须被读空才能再写，用于一问一答的邮箱。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="概念"><td><code>三缓冲</code></td><td>3-buffer mode</td><td>SM 缓冲模式，读写双方各自拿到最新完整缓冲，互不阻塞，用于过程数据。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="概念"><td><code>SM 看门狗</code></td><td>Process Data Watchdog</td><td>输出 SM 在设定时间内未被写入即到期，从站退到 SAFEOP（0x001B）。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>FMMU</code></td><td>Fieldbus Memory Management Unit</td><td>把逻辑地址区段映射到 ESC 物理地址，可到位级。</td><td><a href="u2-l3.html">u2-l3</a></td></tr>
+<tr data-cat="概念"><td><code>逻辑地址</code></td><td>Logical Address</td><td>32 位全局地址空间，LRD/LWR/LRW 使用，由 FMMU 映射到各从站。</td><td><a href="u2-l3.html">u2-l3</a></td></tr>
+<tr data-cat="概念"><td><code>域</code></td><td>Domain（IgH）</td><td>IgH 中一组 PDO 条目组成的过程映像，对应一段逻辑地址和期望 WKC。</td><td><a href="u2-l3.html">u2-l3</a></td></tr>
+<tr data-cat="概念"><td><code>过程映像</code></td><td>Process Image</td><td>主站内存中与逻辑地址一一对应的过程数据数组。</td><td><a href="u2-l3.html">u2-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>SII</code></td><td>Slave Information Interface</td><td>从站 EEPROM 中的身份与配置信息（厂商号、产品号、SM 默认值、类别区）。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="缩写"><td><code>ESI</code></td><td>EtherCAT Slave Information</td><td>描述从站的 XML 文件，包含 PDO、对象字典、DC 等信息。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="缩写"><td><code>EEPROM</code></td><td>Electrically Erasable PROM</td><td>存放 SII 的非易失存储，经 ESC 0x0500 接口访问。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="概念"><td><code>Vendor ID</code></td><td>厂商号</td><td>ETG 分配给厂商的 32 位编号，SII 字 0x0008，对象 0x1018:01。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="概念"><td><code>Product Code</code></td><td>产品号</td><td>厂商定义的型号编号，SII 字 0x000A，对象 0x1018:02。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="概念"><td><code>站别名</code></td><td>Station Alias</td><td>写在 SII 里的用户地址，上电装入 0x0012，便于按别名定位从站。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="缩写"><td><code>ESM</code></td><td>EtherCAT State Machine</td><td>总线状态机 INIT/PREOP/SAFEOP/OP/BOOT，由 AL Control/Status 驱动。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>INIT</code></td><td>Init</td><td>初始状态：无邮箱、无过程数据，主站在此配置邮箱 SM。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>PREOP</code></td><td>Pre-Operational</td><td>邮箱可用，可做 SDO 配置；过程数据未启用。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>SAFEOP</code></td><td>Safe-Operational</td><td>输入有效，输出被忽略并保持安全值。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>OP</code></td><td>Operational</td><td>输入输出都有效，正常运行。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>BOOT</code></td><td>Bootstrap</td><td>固件升级用状态，通常只允许 FoE。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="概念"><td><code>E 标志</code></td><td>Error flag（ethercat slaves）</td><td>ethercat slaves 里显示 E 表示该从站 AL Status 错误位置 1。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>FoE</code></td><td>File access over EtherCAT</td><td>经邮箱传文件，常用于 BOOT 下固件升级。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>CoE</code></td><td>CANopen over EtherCAT</td><td>在邮箱里承载 CANopen 的 SDO 与对象字典。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>SDO</code></td><td>Service Data Object</td><td>一问一答访问对象字典的服务，走邮箱。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>OD</code></td><td>Object Dictionary</td><td>对象字典：用 16 位索引 + 8 位子索引组织的全部参数与过程变量。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="概念"><td><code>快速传输</code></td><td>Expedited SDO</td><td>数据 ≤4 字节时直接放进 SDO 命令帧，一问一答完成。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="概念"><td><code>分段传输</code></td><td>Segmented SDO</td><td>数据大于 4 字节时分多段传送。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="概念"><td><code>Abort code</code></td><td>SDO 中止码</td><td>32 位错误码，说明 SDO 为何失败，如 0x06020000 对象不存在。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>EoE</code></td><td>Ethernet over EtherCAT</td><td>经邮箱隧道传标准以太网帧。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>SoE</code></td><td>Servo Drive Profile over EtherCAT</td><td>经邮箱承载 SERCOS 伺服协议。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>AoE</code></td><td>ADS over EtherCAT</td><td>经邮箱承载倍福 ADS 协议。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>VoE</code></td><td>Vendor specific over EtherCAT</td><td>厂商自定义的邮箱协议。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>PDO</code></td><td>Process Data Object</td><td>周期交换的过程数据，由映射对象定义内容。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>RxPDO</code></td><td>Receive PDO</td><td>从站接收的 PDO（主站输出），如 6040、607A。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>TxPDO</code></td><td>Transmit PDO</td><td>从站发送的 PDO（主站输入），如 6041、6064。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="概念"><td><code>PDO 映射项</code></td><td>PDO Mapping Entry</td><td>32 位：索引 16 位、子索引 8 位、位长 8 位，如 0x60400010。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>DC</code></td><td>Distributed Clocks</td><td>分布式时钟：各 ESC 本地时钟同步到参考时钟，精度可达纳秒量级。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="概念"><td><code>参考时钟</code></td><td>Reference Clock</td><td>通常为第一台支持 DC 的从站，其他从站与主站都向它对齐。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="概念"><td><code>传播延时</code></td><td>Propagation Delay</td><td>帧从参考时钟到某从站的线路与处理延时，写入 0x0928。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>SYNC0</code></td><td>Sync Signal 0</td><td>ESC 按系统时间产生的周期同步脉冲，触发从站控制周期。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>SYNC1</code></td><td>Sync Signal 1</td><td>第二路同步脉冲，相对 SYNC0 偏移，用法因厂商而异。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="概念"><td><code>Free-run</code></td><td>自由运行</td><td>从站按本地定时器运行，不与总线同步。</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+<tr data-cat="概念"><td><code>SM 同步</code></td><td>SM-synchronous</td><td>从站以输出 SM 事件（帧到达）触发处理。</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+<tr data-cat="概念"><td><code>DC 同步</code></td><td>DC-synchronous</td><td>从站以 SYNC0 触发处理，帧必须在 SYNC0 之前到达。</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+<tr data-cat="概念"><td><code>抖动</code></td><td>Jitter</td><td>周期实际间隔相对名义值的偏差，过大会导致同步错误。</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>CiA</code></td><td>CAN in Automation</td><td>制定 CANopen 与 CiA 402 等设备行规的组织。</td><td><a href="u5-l1.html">u5-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>CiA 402</code></td><td>Drives and motion control device profile</td><td>驱动器设备行规（IEC 61800-7-201），定义状态机与 6000 段对象。</td><td><a href="u5-l1.html">u5-l1</a></td></tr>
+<tr data-cat="概念"><td><code>Quick Stop</code></td><td>快速停止</td><td>6040 bit2 低有效；按 605A 选项停车。</td><td><a href="u5-l1.html">u5-l1</a></td></tr>
+<tr data-cat="概念"><td><code>Fault Reset</code></td><td>故障复位</td><td>6040 bit7 上升沿，从 Fault 回到 Switch On Disabled。</td><td><a href="u5-l1.html">u5-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>PP</code></td><td>Profile Position（6060=1）</td><td>驱动器自己规划轨迹的点位模式。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>PV</code></td><td>Profile Velocity（6060=3）</td><td>驱动器按加减速规划到目标速度。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>TQ</code></td><td>Profile Torque（6060=4）</td><td>驱动器按斜坡跟踪目标力矩。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>HM</code></td><td>Homing（6060=6）</td><td>回零模式，按 6098 选定的方法找参考点。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>CSP</code></td><td>Cyclic Synchronous Position（6060=8）</td><td>主站每周期给一个位置点，驱动器闭位置环。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>CSV</code></td><td>Cyclic Synchronous Velocity（6060=9）</td><td>主站每周期给速度指令。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>CST</code></td><td>Cyclic Synchronous Torque（6060=10）</td><td>主站每周期给力矩指令。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="概念"><td><code>抱闸</code></td><td>Holding Brake</td><td>断使能时机械锁住电机轴，吸合与释放要和使能时序配合。</td><td><a href="u5-l3.html">u5-l3</a></td></tr>
+<tr data-cat="代码"><td><code>ecrt_*</code></td><td>EtherCAT realtime interface</td><td>IgH 应用接口前缀，如 ecrt_request_master、ecrt_master_activate。</td><td><a href="u6-l1.html">u6-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>PREEMPT_RT</code></td><td>Real-time Linux patch</td><td>让 Linux 内核可抢占以降低周期抖动的补丁集。</td><td><a href="u6-l1.html">u6-l1</a></td></tr>
+<tr data-cat="代码"><td><code>SCHED_FIFO</code></td><td>—</td><td>Linux 实时调度策略，周期任务常用。</td><td><a href="u6-l1.html">u6-l1</a></td></tr>
+<tr data-cat="代码"><td><code>mlockall</code></td><td>—</td><td>锁定进程内存，避免缺页导致的周期延迟。</td><td><a href="u6-l1.html">u6-l1</a></td></tr>
+<tr data-cat="缩写"><td><code>SSC</code></td><td>Slave Stack Code</td><td>ETG 提供的从站协议栈源码，分 ESC 驱动、协议层与应用层。</td><td><a href="u6-l2.html">u6-l2</a></td></tr>
+<tr data-cat="代码"><td><code>APPL_*</code></td><td>SSC 应用回调</td><td>如 APPL_StartInputHandler、APPL_Application，由协议栈在状态切换与周期中调用。</td><td><a href="u6-l2.html">u6-l2</a></td></tr>
+<tr data-cat="缩写"><td><code>FOC</code></td><td>Field Oriented Control</td><td>磁场定向控制，经 Clarke/Park 变换控制电流 d/q 分量。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="缩写"><td><code>PWM</code></td><td>Pulse Width Modulation</td><td>功率级开关管的脉宽调制。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="概念"><td><code>插补</code></td><td>Interpolation</td><td>在两个总线周期的指令点之间生成更细的控制周期指令。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="概念"><td><code>跟随误差</code></td><td>Following Error</td><td>指令位置与实际位置之差；超出 6065 持续 6066 即报错。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="概念"><td><code>Wireshark ecat</code></td><td>Wireshark EtherCAT 解析器</td><td>抓包工具的 EtherCAT 协议解析，过滤器 ecat、ecat.cmd、ecat.cnt 等。</td><td><a href="u7-l1.html">u7-l1</a></td></tr>
+<tr data-cat="对象"><td><code>0x1018</code></td><td>Identity Object</td><td>身份对象：厂商号、产品号、修订号、序列号。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x1600</code></td><td>RxPDO Mapping</td><td>第一个接收 PDO 的映射表，每个子索引一个映射项。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x1A00</code></td><td>TxPDO Mapping</td><td>第一个发送 PDO 的映射表。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x1C12</code></td><td>RxPDO Assign（SM2）</td><td>列出分配给输出 SM2 的 RxPDO。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x1C13</code></td><td>TxPDO Assign（SM3）</td><td>列出分配给输入 SM3 的 TxPDO。</td><td><a href="u3-l3.html">u3-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x1C32</code></td><td>SM Output Parameter</td><td>输出 SM 的同步类型、周期时间、shift 与错误计数等。</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x1C33</code></td><td>SM Input Parameter</td><td>输入 SM 的同步参数。</td><td><a href="u4-l2.html">u4-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x6040</code></td><td>Controlword</td><td>控制字：驱动 CiA402 状态机转换，bit7 故障复位。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="对象"><td><code>0x6041</code></td><td>Statusword</td><td>状态字：按掩码 0x004F/0x006F 判定当前 CiA402 状态。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="对象"><td><code>0x607A</code></td><td>Target Position</td><td>目标位置，CSP/PP 模式的位置指令。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="对象"><td><code>0x6064</code></td><td>Position Actual Value</td><td>实际位置（编码器 counts 等用户单位）。</td><td><a href="u0-l1.html">u0-l1</a></td></tr>
+<tr data-cat="对象"><td><code>0x603F</code></td><td>Error Code</td><td>最近一次故障的错误码。</td><td><a href="u5-l3.html">u5-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x605A</code></td><td>Quick Stop Option Code</td><td>快停方式选项。</td><td><a href="u5-l3.html">u5-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x605E</code></td><td>Fault Reaction Option Code</td><td>故障反应的停车方式。</td><td><a href="u5-l3.html">u5-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x60FD</code></td><td>Digital Inputs</td><td>数字输入位，含限位、原点等，位定义部分由厂商扩展。</td><td><a href="u5-l3.html">u5-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x6060</code></td><td>Modes of Operation</td><td>请求的运行模式（1 PP、3 PV、4 TQ、6 HM、8 CSP、9 CSV、10 CST）。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x6061</code></td><td>Modes of Operation Display</td><td>驱动器当前实际生效的运行模式。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x60FF</code></td><td>Target Velocity</td><td>目标速度，PV/CSV 模式使用。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x6071</code></td><td>Target Torque</td><td>目标力矩（额定力矩的千分比），TQ/CST 使用。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x6502</code></td><td>Supported Drive Modes</td><td>支持的运行模式位图。</td><td><a href="u5-l2.html">u5-l2</a></td></tr>
+<tr data-cat="对象"><td><code>0x6065</code></td><td>Following Error Window</td><td>允许的跟随误差范围。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x6066</code></td><td>Following Error Time Out</td><td>跟随误差超窗持续多久报错（ms）。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="对象"><td><code>0x606C</code></td><td>Velocity Actual Value</td><td>实际速度。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0000</code></td><td>ESC Type</td><td>ESC 信息区起点：类型、版本、FMMU/SM 数量、端口描述等（0x0000–0x000F）。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0010</code></td><td>Configured Station Address</td><td>主站写入的站地址，FPRD/FPWR 按它寻址。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0012</code></td><td>Configured Station Alias</td><td>从 SII 装入的站别名。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0100</code></td><td>DL Control</td><td>数据链路控制：端口回环、转发规则等。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0110</code></td><td>DL Status</td><td>端口物理链路（bit4–7）与回环/通信状态（bit8–15）。</td><td><a href="u1-l1.html">u1-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0120</code></td><td>AL Control</td><td>主站写入请求的 ESM 状态；bit4 为错误确认。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0130</code></td><td>AL Status</td><td>从站当前 ESM 状态（bit0–3）与错误指示（bit4）。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0134</code></td><td>AL Status Code</td><td>ESM 错误原因码，如 0x001B 看门狗、0x001A 同步错误。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0300</code></td><td>RX Error Counter</td><td>各端口无效帧与物理层错误计数（0x0300–0x0307）。</td><td><a href="u7-l1.html">u7-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0310</code></td><td>Lost Link Counter</td><td>各端口丢链次数（0x0310–0x0313）。</td><td><a href="u7-l1.html">u7-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0400</code></td><td>Watchdog Divider</td><td>看门狗时基分频，复位默认约 100 µs。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0420</code></td><td>Watchdog Time Process Data</td><td>过程数据看门狗时间（以分频时基为单位）。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0440</code></td><td>Watchdog Status Process Data</td><td>过程数据看门狗状态。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0500</code></td><td>SII EEPROM Interface</td><td>主站经此读写 EEPROM（0x0500–0x050F）。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0600</code></td><td>FMMU</td><td>FMMU 配置区，每个 FMMU 16 字节。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0800</code></td><td>Sync Manager</td><td>SM 配置区，每个 SM 8 字节：起始地址、长度、控制、状态、激活。</td><td><a href="u2-l1.html">u2-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0900</code></td><td>DC Receive Time Port 0</td><td>端口 0 收到锁存帧的本地时间，用于测传播延时。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0910</code></td><td>System Time</td><td>ESC 的系统时间（64 位，ns）。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0920</code></td><td>System Time Offset</td><td>本地时间到系统时间的偏移。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0928</code></td><td>System Time Delay</td><td>参考时钟到本站的传播延时。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x092C</code></td><td>System Time Difference</td><td>本地系统时间与收到的参考时间之差，用于判断同步质量。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0981</code></td><td>DC Activation</td><td>使能周期单元与 SYNC0/SYNC1 输出。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0990</code></td><td>SYNC0 Start Time</td><td>第一次 SYNC0 脉冲的系统时间。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x09A0</code></td><td>SYNC0 Cycle Time</td><td>SYNC0 周期（ns）。</td><td><a href="u4-l1.html">u4-l1</a></td></tr>
+<tr data-cat="代码"><td><code>AL 0x001A</code></td><td>Synchronization Error</td><td>AL 状态码：同步错误，常因主站帧晚于 SYNC0 到达。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="代码"><td><code>AL 0x001B</code></td><td>Sync Manager Watchdog</td><td>AL 状态码：过程数据看门狗到期。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="代码"><td><code>AL 0x002D</code></td><td>No Sync Error</td><td>AL 状态码：未收到同步信号。</td><td><a href="u3-l1.html">u3-l1</a></td></tr>
+<tr data-cat="代码"><td><code>SII 0x0008</code></td><td>SII Vendor ID word</td><td>SII 中厂商号所在字地址。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="代码"><td><code>SII 0x000A</code></td><td>SII Product Code word</td><td>SII 中产品号所在字地址。</td><td><a href="u2-l4.html">u2-l4</a></td></tr>
+<tr data-cat="代码"><td><code>0x06020000</code></td><td>SDO Abort: Object does not exist</td><td>SDO 中止码：对象字典中没有该对象。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="代码"><td><code>0x05040000</code></td><td>SDO Abort: SDO protocol timed out</td><td>SDO 中止码：协议超时。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+<tr data-cat="代码"><td><code>0x08000022</code></td><td>SDO Abort: device state</td><td>SDO 中止码：因当前设备状态无法传送或保存数据。</td><td><a href="u3-l2.html">u3-l2</a></td></tr>
+      </table>
+    </div>
+    <p class="gl-empty" id="gl-empty" hidden>没有匹配的条目。</p>
+    <p class="gl-count">对象号为 CiA 402 / CoE 标准对象；寄存器地址以 ESC 数据手册（ET1100 等）为准，部分寄存器因芯片而异。</p>
+  </section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var q = document.getElementById('gl-q');
+  var rows = [].slice.call(document.querySelectorAll('#gl-table tr[data-cat]'));
+  var cat = '';
+  function norm(s) { return String(s).toLowerCase().replace(/0x/g, '').replace(/\s+/g, ' '); }
+  rows.forEach(function (r) { r._t = norm(r.textContent); });
+  function apply() {
+    var k = norm(q.value.trim()), n = 0;
+    rows.forEach(function (r) {
+      var ok = (!cat || r.getAttribute('data-cat') === cat) && (!k || r._t.indexOf(k) !== -1);
+      r.hidden = !ok; if (ok) n++;
+    });
+    document.getElementById('gl-count').textContent = n + ' / ' + rows.length + ' 条';
+    document.getElementById('gl-empty').hidden = n > 0;
+  }
+  q.addEventListener('input', apply);
+  document.getElementById('gl-cats').addEventListener('click', function (e) {
+    var b = e.target.closest('.gl-cat'); if (!b) return;
+    cat = b.getAttribute('data-cat');
+    [].forEach.call(this.querySelectorAll('.gl-cat'), function (x) { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    apply();
+  });
+  apply();
+})();
+</script>
+<script>Academy.init('glossary');</script>
+</body>
+</html>
