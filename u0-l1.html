@@ -37,7 +37,7 @@
   <header class="lesson-head">
     <p class="lesson-kicker"></p>
     <h1 class="lesson-title">系统总图：主站、网线、从站、电机</h1>
-    <p class="lesson-lede">先把整条链路装进脑子：一个目标位置从主站的规划器出发，过一根网线，到驱动器的电流环，实际位置再原路返回。后面 20 课都挂在这张图的某一层上。</p>
+    <p class="lesson-lede">先把整条链路装进脑子：一个目标位置从主站的规划器出发，过一根网线，到驱动器的电流环，实际位置再原路返回。后面每一课都挂在这张图的某一层上。</p>
   </header>
 
   <section class="lesson-block lesson-locate" id="locate">
@@ -289,7 +289,7 @@ ethercat slaves</code></pre>
       <li><strong>误区：</strong>参数（SDO）和实时数据（PDO）走的是同一种机制，只是快慢不同。<br><strong>实际上：</strong>SDO 走邮箱，一问一答；PDO 走过程数据，每周期整块镜像拷贝，两者在 ESC 里用不同的 SM。</li>
       <li><strong>误区：</strong>EtherCAT 是跑在 TCP/IP 上的工业协议。<br><strong>实际上：</strong>它直接用以太网帧（EtherType 0x88A4），从站用硬件在帧经过时读写。</li>
     </ul>
-    <p>关联：下一课从最底层开始——网线与 ESC 端口，帧到底怎么走一圈。</p>
+    <p>关联：下一课从最底层开始——网线与 ESC 端口，帧到底怎么走一圈。完整启动时序（从上电到运动，每一步用多少帧）见 <a href="u7-l0.html">u7-l0</a>。</p>
     <div data-auto-next></div>
   </section>
 

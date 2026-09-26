@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全链路启动时序：从上电到运动 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1f6feb">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson #anim .anim-stage > svg { min-width: 760px; }
+  .lesson .u70-impl { font-weight: 600; }
+  .lesson .u70-ledger td:nth-child(4), .lesson .u70-ledger td:nth-child(5) { white-space: nowrap; }
+  .lesson .u70-ledger td:nth-child(6) { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
+  .lesson .u70-ledger tr.u70-sum td { background: var(--panel2); font-weight: 600; }
+  .lesson .u70-calc { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 10px 14px 12px; margin: 12px 0; }
+  .lesson .u70-calc h4 { margin: .2em 0 .5em; font-size: 1.05rem; }
+  .lesson .u70-inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr)); gap: 8px 14px; }
+  .lesson .u70-inputs label { display: flex; flex-direction: column; font-size: .88rem; color: var(--muted); gap: 2px; }
+  .lesson .u70-inputs label.u70-chk { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); }
+  .lesson .u70-inputs input[type="number"] {
+    font-family: var(--font-mono); font-size: .95rem; padding: 3px 8px; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+  }
+  .lesson .u70-out td:nth-child(2), .lesson .u70-out td:nth-child(3) { font-family: var(--font-mono); white-space: nowrap; }
+  .lesson .u70-out tr.u70-sum td { background: var(--panel2); font-weight: 600; }
+  .lesson .q-opt code, .lesson .q-text code { white-space: normal; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u7-l0">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">全链路启动时序：从上电到运动</h1>
+    <p class="lesson-lede">把电源、主站程序、总线 ESM、驱动器 CiA402、电机五条线按时间并排，看清从控制电上电到电机跟随目标的每一步谁先谁后、每一步花了多少总线往返。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>按时间顺序说出从控制电上电到电机跟随目标的全部事件，指出每个事件属于五条线中的哪一条、在哪一课详讲。</li>
+          <li>说出各阶段主站用了多少帧/数据报：数从站 1 帧、每台基础信息 7 个数据报、读 SII 每 2 个字至少 2 个数据报、每次 SDO 往返至少 3 个数据报；能解释为什么 IgH 扫描一台驱动器要秒级时间。</li>
+          <li>说出各步的先后依赖与可并行处：动力电可晚于总线 OP，但写 0x07 之前 6041 bit4 必须为 1；SDO 配置必须在 PREOP；周期帧必须先于 OP。</li>
+          <li>会用 <code>ethercat master</code> 的 Tx/Rx 帧计数器差值实测一次扫描或配置用了多少帧。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+        <h3>先知道这些</h3>
+        <dl class="pre-terms">
+          <dt>ESM 四态</dt>
+          <dd>INIT→PREOP→SAFEOP→OP，只能逐级向上走。<a class="lid-chip" href="u3-l1.html">u3-l1</a></dd>
+          <dt>帧与数据报</dt>
+          <dd>一帧可装多个数据报，各带命令、地址与 WKC。<a class="lid-chip" href="u1-l2.html">u1-l2</a></dd>
+          <dt>SII</dt>
+          <dd>从站 EEPROM 里的身份与邮箱配置，主站按字读。<a class="lid-chip" href="u2-l4.html">u2-l4</a></dd>
+          <dt>SDO 往返</dt>
+          <dd>经邮箱写请求、轮询、取应答的一问一答。<a class="lid-chip" href="u3-l2.html">u3-l2</a></dd>
+          <dt>DC / SYNC0</dt>
+          <dd>各站统一系统时间后按周期产生的同步脉冲。<a class="lid-chip" href="u4-l1.html">u4-l1</a></dd>
+          <dt>6041 掩码判态</dt>
+          <dd>状态字先与 0x004F 或 0x006F 相与再比对。<a class="lid-chip" href="u5-l1.html">u5-l1</a></dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <p class="note"><span class="u70-impl">帧数按 IgH 1.6 实现，其他主站不同。</span>数据报数取自 IgH stable-1.6 源码（fsm_master.c、fsm_slave_scan.c、fsm_sii.c、fsm_change.c、fsm_slave_config.c、fsm_pdo.c、fsm_coe.c、master.c）；SII 1200 字、150 对象 / 400 条目、HZ = 1000 都是<strong>示例</strong>。窄屏可左右滑动时间轴。</p>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 486" role="img" aria-label="主动画：五条泳道（电源、主站程序、总线 ESM、驱动器 CiA402、电机）的横向时间轴，逐步出现从控制电上电到电机跟随目标的 12 个事件，框下标注每个事件用的数据报数">
+        <text class="t-title" x="16" y="26">时间 →（不按比例）</text>
+        <text class="t-small t-power t-end t-bold" x="950" y="24">帧数按 IgH 1.6 实现，其他主站不同</text>
+        <text class="t-small t-muted t-mono t-mid" x="164" y="50">1</text>
+        <text class="t-small t-muted t-mono t-mid" x="233" y="50">2</text>
+        <text class="t-small t-muted t-mono t-mid" x="302" y="50">3</text>
+        <text class="t-small t-muted t-mono t-mid" x="371" y="50">4</text>
+        <text class="t-small t-muted t-mono t-mid" x="440" y="50">5</text>
+        <text class="t-small t-muted t-mono t-mid" x="509" y="50">6</text>
+        <text class="t-small t-muted t-mono t-mid" x="578" y="50">7</text>
+        <text class="t-small t-muted t-mono t-mid" x="647" y="50">8</text>
+        <text class="t-small t-muted t-mono t-mid" x="716" y="50">9</text>
+        <text class="t-small t-muted t-mono t-mid" x="785" y="50">10</text>
+        <text class="t-small t-muted t-mono t-mid" x="854" y="50">11</text>
+        <text class="t-small t-muted t-mono t-mid" x="923" y="50">12</text>
+        <rect class="fill-panel stroke-line sw-1" x="4" y="58" width="952" height="76" rx="6"/>
+        <text class="t-bold" x="14" y="92">电源</text>
+        <text class="t-small t-muted" x="14" y="112">24 V / 48 V</text>
+        <rect class="fill-panel stroke-line sw-1" x="4" y="138" width="952" height="76" rx="6"/>
+        <text class="t-bold" x="14" y="172">主站程序</text>
+        <text class="t-small t-muted" x="14" y="192">IgH + 应用</text>
+        <rect class="fill-panel stroke-line sw-1" x="4" y="218" width="952" height="76" rx="6"/>
+        <text class="t-bold" x="14" y="252">总线 ESM</text>
+        <text class="t-small t-muted" x="14" y="272">0x0130</text>
+        <rect class="fill-panel stroke-line sw-1" x="4" y="298" width="952" height="76" rx="6"/>
+        <text class="t-bold" x="14" y="332">驱动器</text>
+        <text class="t-small t-muted" x="14" y="352">CiA402 · 6041</text>
+        <rect class="fill-panel stroke-line sw-1" x="4" y="378" width="952" height="76" rx="6"/>
+        <text class="t-bold" x="14" y="412">电机</text>
+        <text class="t-small t-muted" x="14" y="432">抱闸 · 编码器</text>
+        <line class="stroke-line sw-1" x1="128" y1="58" x2="128" y2="454"/>
+        <g id="u70-e1" class="is-hidden">
+          <rect class="box-power" x="132" y="66" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="164" y="81">24 V</text>
+          <text class="t-small t-mid" x="164" y="97">控制电</text>
+          <text class="t-small t-mid t-muted" x="164" y="120">0 帧</text>
+          <rect class="box-mail" x="132" y="226" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="164" y="241">INIT</text>
+          <text class="t-small t-mid t-mono" x="164" y="257">0x01</text>
+          <text class="t-small t-mid t-muted" x="164" y="280">固件启动</text>
+          <line class="wire dashed" x1="190" y1="104" x2="190" y2="226"/>
+        </g>
+        <g id="u70-e2" class="is-hidden">
+          <rect class="box-bus" x="201" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="233" y="161">空闲扫描</text>
+          <text class="t-small t-mid t-mono" x="233" y="177">BRD</text>
+          <text class="t-small t-mid t-muted" x="233" y="200">1 帧</text>
+        </g>
+        <g id="u70-e3" class="is-hidden">
+          <rect class="box-bus" x="270" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="302" y="161">认身份</text>
+          <text class="t-small t-mid" x="302" y="177">逐台</text>
+          <text class="t-small t-mid t-muted" x="302" y="200">1+7/台</text>
+        </g>
+        <g id="u70-e4" class="is-hidden">
+          <rect class="box-bus" x="339" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="371" y="161">读 SII</text>
+          <text class="t-small t-mid" x="371" y="177">逐 2 字</text>
+          <text class="t-small t-mid t-muted t-mono" x="371" y="200">≥1200</text>
+        </g>
+        <g id="u70-e5" class="is-hidden">
+          <rect class="box-bus" x="408" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="440" y="161">读映射</text>
+          <text class="t-small t-mid" x="440" y="177">SDO</text>
+          <text class="t-small t-mid t-muted t-mono" x="440" y="200">≥30</text>
+          <rect class="box-mail" x="408" y="226" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="440" y="241">PREOP</text>
+          <text class="t-small t-mid t-mono" x="440" y="257">0x02</text>
+          <text class="t-small t-mid t-muted" x="440" y="280">字典≥1650</text>
+          <line class="wire dashed" x1="466" y1="184" x2="466" y2="226"/>
+        </g>
+        <g id="u70-e6" class="is-hidden">
+          <line class="stroke-drive sw-2 dashed" x1="477" y1="209" x2="954" y2="209"/>
+          <text class="t-small t-drive t-mid" x="681" y="170">周期帧已在跑 →</text>
+          <rect class="box-bus" x="477" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="509" y="161">activate</text>
+          <text class="t-small t-mid" x="509" y="177">配置期</text>
+          <text class="t-small t-mid t-muted" x="509" y="200">数十</text>
+        </g>
+        <g id="u70-e7" class="is-hidden">
+          <rect class="box-bus" x="546" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="578" y="161">DC</text>
+          <text class="t-small t-mid" x="578" y="177">配置</text>
+          <text class="t-small t-mid t-muted" x="578" y="200">3 写+轮询</text>
+        </g>
+        <g id="u70-e8" class="is-hidden">
+          <rect class="box-mail" x="615" y="226" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="647" y="241">SAFEOP</text>
+          <text class="t-small t-mid t-mono" x="647" y="257">0x04</text>
+          <text class="t-small t-mid t-muted" x="647" y="280">1+轮询</text>
+        </g>
+        <g id="u70-e9" class="is-hidden">
+          <rect class="box-mail" x="684" y="226" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="716" y="241">OP</text>
+          <text class="t-small t-mid t-mono" x="716" y="257">0x08</text>
+          <text class="t-small t-mid t-muted" x="716" y="280">1 帧/周期</text>
+        </g>
+        <g id="u70-e10" class="is-hidden">
+          <line class="stroke-power sw-2 dashed" x1="201" y1="90" x2="749" y2="90"/>
+          <line class="stroke-power sw-2" x1="201" y1="84" x2="201" y2="96"/>
+          <line class="stroke-power sw-2" x1="749" y1="84" x2="749" y2="96"/>
+          <text class="t-small t-power t-mid" x="475" y="82">可在第 2–9 步任意时刻上电，只需早于写 0x07</text>
+          <rect class="box-power" x="753" y="66" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="785" y="81">48 V</text>
+          <text class="t-small t-mid" x="785" y="97">预充电</text>
+          <text class="t-small t-mid t-muted t-mono" x="785" y="120">bit4=1</text>
+          <rect class="box-drive" x="753" y="306" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="785" y="321">禁止接通</text>
+          <text class="t-small t-mid t-mono" x="785" y="337">0x0040</text>
+          <text class="t-small t-mid t-muted" x="785" y="360">自动 0→1</text>
+          <line class="wire dashed" x1="811" y1="104" x2="811" y2="306"/>
+        </g>
+        <g id="u70-e11" class="is-hidden">
+          <rect class="box-drive" x="822" y="306" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="854" y="321">使能</text>
+          <text class="t-small t-mid" x="854" y="337">至 0x0F</text>
+          <text class="t-small t-mid t-muted t-mono" x="854" y="360">0x0027</text>
+          <rect class="box-muted" x="822" y="386" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="854" y="401">松抱闸</text>
+          <text class="t-small t-mid" x="854" y="417">保持力矩</text>
+          <text class="t-small t-mid t-muted" x="854" y="440">十~百 ms</text>
+          <line class="wire dashed" x1="880" y1="344" x2="880" y2="386"/>
+        </g>
+        <g id="u70-e12" class="is-hidden">
+          <rect class="box-bus" x="891" y="146" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="923" y="161">插补</text>
+          <text class="t-small t-mid t-mono" x="923" y="177">607A</text>
+          <text class="t-small t-mid t-muted" x="923" y="200">每周期</text>
+          <rect class="box-muted" x="891" y="386" width="64" height="38" rx="5"/>
+          <text class="t-small t-mid t-bold" x="923" y="401">跟随</text>
+          <text class="t-small t-mid" x="923" y="417">60F4 小</text>
+          <line class="wire dashed" x1="949" y1="184" x2="949" y2="386"/>
+        </g>
+        <text class="t-small t-muted" x="16" y="476">框下 = 该事件的数据报数（示例：一台驱动器、SII 1200 字、150 对象 / 400 条目、HZ = 1000）</text>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>帧账本：每一步花了多少往返</h3>
+    <p>一帧可以装多个数据报；IgH 空闲期每个发送周期发 1 帧，每台从站的状态机每周期只推进一步、只放一个数据报。所以对单台驱动器，耗时 ≈ 数据报数 × 发送周期（默认 1 s/HZ，可用 <code>ecrt_master_set_send_interval</code> 改）。应用 activate 之后，状态机的数据报搭乘应用自己的周期帧发出。</p>
+    <p class="note"><span class="u70-impl">帧数按 IgH 1.6 实现，其他主站不同。</span>示例数按"一台驱动器、SII 1200 字、150 对象 / 400 条目、HZ = 1000"这一<strong>示例</strong>配置计算；"≥"表示忙时多轮询会更多。</p>
+    <div class="table-wrap">
+      <table class="u70-ledger">
+        <tr><th>阶段（动画步）</th><th>数据报</th><th>数量公式</th><th>示例数</th><th>典型耗时</th><th>来源（IgH stable-1.6）</th></tr>
+        <tr><td>② 发现从站</td><td><code>BRD 0x0130</code>，WKC = 在线从站数</td><td>每个空闲周期 1</td><td>1</td><td>1 ms</td><td>fsm_master.c</td></tr>
+        <tr><td>③ 清站地址</td><td><code>BWR 0x0010</code></td><td>全体 1 次</td><td>1</td><td>1 ms</td><td>fsm_master.c:831</td></tr>
+        <tr><td>③ 每台基础信息</td><td><code>APWR 0x0010</code> · <code>FPRD 0x0130</code> · <code>FPRD 0x0000</code>（12 B） · <code>FPRD 0x0910</code> · <code>FPRD 0x0900</code>（16 B） · <code>FPRD 0x0110</code> · <code>FPWR 0x0500</code></td><td>每台 7</td><td>7</td><td>≈ 7 ms</td><td>fsm_slave_scan.c:177–478</td></tr>
+        <tr><td>④ 读 SII</td><td><code>FPWR 0x0502</code>（命令 + 字地址）+ <code>FPRD 0x0502</code>（轮询忙位并取回 4 字节）</td><td>先走类别头，再 ≥ 字数 / 2 × 2</td><td>≥ 1200</td><td>≥ 1.2 s</td><td>fsm_sii.c</td></tr>
+        <tr><td>⑤ 读别名与 SM 寄存器</td><td><code>FPRD 0x0012</code> · <code>FPRD 0x0800</code></td><td>各 1</td><td>2</td><td>2 ms</td><td>fsm_slave_scan.c:893、968</td></tr>
+        <tr><td>⑤ 进 PREOP</td><td><code>FPWR 0x0120</code> = 2 + <code>FPRD 0x0130</code> 轮询</td><td>1 + 轮询</td><td>≥ 2</td><td>数 ms</td><td>fsm_change.c</td></tr>
+        <tr><td>⑤ 读 PDO 分配与映射</td><td>SDO 上传：<code>FPWR</code> SM0 写请求 + <code>FPRD</code> SM1 状态轮询（≥1）+ <code>FPRD</code> SM1 取应答</td><td>≥ 3 × 上传次数</td><td>≥ 30（10 次）</td><td>≥ 30 ms</td><td>fsm_pdo.c、fsm_coe.c</td></tr>
+        <tr><td>⑤ 拉对象字典（后台）</td><td>SDO Info 往返（从站支持时）</td><td>≥ 3 × (1 + 对象数 + 条目数)</td><td>≥ 1650</td><td>≥ 1.65 s</td><td>fsm_coe.c</td></tr>
+        <tr><td>⑥ 配置（activate 后）</td><td>INIT 请求 · <code>FPWR 0x0600</code> · <code>0x0800</code> · <code>0x0980</code> · SM0/SM1 · PREOP 请求 · 启动 SDO · <code>0x0400</code> · <code>0x0420</code> · SM2/SM3 · PDO 下载 · <code>0x0600</code></td><td>寄存器各 1；状态请求 1 + 轮询；SDO 每条 ≥ 3；映射不同时每个 SM 约 7 次下载 ≥ 21</td><td>数十</td><td>数十 ms</td><td>fsm_slave_config.c、fsm_pdo.c</td></tr>
+        <tr><td>⑦ DC</td><td>扫描期：<code>BWR 0x0900</code> 锁存（全体 1 次）、<code>FPWR 0x0920</code> 偏移 + 延时 12 B（每台 1）；配置期：<code>FPWR 0x09A0</code>（8 B 周期）· <code>FPRD 0x092C</code> 读系统时间差、超过 10 µs 就再读 · <code>FPWR 0x0990</code>（8 B 起始时间）· <code>FPWR 0x0980</code>（激活）</td><td>写各 1；0x092C 1 + 轮询</td><td>≥ 6</td><td>数 ms 起</td><td>fsm_master.c:876、1215；fsm_slave_config.c:1380、1429、1478/1487、1528、1573</td></tr>
+        <tr><td>⑧ SAFEOP、⑨ OP</td><td><code>FPWR 0x0120</code> = 4 / 8 + <code>FPRD 0x0130</code> 轮询</td><td>各 1 + 轮询</td><td>≥ 4</td><td>数 ms</td><td>fsm_change.c</td></tr>
+        <tr><td>⑨ 运行</td><td>LRW 域数据报 + <code>FPWR 0x0910</code> + <code>FRMW 0x0910</code> + 1 个状态机数据报（如 <code>BRD 0x0130</code>）+ 可能的邮箱检查</td><td>每周期 1 帧</td><td>—</td><td>持续</td><td>master.c</td></tr>
+        <tr class="u70-sum"><td colspan="3">示例合计（单台，到 OP 为止）</td><td>≈ 3000</td><td>≈ 3 s</td><td>读 SII 与拉字典占九成以上</td></tr>
+      </table>
+    </div>
+
+    <div class="u70-calc" id="u70-calc">
+      <h4>算一算：换成你的驱动器</h4>
+      <div class="u70-inputs">
+        <label>SII 字数<input type="number" id="u70-in-sii" min="8" max="32768" step="2" value="1200"></label>
+        <label>对象数<input type="number" id="u70-in-obj" min="0" max="5000" value="150"></label>
+        <label>条目数<input type="number" id="u70-in-ent" min="0" max="20000" value="400"></label>
+        <label>HZ（发送周期 = 1 s / HZ）<input type="number" id="u70-in-hz" min="100" max="4000" value="1000"></label>
+        <label class="u70-chk"><input type="checkbox" id="u70-in-info" checked> 从站支持 SDO Info</label>
+      </div>
+      <div class="table-wrap">
+        <table class="u70-out" aria-live="polite">
+          <tr><th>阶段</th><th>数据报（下限）</th><th>耗时（下限）</th></tr>
+          <tr><td>发现 + 清地址 + 基础信息（1 + 1 + 7）</td><td id="u70-o-base"></td><td id="u70-t-base"></td></tr>
+          <tr><td>读 SII</td><td id="u70-o-sii"></td><td id="u70-t-sii"></td></tr>
+          <tr><td>读 PDO 分配与映射（10 次上传）</td><td id="u70-o-pdo"></td><td id="u70-t-pdo"></td></tr>
+          <tr><td>拉对象字典</td><td id="u70-o-dict"></td><td id="u70-t-dict"></td></tr>
+          <tr class="u70-sum"><td>合计（不含 PREOP 请求、配置期与 DC）</td><td id="u70-o-sum"></td><td id="u70-t-sum"></td></tr>
+        </table>
+      </div>
+      <p class="step-hint">按"每周期推进一步"的下限估算；忙位轮询、类别头遍历会让实际更多。</p>
+    </div>
+
+    <h3>依赖表：谁必须等谁</h3>
+    <p>时间轴上的先后大多是硬依赖，少数只是习惯顺序。分清两者，才知道哪里能并行、卡住时该往前查哪一步。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>这一步</th><th>必须在它之后</th><th>为什么</th></tr>
+        <tr><td>写 SM0/SM1（⑥）</td><td>SII 读完（④）</td><td>邮箱 SM 的地址与长度来自 SII</td></tr>
+        <tr><td>任何 SDO（⑤⑥）</td><td>从站到 PREOP</td><td>邮箱只在 PREOP 起可用，INIT 下没有邮箱</td></tr>
+        <tr><td>写 SM2/SM3（⑥）</td><td>PDO 映射写完</td><td>SM2/SM3 长度 = 映射总长，映射变了长度要重算</td></tr>
+        <tr><td>请求 OP（⑨）</td><td>周期帧已在跑（⑥ 起）</td><td>S→O 要求输出 SM 已收到有效数据，否则 AL 码 0x0019</td></tr>
+        <tr><td>写 0x0007（⑪）</td><td>6041 bit4 = 1（⑩）</td><td>主电压未到位，功率级无法就绪</td></tr>
+        <tr><td>开始插补（⑫）</td><td>抱闸松开、6041 bit12 = 1（⑪）</td><td>带闸运动会拖闸或报跟随误差</td></tr>
+        <tr><th>可并行与不并行</th><th colspan="2">说明</th></tr>
+        <tr><td>动力电（⑩）</td><td colspan="2">与总线扫描、配置（②–⑨）没有先后依赖，只要求在写 0x0007 之前完成</td></tr>
+        <tr><td>多台从站</td><td colspan="2">IgH 1.6 中扫描、配置、拉字典都由主站状态机逐台顺序执行，多台从站的耗时按台数累加；并行推进的只是 PREOP 后各从站自己的 SDO 与寄存器请求（fsm_master.c:112–116、930–978、734/1023、632–647/1353；fsm_slave.c）</td></tr>
+      </table>
+    </div>
+
+    <h3>每一步失败长什么样</h3>
+    <p>按时间轴查：先确认卡在第几步，再按下表去对应的案例或 AL 码。AL 码含义见 <a href="u3-l1.html#mech">u3-l1 的 AL 状态码表</a>，案例见 <a href="u7-l2.html">u7-l2</a>。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>步</th><th>失败长什么样</th><th>先看</th><th>去哪查</th></tr>
+        <tr><td>①</td><td><code>ethercat slaves</code> 少一台或全无；<code>0x0110</code> bit0 = 0 表示 EEPROM 未正确装载</td><td><code>reg_read 0x0110</code></td><td><a href="u2-l4.html">u2-l4</a> · <a href="u7-l2.html#case-10">案例 10</a></td></tr>
+        <tr><td>②</td><td>BRD 的 WKC 少于接上的从站数</td><td><code>ethercat master</code> 的从站数；<code>0x0110</code> 端口链路位</td><td><a href="u7-l2.html#case-10">案例 10</a></td></tr>
+        <tr><td>③④</td><td>身份与程序不符，配置挂不上，停在 PREOP</td><td><code>ethercat slaves -v</code>；<code>sii_read</code></td><td><a href="u7-l2.html#case-11">案例 11</a></td></tr>
+        <tr><td>⑤</td><td>I→P 被拒，<code>0x0134</code> = 0x0016；SDO 上传超时</td><td><code>reg_read 0x0134</code>；<code>dmesg</code></td><td><a href="u3-l1.html#mech">AL 0x0016</a> · <a href="u7-l2.html#case-6">案例 6</a></td></tr>
+        <tr><td>⑥</td><td>启动 SDO abort，从站停在 PREOP</td><td><code>dmesg</code> 里的失败对象</td><td><a href="u7-l2.html#case-5">案例 5</a> · <a href="u7-l2.html#case-1">案例 1</a></td></tr>
+        <tr><td>⑦</td><td>AL 0x0030 / 0x002D；多轴动作不齐</td><td><code>ethercat slaves -v</code> 的 DC 信息；<code>0x092C</code></td><td><a href="u7-l2.html#case-9">案例 9</a> · <a href="u3-l1.html#mech">AL 码</a></td></tr>
+        <tr><td>⑧</td><td>P→S 被拒带 E：0x001D / 0x001E / 0x0024 / 0x0025</td><td><code>reg_read 0x0134</code></td><td><a href="u3-l1.html#mech">AL 码</a> · <a href="u7-l2.html#case-1">案例 1</a></td></tr>
+        <tr><td>⑨</td><td>S→O 被拒 0x0019 / 0x002D；运行中 0x001A、0x001B；域 WKC 不全</td><td><code>0x0134</code>；<code>ethercat domains</code></td><td><a href="u7-l2.html#case-8">案例 8</a> · <a href="u7-l2.html#case-2">案例 2</a> · <a href="u7-l2.html#case-3">案例 3</a></td></tr>
+        <tr><td>⑩</td><td>6041 bit4 一直为 0，写 0x0007 后进不了已接通或报故障（行为因厂商而异）</td><td>6041；母线电压</td><td><a href="u5-l1.html">u5-l1</a></td></tr>
+        <tr><td>⑪</td><td>0x000F 后 bit3 Fault = 1；使能瞬间电机猛冲</td><td>603F；使能前后的 607A 与 6064</td><td><a href="u7-l2.html#case-4">案例 4</a> · <a href="u7-l2.html#case-7">案例 7</a></td></tr>
+        <tr><td>⑫</td><td>60F4 超过 6065 报跟随误差</td><td>60F4、6065</td><td><a href="u7-l2.html#case-7">案例 7</a> · <a href="u5-l3.html">u5-l3</a></td></tr>
+        <tr><td>停机</td><td>程序退出后从站停在 SAFEOP + E，0x001B</td><td><code>ethercat slaves</code>；<code>0x0134</code></td><td><a href="u7-l2.html#case-12">案例 12</a></td></tr>
+      </table>
+    </div>
+
+    <h3>有序停机：把时间轴倒着走</h3>
+    <p>停机是启动的逆序：先停电机，再断驱动器使能，最后才放开总线。周期帧要一直发到驱动器确认为止，否则后面几步没有通路。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>顺序</th><th>谁</th><th>做什么</th><th>确认</th></tr>
+        <tr><td>1</td><td>主站应用</td><td>规划器减速到 0，607A 停在当前位置</td><td>60F4 很小、速度为 0</td></tr>
+        <tr><td>2</td><td>主站应用</td><td>6040 降到 <code>0x0006</code>（关断）或 <code>0x0002</code>（快停），周期帧照发</td><td>6041 离开 0x0027</td></tr>
+        <tr><td>3</td><td>驱动器</td><td>停车、合抱闸、关功率级（具体顺序按 605A/605B 与厂商实现）</td><td>6041 回到准备接通或禁止接通</td></tr>
+        <tr><td>4</td><td>主站应用</td><td><code>ecrt_release_master</code>，周期任务结束</td><td>—</td></tr>
+        <tr><td>5</td><td>IgH</td><td>把从站请求回 PREOP，回到空闲扫描</td><td><code>ethercat slaves</code> 显示 PREOP</td></tr>
+      </table>
+    </div>
+    <p class="warn">直接杀进程：周期帧突然停，输出 SM 看门狗到期，从站自己退到 SAFEOP 并置 E，<code>0x0134</code> = 0x001B，驱动器按自身故障反应停车。这就是 <a href="u7-l2.html#case-12">案例 12</a>；要捕获 SIGINT/SIGTERM 走上面的有序路径。</p>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站按阶段发什么</h3>
+        <ul>
+          <li><strong>空闲：</strong>每周期 1 帧 <code>BRD 0x0130</code>，用 WKC 数从站。</li>
+          <li><strong>扫描：</strong><code>BWR 0x0010</code> 清地址、<code>BWR 0x0900</code> 锁存；每台 7 个基础信息数据报；逐 2 字读 SII；<code>FPWR 0x0920</code> 写 DC 偏移与延时。</li>
+          <li><strong>PREOP：</strong><code>FPWR 0x0120</code> + <code>FPRD 0x0130</code>；SDO 上传 1C12/1C13 与映射；后台 SDO Info 拉字典。</li>
+          <li><strong>配置（activate 后）：</strong>逐项写 <code>0x0600</code>、<code>0x0800</code>、<code>0x0980</code>、<code>0x0400</code>、<code>0x0420</code>，启动 SDO、PDO 下载，DC 写 <code>0x09A0</code>、轮询 <code>0x092C</code> 到时间差 &lt; 10 µs、再写 <code>0x0990</code>、<code>0x0980</code>。</li>
+          <li><strong>SAFEOP / OP：</strong>写 <code>0x0120</code> = 4、8 并轮询 <code>0x0130</code>。</li>
+          <li><strong>运行：</strong>每周期 1 帧：LRW + <code>FPWR</code>/<code>FRMW 0x0910</code> + 状态机数据报；应用写 6040 与 607A。</li>
+          <li><strong>停机：</strong>6040 降级，等 6041 确认，再 <code>ecrt_release_master</code>。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站按阶段做什么</h3>
+        <p><span class="tag tag-bus">ESC 硬件应答</span></p>
+        <ul>
+          <li>上电自己从 EEPROM 装载字 0–7。</li>
+          <li>寄存器读写（<code>0x0000</code>、<code>0x0010</code>、<code>0x0110</code>、<code>0x0130</code>、<code>0x0900</code>…）在帧经过时完成并加 WKC。</li>
+          <li>SII：收到 <code>0x0502</code> 命令后自己从 EEPROM 取字，放进 <code>0x0508</code> 起的数据寄存器。</li>
+          <li>LRW：按 FMMU 在帧经过时读写过程数据；DC 锁存与系统时间。</li>
+        </ul>
+        <p><span class="tag tag-drive">固件处理</span></p>
+        <ul>
+          <li>启动后进 INIT；收到 <code>0x0120</code> 请求时检查 SM、映射、DC，通过才更新 <code>0x0130</code>，否则报 <code>0x0134</code>。</li>
+          <li>SDO：从 SM0 取请求、查字典、把应答写进 SM1。</li>
+          <li>CiA402：母线电压到位置 6041 bit4；按 6040 走状态机；抱闸时序；位置环跟随 607A。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>用帧计数器实测一次扫描用了多少帧。<code>ethercat master</code> 的输出字段名以所装版本为准；有主、备两个网口或"合计"段时会匹配到多行，取同一段比较。</p>
+    <pre><code># 0. 空闲基线：隔 10 s 读两次，得到空闲时每秒多少帧
+ethercat master | grep -E "Tx frames|Rx frames"
+
+# 1. 一次扫描用多少帧
+ethercat master | grep -E "Tx frames|Rx frames"    # 记下 A
+ethercat rescan
+ethercat slaves                                    # 反复看，直到回到 PREOP
+ethercat master | grep -E "Tx frames|Rx frames"    # 记下 B；B − A 即扫描用的帧数
+
+# 2. 配置：运行 u6-l1 的程序到 OP 后再读一次
+ethercat master | grep -E "Tx frames|Rx frames"    # 差值减去周期帧数（运行秒数 × 周期频率）
+
+# 3. 逐步日志（信息量大，看完一定关掉）
+ethercat debug 1
+dmesg -w
+ethercat debug 0</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望（数量级）</th><th>说明</th></tr>
+        <tr><td>空闲基线</td><td>约 HZ 帧/秒</td><td>空闲期每个发送周期 1 帧；精确值以所装版本与 send interval 为准</td></tr>
+        <tr><td>Tx − Rx 差</td><td>0</td><td>发出去的帧都应回来；不为 0 查网线与端口（案例 10）</td></tr>
+        <tr><td>rescan 到 PREOP</td><td>10³ 帧量级</td><td>示例 SII 1200 字 ≥ 1200；读到 PREOP 后多等 1 s 就多约 HZ 帧空闲帧</td></tr>
+        <tr><td>ethercat sdos</td><td>秒级后才完整</td><td>PREOP 后在后台拉字典，示例 ≥ 1650 个数据报</td></tr>
+        <tr><td>到 OP 的差值 − 周期帧</td><td>接近 0 到数十</td><td>activate 后状态机数据报搭乘周期帧，一般不另发帧</td></tr>
+      </table>
+    </div>
+    <p class="step-hint">以上均因 SII 大小、对象字典大小、HZ 而异。本课依据的 IgH stable-1.6 源码每次扫描都完整重读 SII，没有 SII 缓存；如果你的版本打了缓存补丁，rescan 的差值会小得多。</p>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "IgH 空闲时要发现总线上有几台从站，需要几帧？", "options": ["每台从站 1 帧 APRD", "1 帧 <code>BRD 0x0130</code>，WKC 就是在线从站数", "读完每台的 SII 才能知道", "每台一次 SDO 往返"], "answer": 1, "explain": "广播读经过每台从站时 WKC 各加 1，回到主站的 WKC 就是在线从站数。空闲期每个周期都发这一帧，所以热插拔也能被发现。"},
+  {"q": "为什么 IgH 扫描一台驱动器要秒级时间？", "options": ["网线太长，传播延时大", "从站固件处理寄存器读很慢", "SII 每次只读 2 个字、每次至少 2 个数据报，且空闲期每周期只推进一步；1200 字（示例）在 HZ = 1000 时就要 1.2 s 以上", "IgH 要先等动力电上电"], "answer": 2, "explain": "耗时 ≈ 数据报数 × 发送周期。读 SII 与后台拉对象字典是往返次数最多的两项，都要上千个数据报。"},
+  {"q": "主站写 6040 = <code>0x0007</code> 之前，驱动器侧必须满足什么？", "options": ["6041 bit4 = 1，主电压已到位", "电机已经在转", "抱闸已经松开", "从站刚刚重读过 SII"], "answer": 0, "explain": "0x0007 让功率级就绪，需要母线电压（bit4 Voltage Enabled）。动力电可以晚于总线 OP 上电，但必须早于这一步；抱闸是在 0x000F 之后才松的。"},
+  {"q": "<code>ethercat master</code> 的 Tx frames 两次读数之差代表什么？", "options": ["两次读数之间发出的数据报数", "两次读数之间主站发出的以太网帧数，一帧可装多个数据报", "从站回送的错误帧数", "SII 的字数"], "answer": 1, "explain": "计数器数的是帧。空闲期每周期 1 帧、每台从站每周期推进一步，所以单台扫描时帧数≈步数≈数据报数；多等的时间也会以约 HZ 帧/秒计入。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>扫描慢，说明网线或从站坏了。<br><strong>实际上：</strong>秒级扫描是正常的，时间花在逐 2 字读 SII 与逐条读对象字典的往返次数上；真出故障看的是 Tx/Rx 帧差与 WKC。</li>
+      <li><strong>误区：</strong>调用 <code>ecrt_master_activate</code> 时从站已经在 OP。<br><strong>实际上：</strong>activate 之前从站停在 PREOP；activate 才开始逐台配置，并随周期帧一步步推到 SAFEOP、OP。</li>
+      <li><strong>误区：</strong>总线到 OP，电机就能动。<br><strong>实际上：</strong>OP 只说明过程数据通了；还要动力电让 6041 bit4 = 1，再走 CiA402 的 0x06 → 0x07 → 0x0F，抱闸松开后才会跟随。</li>
+    </ul>
+    <p>关联：ESM 各状态与 AL 码见 <a href="u3-l1.html">u3-l1</a>；控制字与状态字见 <a href="u5-l1.html">u5-l1</a>；主站程序与周期任务见 <a href="u6-l1.html">u6-l1</a>；每一步失败的完整案例见 <a href="u7-l2.html">u7-l2</a>。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  function ev(k) { return function (svg) { Academy.fx(svg).show('u70-e' + k); }; }
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始画面', text: '五条泳道从左到右是时间（不按比例），起点是控制电上电；框下的数字是这一事件用的数据报数。', apply: function () {} },
+    { title: '① 控制电 24 V 上电', text: 'ESC 自己从 EEPROM 装载字 0–7（PDI 配置、站别名），PDI 就绪；从站固件启动进 INIT，0x0130 = 0x01。耗时因固件而异（几十 ms 到数秒），主站还没发一帧。', apply: ev(1) },
+    { title: '② 空闲扫描：发现从站', text: '主站加载 ec_master 后，每个空闲周期发 1 帧 BRD 0x0130，WKC 就是在线从站数——发现从站只要 1 帧。', apply: ev(2) },
+    { title: '③ 逐台认身份', text: '先 BWR 0x0010 清站地址（全体 1 帧）；再对每台逐条：APWR 0x0010 写站地址、FPRD 0x0130、FPRD 0x0000（12 B 基础信息）、FPRD 0x0910 与 FPRD 0x0900（DC 能力与端口锁存）、FPRD 0x0110（DL 状态）、FPWR 0x0500（EEPROM 交给 ECAT 侧），各 1 个数据报，共 7 个。', apply: ev(3) },
+    { title: '④ 读 SII', text: '每读 2 个字 = FPWR 0x0502（写命令与字地址）+ FPRD 0x0502（轮询忙位并取回 4 字节），忙时多轮询；先按类别头走一遍算总长再整段读。示例 1200 字 ≈ 600 次 × ≥2 ≥ 1200 个数据报，每周期只推进一步，HZ = 1000 时约 1.2 s 以上——这就是 IgH 扫描要几秒的来源。', apply: ev(4) },
+    { title: '⑤ 进 PREOP 并读映射', text: 'FPWR 0x0120 = 2，FPRD 0x0130 轮询到 0x02；读 SM 寄存器；用 SDO 上传 1C12/1C13 及其 PDO 与映射项，每次往返 ≥3 个数据报，示例共 10 次 ≥ 30 个。若从站支持 SDO Info，主站在后台再拉整本字典：(1 + 对象数 + 条目数) 次往返，示例 ≥ 1650 个数据报，所以 ethercat sdos 要等几秒才有内容。', apply: ev(5) },
+    { title: '⑥ 应用 activate：配置期', text: '每台顺序执行：请求 INIT → 清 FMMU（0x0600）→ 清 SM（0x0800）→ 清 DC 激活（0x0980）→ 写 SM0/SM1 → 请求 PREOP → 启动 SDO（每条 ≥3）→ 看门狗 0x0400、0x0420 → 写 SM2/SM3 → PDO 配置（映射不同时每个 SM 约 7 次下载 ≥ 21）→ 写 FMMU（0x0600）。应用的周期帧从这里开始发，状态机数据报搭乘其中。', apply: ev(6) },
+    { title: '⑦ DC 配置', text: '扫描期已 BWR 0x0900 锁存、FPWR 0x0920 写偏移 + 延时（12 B）；配置期写 FPWR 0x09A0 周期（8 B），再 FPRD 0x092C 读系统时间差，超过 10 µs 就继续读，收敛后写 FPWR 0x0990 起始时间（8 B）、FPWR 0x0980 激活：3 个写各 1 个数据报，加 0x092C 的 1 次及轮询。', apply: ev(7) },
+    { title: '⑧ 请求 SAFEOP', text: 'FPWR 0x0120 = 4 + FPRD 0x0130 轮询；从站校验 SM2/SM3 长度、映射与 DC。周期 LRW 帧此时已在跑，输入有效。', apply: ev(8) },
+    { title: '⑨ 请求 OP', text: 'FPWR 0x0120 = 8 + 轮询，输出生效。此后每周期 1 帧：LRW 域数据报 + FPWR 0x0910（参考时钟）+ FRMW 0x0910（分发）+ 主站状态机的 1 个数据报 + 可能的邮箱检查。', apply: ev(9) },
+    { title: '⑩ 动力电 48 V 与预充电', text: '母线电压到位后 6041 bit4 = 1；驱动器自检完成后自动走转换 0、1 到禁止接通（6041 & 0x004F = 0x0040）。这一步与 ②–⑨ 没有先后依赖，只要求在写 0x07 之前完成。', apply: ev(10) },
+    { title: '⑪ 使能序列', text: '主站每周期先令 607A = 6064，再依次写 0x0006（准备接通）→ 0x0007（已接通，功率级就绪）→ 0x000F（运行使能）；驱动器先出保持力矩再松抱闸（几十到上百 ms），6041 & 0x006F = 0x0027 且 bit12 = 1 后开始跟随。', apply: ev(11) },
+    { title: '⑫ 运动', text: '主站插补，每周期给一个可达的 607A；电机跟随，跟随误差 60F4 保持很小。', apply: ev(12) }
+  ]);
+
+  // 帧账本计算器（下限估算）
+  var calc = document.getElementById('u70-calc');
+  function num(id, lo, hi, dflt) {
+    var v = parseInt(document.getElementById(id).value, 10);
+    if (!isFinite(v)) v = dflt;
+    return Math.min(hi, Math.max(lo, v));
+  }
+  function fmtT(n, hz) {
+    var s = n / hz;
+    return s >= 1 ? '≥ ' + s.toFixed(2) + ' s' : '≥ ' + Math.round(s * 1000) + ' ms';
+  }
+  function put(k, n, hz) {
+    document.getElementById('u70-o-' + k).textContent = n ? '≥ ' + n : '0';
+    document.getElementById('u70-t-' + k).textContent = n ? fmtT(n, hz) : '—';
+  }
+  function update() {
+    var w = num('u70-in-sii', 8, 32768, 1200), o = num('u70-in-obj', 0, 5000, 150),
+        e = num('u70-in-ent', 0, 20000, 400), hz = num('u70-in-hz', 100, 4000, 1000),
+        info = document.getElementById('u70-in-info').checked;
+    var base = 1 + 1 + 7, sii = Math.ceil(w / 2) * 2, pdo = 30, dict = info ? 3 * (1 + o + e) : 0;
+    put('base', base, hz); put('sii', sii, hz); put('pdo', pdo, hz); put('dict', dict, hz);
+    put('sum', base + sii + pdo + dict, hz);
+  }
+  if (calc) { calc.addEventListener('input', update); calc.addEventListener('change', update); update(); }
+
+  Academy.init('u7-l0');
+})();
+</script>
+</body>
+</html>

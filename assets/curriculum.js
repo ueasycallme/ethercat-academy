@@ -4,7 +4,7 @@
  */
 window.ACADEMY_CURRICULUM = {
   title: 'EtherCAT 学院',
-  version: '1.1.3',
+  version: '1.2.0',
   layers: ['planner', 'rt-loop', 'cia402-m', 'master-stack', 'nic', 'cable',
            'esc', 'slave-stack', 'cia402-s', 'motor-ctrl', 'power-stage', 'motor'],
   units: [
@@ -64,8 +64,11 @@ window.ACADEMY_CURRICULUM = {
         highlight: ['planner', 'motor-ctrl', 'power-stage', 'motor'], prereq: ['u5-l2'] }
     ]},
     { id: 'u7', no: 'U7', title: '综合诊断', lessons: [
+      { id: 'u7-l0', title: '全链路启动时序：从上电到运动', hours: 2,
+        highlight: ['planner', 'rt-loop', 'cia402-m', 'master-stack', 'nic', 'cable', 'esc', 'slave-stack', 'cia402-s', 'motor-ctrl', 'power-stage', 'motor'],
+        prereq: ['u3-l1', 'u5-l1', 'u6-l1'] },
       { id: 'u7-l1', title: '诊断工具箱', hours: 1.5,
-        highlight: ['master-stack', 'nic', 'cable', 'esc'], prereq: ['u6-l1'] },
+        highlight: ['master-stack', 'nic', 'cable', 'esc'], prereq: ['u6-l1', 'u7-l0'] },
       { id: 'u7-l2', title: '故障案例集与诊断决策树', hours: 2.5,
         highlight: ['planner', 'rt-loop', 'cia402-m', 'master-stack', 'nic', 'cable', 'esc', 'slave-stack', 'cia402-s', 'motor-ctrl', 'power-stage', 'motor'],
         prereq: ['u7-l1'] }

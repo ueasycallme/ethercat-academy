@@ -275,13 +275,17 @@
       // 点遮罩关闭：点击落在 dialog 自身（内容之外）时
       ovDialog.addEventListener('click', function (e) { if (e.target === ovDialog) ovDialog.close(); });
       ovDialog.addEventListener('close', function () {
-        if (ovReturnFocus && ovReturnFocus.focus) ovReturnFocus.focus();
+        // 原生的焦点恢复发生在 close 事件之后，会覆盖这里的 focus()，所以推迟到下一轮
+        var target = ovReturnFocus;
+        setTimeout(function () { if (target && target.focus) target.focus(); }, 0);
       });
     }
     ovReturnFocus = returnTo || null;
     ovDialog.querySelector('#ov-dlg-title').textContent = '系统总图' + (opts.zoomTitle ? ' · ' + opts.zoomTitle : '');
     overview(ovDialog.querySelector('.ov-dlg-body'), keys, {});
     ovDialog.querySelector('.ov-dlg-link').setAttribute('href', opts.link);
+    // 先把焦点放到按钮上，脚本调用 click() 时原生焦点恢复也会回到按钮
+    if (returnTo && returnTo.focus) returnTo.focus();
     ovDialog.showModal();
     ovDialog.querySelector('.ov-dlg-close').focus();
   }
