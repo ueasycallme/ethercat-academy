@@ -78,6 +78,8 @@
 
 进度：localStorage 键 ecat.progress，值为 {课号: ISO 时间}；测验全对才标记完成。测验题 JSON 写在 `<script type="application/json" id="quiz-data">` 里，字段 q、options[]、answer（序号）、explain。
 
+**定位区布局修订（2026-09-27，v1.1.2，仅改 site.css）。** 加入"先知道这些"后，原两栏（缩略图 | 目标+前置课+前引卡）左下大片留空、右栏拥挤。新布局分两层：上层两栏只放缩略图与本课目标，缩略图在目标较长时随滚动吸顶；下层通栏依次放前置课与"先知道这些"，前引卡在宽屏为一行两对（术语列 | 说明列 | 术语列 | 说明列），中等宽度一行一对，手机单列。实现用 `.locate-grid > div { display: contents }` 把右栏子元素提升为网格项，再用 `h3:has(+ .prereq)`、`h3:has(+ .pre-terms)` 与 `.prereq`、`.pre-terms` 设为 `grid-column: 1 / -1`，整段规则放在 `@supports selector(:has(+ *))` 内，不支持时保持旧布局。页面 HTML 不改。
+
 图示规范：主站侧在左，从站侧在右，网线在中间，全站不变。语义色：总线与帧蓝（--bus），邮箱与配置紫（--mail），驱动器与电机绿（--drive），故障红（--fault），电源琥珀（--power）。每一步动画只改变一件事并用一句话说明。
 
 ## 5. 技术架构

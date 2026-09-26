@@ -239,6 +239,45 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
   .pre-terms dt { white-space: normal; margin-top: .45rem; }
 }
 
+/* 定位区布局修订（v1.1.2，见 DESIGN.md 第 4 节）：上层 缩略图 | 本课目标，下层通栏 前置课 + 先知道这些。
+   只在支持 :has 的浏览器生效，不支持时保持上面的旧两栏布局。 */
+@supports selector(:has(+ *)) {
+  .locate-grid > div:not(.overview-thumb) { display: contents; }
+  .locate-grid { row-gap: 0; }  /* 子元素已直接进网格，行间距交给 h3 自身的外边距 */
+  .locate-grid > .overview-thumb { margin-bottom: .4rem; }
+  .locate-grid h3:has(+ .prereq),
+  .locate-grid h3:has(+ .pre-terms) { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+  .locate-grid h3:has(+ .prereq) ~ h3:has(+ .pre-terms) { border-top: 0; padding-top: 0; margin-top: .9rem; }
+  @media (min-width: 761px) {
+    .locate-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 0 1.5rem; }
+    .locate-grid > .overview-thumb {
+      grid-column: 1; grid-row: 1 / span 2; align-self: start;
+      position: sticky; top: calc(var(--topbar-h) + 16px);
+    }
+    .locate-grid h3:has(+ .goals) { grid-column: 2; grid-row: 1; margin-top: 0; }
+    .locate-grid .goals { grid-column: 2; grid-row: 2; }
+    .locate-grid h3:has(+ .prereq) { grid-column: 1 / -1; grid-row: 3; }
+    .locate-grid .prereq { grid-column: 1 / -1; grid-row: 4; }
+    .locate-grid h3:has(+ .pre-terms) { grid-column: 1 / -1; grid-row: 5; }
+    .locate-grid .pre-terms { grid-column: 1 / -1; grid-row: 6; }
+  }
+}
+
+/* 先知道这些：按定位区内容宽度排——≥900px 一行两对，600–899px 一对，<600px 单列 */
+.lesson-locate { container-type: inline-size; }
+@container (min-width: 600px) {
+  .pre-terms { grid-template-columns: max-content minmax(0, 1fr); gap: .55rem 1rem; }
+  .pre-terms dt { white-space: nowrap; margin-top: 0; }
+}
+@container (min-width: 900px) {
+  .pre-terms { grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr) minmax(8rem, max-content) minmax(0, 1fr); }
+  .pre-terms dt:nth-of-type(even) { margin-left: 1.2rem; }  /* 第二对与第一对之间约 2.2rem */
+}
+@container (max-width: 599px) {
+  .pre-terms { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .pre-terms dt { white-space: normal; margin-top: .45rem; }
+}
+
 /* 系统总图 */
 .overview { width: 100%; }
 .overview svg { display: block; width: 100%; height: auto; }

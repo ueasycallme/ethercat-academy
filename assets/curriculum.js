@@ -4,7 +4,7 @@
  */
 window.ACADEMY_CURRICULUM = {
   title: 'EtherCAT 学院',
-  version: '1.1.1',
+  version: '1.1.2',
   layers: ['planner', 'rt-loop', 'cia402-m', 'master-stack', 'nic', 'cable',
            'esc', 'slave-stack', 'cia402-s', 'motor-ctrl', 'power-stage', 'motor'],
   units: [
