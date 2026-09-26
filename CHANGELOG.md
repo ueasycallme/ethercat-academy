@@ -2,6 +2,11 @@
 
 格式参照 Keep a Changelog，版本号遵循语义化版本。
 
+## [1.0.2] - 2026-09-26
+
+### 变更
+- 标签页图标改为 EtherCAT 红黑双箭头标记（按 ethercat.org 图标比例重绘的矢量版；透明底，深色模式下黑箭头变白）。`favicon.svg`、`favicon-32.png`、`favicon.ico`、`apple-touch-icon.png` 同名替换，页面引用不变。EtherCAT® 为 Beckhoff Automation 的注册商标。
+
 ## [1.0.1] - 2026-09-26
 
 ### 新增
