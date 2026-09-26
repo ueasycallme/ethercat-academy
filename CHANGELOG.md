@@ -2,6 +2,12 @@
 
 格式参照 Keep a Changelog，版本号遵循语义化版本。
 
+## [1.0.1] - 2026-09-26
+
+### 新增
+- 标签页图标：`assets/favicon.svg`（主图标，与顶栏徽标一致）、`favicon-32.png`、`favicon.ico`（32+16）、`apple-touch-icon.png`（180），全站 25 个页面在 `<head>` 引用。
+- `theme-color` 设为 `#1f6feb`（总线蓝）。
+
 ## [1.0.0] - 2026-09-26
 
 首版。
