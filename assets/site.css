@@ -147,17 +147,20 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 }
 .side-link { display: block; padding: 6px 10px; border-radius: 6px; color: var(--ink); font-weight: 600; }
 .side-link:hover { background: var(--panel2); text-decoration: none; }
-.side-link.is-current { background: var(--bus-soft); color: var(--bus); }
+.side-link.is-current { background: var(--bus-soft); color: var(--ink); font-weight: 700; box-shadow: inset 3px 0 0 var(--bus); border-radius: 0 6px 6px 0; }
 .side-unit { margin-top: 12px; }
 .side-unit-title { padding: 2px 10px; font-family: var(--font-head); font-size: 1.05rem; font-weight: 600; color: var(--muted); }
 .side-unit-title .unit-no { color: var(--bus); margin-right: 4px; }
+.side-unit.is-current-unit .side-unit-title { color: var(--bus); }
 .side-unit ol { list-style: none; margin: 2px 0 0; padding: 0; }
 .side-lesson {
   display: grid; grid-template-columns: 1.15rem minmax(0, 1fr); gap: 6px; align-items: start;
   padding: 5px 10px; border-radius: 6px; color: var(--ink); line-height: 1.4;
 }
 .side-lesson:hover { background: var(--panel2); text-decoration: none; }
-.side-lesson.is-current { background: var(--bus-soft); color: var(--bus); font-weight: 600; }
+.side-lesson.is-current { background: var(--bus-soft); color: var(--ink); font-weight: 700; box-shadow: inset 3px 0 0 var(--bus); border-radius: 0 6px 6px 0; }
+.side-lesson.is-current .lid, .side-lesson.is-current:hover .lid { color: var(--bus); }
+.side-lesson.is-current:not(.is-done) .check { border-color: var(--bus); border-width: 2px; }
 .side-lesson .check {
   width: 1rem; height: 1rem; margin-top: .15rem; border-radius: 50%; border: 1.5px solid var(--line);
   display: grid; place-items: center; font-size: .7rem; line-height: 1; color: transparent;

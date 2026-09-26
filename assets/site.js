@@ -499,7 +499,8 @@
     sb.setAttribute('aria-label', '课程目录');
     var s = '<nav><a class="side-link' + (currentId === 'index' ? ' is-current' : '') + '" href="index.html">◎ 系统总图首页</a>';
     CUR.units.forEach(function (u) {
-      s += '<div class="side-unit"><div class="side-unit-title"><span class="unit-no">' + esc(u.no) + '</span>' + esc(u.title) + '</div><ol>';
+      var inUnit = u.lessons.some(function (l) { return l.id === currentId; });
+      s += '<div class="side-unit' + (inUnit ? ' is-current-unit' : '') + '"><div class="side-unit-title"><span class="unit-no">' + esc(u.no) + '</span>' + esc(u.title) + '</div><ol>';
       u.lessons.forEach(function (l) {
         var cur = l.id === currentId;
         s += '<li><a class="side-lesson' + (cur ? ' is-current' : '') + '" data-done-id="' + l.id + '" href="' + href(l.id) + '"' + (cur ? ' aria-current="page"' : '') + '>' +
@@ -516,7 +517,21 @@
       document.body.appendChild(scrim);
     }
     var curLink = sb.querySelector('.is-current');
-    if (curLink && curLink.scrollIntoView) { try { curLink.scrollIntoView({ block: 'center' }); window.scrollTo(0, 0); } catch (e) { /* ignore */ } }
+    if (curLink) {
+      scrollSidebarTo(sb, curLink);
+      // 网页字体加载后行高会变，字体就绪时再对中一次
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { scrollSidebarTo(sb, curLink); });
+    }
+  }
+
+  // 只滚侧栏、不滚页面：把当前项放到侧栏可见区中部；减少动态效果时不平滑
+  function scrollSidebarTo(sb, link) {
+    try {
+      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var top = sb.scrollTop + link.getBoundingClientRect().top - sb.getBoundingClientRect().top -
+        (sb.clientHeight - link.offsetHeight) / 2;
+      sb.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+    } catch (e) { /* ignore */ }
   }
 
   function lessonLink(l, cls) {
