@@ -75,7 +75,7 @@
           <text class="ln" x="44" y="108">3</text><text x="56" y="108">sc = <tspan class="fn">ecrt_master_slave_config</tspan>(master, 0, 0, VID, PID);</text>
           <text class="ln" x="44" y="130">4</text><text x="56" y="130"><tspan class="fn">ecrt_slave_config_pdos</tspan>(sc, EC_END, syncs);</text>
           <text class="ln" x="44" y="152">5</text><text x="56" y="152"><tspan class="fn">ecrt_domain_reg_pdo_entry_list</tspan>(domain, regs);</text>
-          <text class="ln" x="44" y="174">6</text><text x="56" y="174"><tspan class="fn">ecrt_slave_config_dc</tspan>(sc, 0x0300, PERIOD_NS, 0, 0, 0);</text>
+          <text class="ln" x="44" y="174">6</text><text x="56" y="174"><tspan class="fn">ecrt_slave_config_dc</tspan>(sc, 0x0300, PERIOD_NS, PERIOD_NS/2, 0, 0);</text>
           <text class="ln" x="44" y="196">7</text><text x="56" y="196"><tspan class="fn">ecrt_master_activate</tspan>(master);</text>
           <text class="ln" x="44" y="218">8</text><text x="56" y="218">pd = <tspan class="fn">ecrt_domain_data</tspan>(domain);</text>
           <text class="ln" x="44" y="240">9</text><text x="56" y="240"><tspan class="kw">while</tspan> (run) {</text>
@@ -373,7 +373,7 @@ int main(void)
     if (ecrt_slave_config_sdo8(sc, 0x6060, 0, 8)) return 1;      /* PREOP 时写 6060 = 8（CSP） */
     if (ecrt_domain_reg_pdo_entry_list(domain, regs)) return 1;
     /* 0x0300：启用 SYNC0 的常见 AssignActivate 值，以该从站 ESI 的 &lt;AssignActivate&gt; 为准 */
-    ecrt_slave_config_dc(sc, 0x0300, PERIOD_NS, 0, 0, 0);
+    ecrt_slave_config_dc(sc, 0x0300, PERIOD_NS, PERIOD_NS / 2, 0, 0);   /* sync0_shift 半周期：余量见 u4-l2 */
 
     clock_gettime(CLOCK_MONOTONIC, &amp;wake);
     ecrt_master_application_time(master, ts_ns(&amp;wake));        /* 激活前先给一次应用时间 */

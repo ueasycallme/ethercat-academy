@@ -220,6 +220,7 @@ Attached、State</td></tr>
         <tr><td>ETG.5001</td><td>模块化设备行规（MDP）</td><td><a href="u3-l0.html">u3-l0</a></td></tr>
         <tr><td>CiA 301</td><td>CANopen 应用层：对象字典、SDO、PDO 映射、通信对象 0x1000 段</td><td><a href="u3-l0.html">u3-l0</a> · <a href="u3-l2.html">u3-l2</a> · <a href="u3-l3.html">u3-l3</a></td></tr>
         <tr><td>CiA 402（IEC 61800-7）</td><td>驱动器行规：状态机、6040/6041、运行模式、0x6000 段对象</td><td><a href="u5-l1.html">u5-l1</a> · <a href="u5-l2.html">u5-l2</a> · <a href="u5-l3.html">u5-l3</a></td></tr>
+        <tr><td>ETG.6010</td><td>CiA402 实施指南：EtherCAT 上实现 CiA 402 驱动器的建议与约定</td><td>U5：<a href="u5-l1.html">u5-l1</a> · <a href="u5-l2.html">u5-l2</a> · <a href="u5-l3.html">u5-l3</a></td></tr>
         <tr><td>ESC 芯片手册</td><td>Beckhoff ESC 数据手册（ET1100 等）、Microchip LAN9252 数据手册：寄存器与引脚</td><td><a href="u2-l1.html">u2-l1</a> · <a href="u2-l2.html">u2-l2</a> · <a href="u2-l3.html">u2-l3</a> · <a href="u4-l1.html">u4-l1</a></td></tr>
         <tr><td>IgH 主站手册</td><td>IgH EtherCAT Master 1.5 文档：架构、ecrt_* API、ethercat 命令</td><td><a href="u6-l1.html">u6-l1</a> · <a href="u7-l1.html">u7-l1</a></td></tr>
         <tr><td>SSC 文档</td><td>ETG Slave Stack Code（ET9300）及其应用说明</td><td><a href="u6-l2.html">u6-l2</a></td></tr>
@@ -274,7 +275,7 @@ ecat.cnt == 0</code></pre>
         <tr><td>slaves</td><td>全部 OP 且为 +</td><td>E 表示该从站置了 AL 错误位</td></tr>
         <tr><td>0x0130</td><td>0x08 0x00</td><td>低 4 位 8 = OP，bit4 = 0 无错</td></tr>
         <tr><td>0x0134</td><td>0x00 0x00</td><td>无 AL 错误码</td></tr>
-        <tr><td>domains: WorkingCounter</td><td>当前 = 期望</td><td>IgH 期望值：每台有输出 +2，有输入 +1</td></tr>
+        <tr><td>domains: WorkingCounter</td><td>当前 = 期望</td><td>IgH 期望值：每台有输出 +2，有输入 +1。此规则针对同时含输入输出的域（LRW）；纯输出域 IgH 改用 LWR，每台只加 1；纯输入域用 LRD，每台加 1。</td></tr>
         <tr><td>0x6041</td><td>低位匹配 0x0027（掩码 0x006F）</td><td>Operation Enabled</td></tr>
         <tr><td>0x0300–0x0307</td><td>全 0 或长期不增长</td><td>持续增长查网线、屏蔽、接头</td></tr>
         <tr><td>Wireshark ecat.cnt == 0</td><td>周期 LRW 不应出现</td><td>出现说明整段逻辑地址没有从站处理</td></tr>

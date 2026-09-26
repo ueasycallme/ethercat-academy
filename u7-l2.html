@@ -201,7 +201,7 @@
       <div class="table-wrap"><table>
         <tr><th>现象</th><td><code>ethercat domains</code> 稳定显示 <code>WorkingCounter 5/6</code>，<code>ecrt_domain_state</code> 报 WC 不完整。</td></tr>
         <tr><th>先看哪里</th><td><code>ethercat slaves</code> 各台状态；<code>ethercat domains -v</code> 看每段 FMMU 属于哪台从站；<code>ethercat config</code>。</td></tr>
-        <tr><th>推理</th><td>IgH 的期望 WKC 按每台从站"有输出 +2、有输入 +1"累加；少 1 意味着某一段输入没被计数，少 2 是一段输出，少 3 是一整台读写都没发生。从站不在 SAFEOP/OP、过程数据 SM 未启用或从站掉线时，ESC 就不会为这段逻辑地址加 WKC。</td></tr>
+        <tr><th>推理</th><td>IgH 的期望 WKC 按每台从站"有输出 +2、有输入 +1"累加；少 1 意味着某一段输入没被计数，少 2 是一段输出，少 3 是一整台读写都没发生。此规则针对同时含输入输出的域（LRW）；纯输出域 IgH 改用 LWR，每台只加 1；纯输入域用 LRD，每台加 1。从站不在 SAFEOP/OP、过程数据 SM 未启用或从站掉线时，ESC 就不会为这段逻辑地址加 WKC。</td></tr>
         <tr><th>修复</th><td>找到那台从站，按案例 1、2 让它回到 OP；拓扑变化（掉站、多出一台）也会改变实际 WKC，要同步改配置。</td></tr>
         <tr><th>关联课</th><td><a href="u1-l3.html">u1-l3</a> · <a href="u2-l3.html">u2-l3</a></td></tr>
       </table></div>

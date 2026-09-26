@@ -161,7 +161,7 @@
         <tr><td>Fault 故障</td><td><code>x0xx 1000</code></td><td><code>0x004F</code></td><td><code>0x0008</code></td><td>驱动功能关闭</td></tr>
       </table>
     </div>
-    <p>另外两位常被问到：bit4 Voltage enabled = 1 表示高压（直流母线）已加到驱动器，它不参与状态判定；bit9 Remote = 1 表示控制字正在被执行，为 0 时驱动器处于本地控制（例如被调试软件接管），主站写 6040 不起作用。bit7 Warning 是警告不是故障，bit8、bit14、bit15 为厂商定义，bit10–13 的含义随运行模式变化（见 u5-l2）。</p>
+    <p>另外两位常被问到：bit4 Voltage enabled = 1 表示高压（直流母线）已加到驱动器，它不参与状态判定；bit9 Remote = 1 表示控制字正在被执行，为 0 时驱动器处于本地控制（例如被调试软件接管），主站写 6040 不起作用。bit7 Warning 是警告不是故障，bit8、bit14、bit15 为厂商定义，bit10 到位、bit11 内部限幅为通用位，bit12–13 随模式变化（见 u5-l2）。</p>
 
     <h3>十七个转换编号</h3>
     <p>转换 0、1、13、14 由驱动器自己触发，12 在停车完成后也可自动发生，其余都由主站写 6040 触发。同一条命令在不同状态下对应不同转换，例如 Shutdown 可以是 2、6 或 8。</p>
@@ -288,11 +288,11 @@ ethercat upload   -p0 0x6041 0 --type uint16</code></pre>
         <tr><td>6041 上电后</td><td><code>0x0250</code> 或 <code>0x0240</code></td><td>禁止接通；bit4 取决于母线是否有电</td></tr>
         <tr><td>6041 写 0x0006 后</td><td><code>0x0231</code></td><td>准备接通</td></tr>
         <tr><td>6041 写 0x0007 后</td><td><code>0x0233</code></td><td>已接通</td></tr>
-        <tr><td>6041 写 0x000F 后</td><td><code>0x0237</code></td><td>运行使能；bit10–13 会随模式置位（如 <code>0x1637</code>），只看掩码结果</td></tr>
+        <tr><td>6041 写 0x000F 后</td><td><code>0x0237</code></td><td>运行使能；bit10、bit11 会随工况置位，bit12–13 随模式置位（如 <code>0x1637</code>），只看掩码结果</td></tr>
         <tr><td>6041 故障时</td><td><code>0x0218</code> 或 <code>0x0238</code></td><td>故障；bit5 在故障状态不参与判定</td></tr>
       </table>
     </div>
-    <p class="note">高位（bit8、bit14、bit15 厂商位，bit10–13 模式相关位）因厂商和模式而异，表中只保证低 7 位的判定结论。</p>
+    <p class="note">高位（bit8、bit14、bit15 厂商位，bit10–11 通用位与 bit12–13 模式相关位）因厂商和模式而异，表中只保证低 7 位的判定结论。</p>
   </section>
 
   <section class="lesson-block lesson-quiz" id="quiz">
@@ -311,7 +311,7 @@ ethercat upload   -p0 0x6041 0 --type uint16</code></pre>
   <section class="lesson-block lesson-next" id="next">
     <h2>误区与关联</h2>
     <ul class="pitfalls">
-      <li><strong>误区：</strong>用 <code>sw == 0x0237</code> 判断是否已使能。<br><strong>实际上：</strong>bit7 警告、bit9 远程、bit10–13 模式位、厂商位都会变，必须 <code>(sw &amp; 0x006F) == 0x0027</code>。</li>
+      <li><strong>误区：</strong>用 <code>sw == 0x0237</code> 判断是否已使能。<br><strong>实际上：</strong>bit7 警告、bit9 远程、bit10 到位、bit11 内部限幅、bit12–13 模式位、厂商位都会变，必须 <code>(sw &amp; 0x006F) == 0x0027</code>。</li>
       <li><strong>误区：</strong>想省事直接从禁止接通写 <code>0x000F</code>。<br><strong>实际上：</strong>标准状态机只允许逐级转换，禁止接通必须先收到 Shutdown，否则原地不动；主站程序要每周期看 6041 再决定下一条命令。</li>
       <li><strong>误区：</strong><code>ethercat slaves</code> 显示 OP，电机就该能动了。<br><strong>实际上：</strong>OP 只说明 ESM 允许输出过程数据，CiA402 状态机还得靠 6040 一步步走到运行使能。</li>
     </ul>

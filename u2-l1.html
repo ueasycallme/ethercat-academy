@@ -267,7 +267,7 @@
       <div class="duo-col duo-master">
         <h3>主站做什么</h3>
         <ul>
-          <li>扫描：广播读（BRD）0x0000，WKC 就是在线从站数。</li>
+          <li>扫描：广播读一个寄存器数 WKC（IgH 读 0x0130，SOEM 读 0x0000），WKC 就是在线从站数。</li>
           <li>用自增寻址（APWR）给每台写 0x0010 站地址，此后都用 FPRD/FPWR。</li>
           <li>读 0x0000–0x0007 了解每台 ESC 有几个 FMMU、几个 SM、多大 RAM。</li>
           <li>写 0x0120 请求状态，再轮询 0x0130；不一致时读 0x0134 取原因。</li>

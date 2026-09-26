@@ -115,7 +115,7 @@
           <rect class="box-mail" x="584" y="192" width="180" height="34" rx="4"/>
           <text class="t-small t-mid" x="674" y="214">CoE / SDO 服务</text>
           <rect id="u62-b-od" class="box-mail" x="584" y="236" width="180" height="34" rx="4"/>
-          <text class="t-small t-mid" x="674" y="258">对象字典 objdef.c</text>
+          <text class="t-small t-mid" x="674" y="258">对象字典（objdef.h 等）</text>
           <rect class="box-bus" x="584" y="290" width="180" height="34" rx="4"/>
           <text class="t-small t-mid" x="674" y="312">过程数据 ecatappl.c</text>
         </g>
@@ -176,7 +176,7 @@
       <table>
         <tr><th>层</th><th>典型文件（以 SSC 版本与芯片为准）</th><th>职责</th></tr>
         <tr><td>ESC 驱动层（硬件抽象）</td><td>芯片相关的 *hw.c，如 el9800hw.c；LAN9252 由 Microchip 提供对应 HAL</td><td>HW_Init、HW_EscRead/HW_EscWrite、读 AL 事件寄存器、开关中断；PDI 可以是 SPI、并行总线或片上（如 ESC 集成在 MCU 内）</td></tr>
-        <tr><td>协议层</td><td>ecatslv.c、mailbox.c、coeappl.c、sdoserv.c、objdef.c、ecatappl.c</td><td>ESM 转换与检查（SM 配置、同步类型）、邮箱收发、CoE SDO 服务、对象字典、过程数据拷贝、看门狗处理</td></tr>
+        <tr><td>协议层</td><td>ecatslv.c、mailbox.c、coeappl.c、sdoserv.c、ecatappl.c，对象字典在 objdef.h、coeappl.c 及 SSC Tool 生成的对象文件里</td><td>ESM 转换与检查（SM 配置、同步类型）、邮箱收发、CoE SDO 服务、对象字典、过程数据拷贝、看门狗处理</td></tr>
         <tr><td>应用层</td><td>SSC Tool 生成的 <code>&lt;工程名&gt;.c</code> 及对象定义头文件</td><td>APPL_* 回调：状态转换钩子、输入输出映射、控制算法</td></tr>
       </table>
     </div>

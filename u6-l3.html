@@ -80,7 +80,9 @@
         <g id="u63-g-pos" class="is-dim">
           <rect id="u63-pos" class="box-drive" x="250" y="100" width="120" height="60" rx="6"/>
           <text class="t-small t-bold t-mid" x="310" y="124">位置环 P</text>
-          <text class="t-small t-mid t-mono" x="310" y="145">607A − 6064</text>
+          <text class="t-small t-mid t-mono" x="310" y="145">6062 − 6064</text>
+          <text class="t-small t-mid t-mono" x="310" y="68">607A → 6062</text>
+          <text class="t-small t-mid t-muted" x="310" y="86">经内部插补/轨迹生成</text>
         </g>
         <g id="u63-a-pv" class="is-hidden">
           <line class="u63-arrow" x1="370" y1="130" x2="400" y2="130"/>
@@ -173,7 +175,7 @@
     <div class="table-wrap">
       <table>
         <tr><th>环</th><th>输入</th><th>输出</th><th>典型周期</th><th>主站从这里切入的模式</th></tr>
-        <tr><td>位置环</td><td>607A 目标位置 − 6064 实际位置</td><td>速度指令</td><td>1 ms（常与总线同）</td><td>CSP（6060 = 8）</td></tr>
+        <tr><td>位置环</td><td>6062 位置指令（由 607A 得出）− 6064 实际位置</td><td>速度指令</td><td>1 ms（常与总线同）</td><td>CSP（6060 = 8）</td></tr>
         <tr><td>速度环</td><td>速度指令 − 实际速度</td><td>电流指令 iq*</td><td>250 µs 左右</td><td>CSV（60FF，6060 = 9）</td></tr>
         <tr><td>电流环</td><td>iq* − iq，id* − id</td><td>电压指令 → PWM 占空比</td><td>50–100 µs（10–20 kHz）</td><td>CST（6071，6060 = 10）</td></tr>
       </table>
@@ -223,12 +225,13 @@
     </div>
 
     <h3>插补与跟随误差</h3>
-    <p>CSP 下驱动器只跟踪、不规划，所以主站每周期给的点必须是电机在一个周期里走得到的：相邻两点之差不能超过"最大速度 × 周期"。例如 20 位编码器（1 048 576 counts/圈）、3000 rpm、1 ms 周期，每周期最多约 52 429 counts（假设 6091/6092 为 1:1）。给得太远，60F4 跟随误差瞬间变大，超过 6065 窗口并持续 6066 时间就报错。</p>
+    <p>CSP 下驱动器只跟踪、不规划，所以主站每周期给的点必须是电机在一个周期里走得到的：相邻两点之差不能超过"最大速度 × 周期"。例如 20 位编码器（1 048 576 counts/圈）、3000 rpm、1 ms 周期，每周期最多约 52 429 counts（假设 6091/6092 为 1:1）。给得太远，跟随误差 60F4 = 6062 位置指令值 − 6064 位置实际值 瞬间变大，超过 6065 窗口并持续 6066 时间就报错。6062 是驱动器由 607A 经插补/轨迹生成得到的内部指令，未做细插补时 6062 与 607A 每周期相同。</p>
     <div class="table-wrap">
       <table>
         <tr><th>对象</th><th>名称</th><th>类型</th><th>单位 / 说明</th></tr>
         <tr><td><code>0x6064</code></td><td>Position actual value</td><td>INTEGER32</td><td>位置单位</td></tr>
-        <tr><td><code>0x60F4</code></td><td>Following error actual value</td><td>INTEGER32</td><td>位置单位；当前跟随误差</td></tr>
+        <tr><td><code>0x6062</code></td><td>Position demand value</td><td>INTEGER32</td><td>位置单位；驱动器内部位置指令，由 607A 经插补/轨迹生成得到，未做细插补时每周期与 607A 相同</td></tr>
+        <tr><td><code>0x60F4</code></td><td>Following error actual value</td><td>INTEGER32</td><td>位置单位；= 6062 − 6064</td></tr>
         <tr><td><code>0x6065</code></td><td>Following error window</td><td>UNSIGNED32</td><td>位置单位（用户单位，默认常为编码器 counts，经 6091/6092 换算，以厂商为准）；0xFFFFFFFF 表示关闭跟随误差监视</td></tr>
         <tr><td><code>0x6066</code></td><td>Following error time out</td><td>UNSIGNED16</td><td>ms；误差超窗口持续这么久才判定</td></tr>
         <tr><td><code>0x606C</code></td><td>Velocity actual value</td><td>INTEGER32</td><td>速度单位，因厂商而异（常见 counts/s 或 0.1 rpm 等）</td></tr>
@@ -256,7 +259,7 @@
         <ul>
           <li>SYNC0 时刻取新 607A，必要时在两个点之间细插补（因厂商而异）。</li>
           <li>位置环 → 速度环 → 电流环（FOC）→ PWM，逐层闭环。</li>
-          <li>读编码器更新 6064、606C，算 60F4。</li>
+          <li>读编码器更新 6064、606C，算 60F4 = 6062 − 6064。</li>
           <li>|60F4| 超过 6065 并持续 6066：置 6041 bit13，按厂商策略报故障或停车。</li>
         </ul>
       </div>
@@ -269,7 +272,8 @@
     <pre><code>ethercat upload -p0 0x6065 0 --type uint32   # 跟随误差窗口
 ethercat upload -p0 0x6066 0 --type uint16   # 超时 ms
 ethercat upload -p0 0x606C 0 --type int32    # 实际速度
-ethercat upload -p0 0x60F4 0 --type int32    # 当前跟随误差
+ethercat upload -p0 0x6062 0 --type int32    # 位置指令值
+ethercat upload -p0 0x60F4 0 --type int32    # 跟随误差 = 6062 − 6064
 ethercat upload -p0 0x6091 1 --type uint32   # 齿轮比 分子
 ethercat upload -p0 0x6091 2 --type uint32   # 齿轮比 分母
 ethercat upload -p0 0x6092 1 --type uint32   # 导程常数 进给
@@ -281,7 +285,7 @@ ethercat upload -p0 0x6092 2 --type uint32   # 导程常数 转数</code></pre>
         <tr><td>0x6066</td><td>几 ms 到几十 ms</td><td>厂商默认值差异大</td></tr>
         <tr><td>0x606C（静止）</td><td>约 0，有少量噪声</td><td>单位因厂商而异</td></tr>
         <tr><td>0x606C（匀速）</td><td>≈ 每周期增量 ÷ 周期</td><td>如每 1 ms 增 1000 counts，速度约 1 000 000 counts/s（单位若为 counts/s）</td></tr>
-        <tr><td>0x60F4（匀速）</td><td>|值| 远小于 6065</td><td>接近窗口说明增益不足或指令不可达</td></tr>
+        <tr><td>0x60F4（匀速）</td><td>|6062 − 6064| 远小于 6065</td><td>接近窗口说明增益不足或指令不可达</td></tr>
         <tr><td>0x6091 / 0x6092</td><td>常为 1 / 1</td><td>非 1:1 时 6065、607A 的单位不再是 counts</td></tr>
       </table>
     </div>
@@ -322,7 +326,7 @@ ethercat upload -p0 0x6092 2 --type uint32   # 导程常数 转数</code></pre>
 (function () {
   Academy.stepper(document.querySelector('#anim'), [
     { title: '初始画面', text: '左边主站每周期算一个点写进 607A；右边驱动器里各环暂时淡化。', apply: function () {} },
-    { title: '607A 进位置环', text: '新 607A 随周期帧到达，位置环用它减去实际位置 6064 得到位置误差。',
+    { title: '607A 进位置环', text: '新 607A 随周期帧到达，驱动器由它得出位置指令 6062，位置环用 6062 减去实际位置 6064 得到跟随误差。',
       apply: function (svg) { Academy.fx(svg).show('u63-a-cmd').undim('u63-g-pos'); } },
     { title: '速度指令进速度环', text: '位置环输出速度指令，速度环用它减去实际速度。',
       apply: function (svg) { Academy.fx(svg).show('u63-a-pv').undim('u63-g-vel'); } },

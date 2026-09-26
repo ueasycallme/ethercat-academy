@@ -88,21 +88,21 @@
 <text class="t-title" x="222" y="188">从站 1</text>
 <text id="l3-s1-inc" class="t-big t-bold t-bus t-end t-mono" x="378" y="190"></text>
 <text class="t-small t-muted" x="222" y="212">位置 0</text>
-<text class="t-small t-mono" x="222" y="232">站地址 0x1001</text>
+<text class="t-small t-mono" x="222" y="232">站地址 0x0001</text>
 <text id="l3-s1-a" class="t-small" x="222" y="272"></text>
 <text id="l3-s1-b" class="t-small t-bold" x="222" y="294"></text></g>
 <g id="l3-s2"><rect id="l3-s2-box" class="box-drive" x="470" y="160" width="180" height="160" rx="8"/>
 <text class="t-title" x="482" y="188">从站 2</text>
 <text id="l3-s2-inc" class="t-big t-bold t-bus t-end t-mono" x="638" y="190"></text>
 <text class="t-small t-muted" x="482" y="212">位置 1</text>
-<text class="t-small t-mono" x="482" y="232">站地址 0x1002</text>
+<text class="t-small t-mono" x="482" y="232">站地址 0x0002</text>
 <text id="l3-s2-a" class="t-small" x="482" y="272"></text>
 <text id="l3-s2-b" class="t-small t-bold" x="482" y="294"></text></g>
 <g id="l3-s3"><rect id="l3-s3-box" class="box-drive" x="730" y="160" width="180" height="160" rx="8"/>
 <text class="t-title" x="742" y="188">从站 3</text>
 <text id="l3-s3-inc" class="t-big t-bold t-bus t-end t-mono" x="898" y="190"></text>
 <text class="t-small t-muted" x="742" y="212">位置 2</text>
-<text class="t-small t-mono" x="742" y="232">站地址 0x1003</text>
+<text class="t-small t-mono" x="742" y="232">站地址 0x0003</text>
 <text id="l3-s3-a" class="t-small" x="742" y="272"></text>
 <text id="l3-s3-b" class="t-small t-bold" x="742" y="294"></text></g>
 <g id="l3-otf" class="is-hidden"><rect class="box" x="160" y="336" width="740" height="98" rx="8"/>
@@ -175,7 +175,7 @@
     </div>
 
     <h3>期望 WKC 怎么算</h3>
-    <p>周期 LRW 的期望值按每台从站在这个数据报里的映射逐台加：有输出（被写）加 2，有输入（被读）加 1。IgH 自动为每个域算好这个数，并在每周期比较。</p>
+    <p>周期 LRW 的期望值按每台从站在这个数据报里的映射逐台加：有输出（被写）加 2，有输入（被读）加 1。IgH 自动为每个域算好这个数，并在每周期比较。此规则针对同时含输入输出的域（LRW）；纯输出域 IgH 改用 LWR，每台只加 1；纯输入域用 LRD，每台加 1。</p>
     <div class="table-wrap">
       <table>
         <tr><th>从站</th><th>映射</th><th>贡献</th></tr>
@@ -218,7 +218,7 @@ dmesg | grep -i "working counter"              # WKC 变化时 IgH 会打日志<
     <div class="table-wrap">
       <table class="expect">
         <tr><th>读数</th><th>期望值</th><th>说明</th></tr>
-        <tr><td>0x0010</td><td>非 0，各台互不相同</td><td>站地址由主站分配，具体数值按主站实现而定</td></tr>
+        <tr><td>0x0010</td><td>非 0，各台互不相同</td><td>站地址由主站分配：IgH 扫描时设为位置号 + 1，即 1、2、3…；其他主站可能不同</td></tr>
         <tr><td>WorkingCounter</td><td>6/6（按你的映射）</td><td>斜杠左边是最近一次实际值，右边是期望值</td></tr>
         <tr><td>期望值</td><td>Σ（有输出 2 + 有输入 1）</td><td>按上面的表逐台加，核对 IgH 算的数</td></tr>
         <tr><td>实际 &lt; 期望</td><td>例如 4/6</td><td>有从站没参与交换：掉线、没到 SAFEOP/OP、或映射不对；先看 <code>ethercat slaves</code></td></tr>
@@ -267,7 +267,7 @@ dmesg | grep -i "working counter"              # WKC 变化时 IgH 会打日志<
   }
   var S = ['l3-s1-box', 'l3-s2-box', 'l3-s3-box'];
   Academy.stepper(document.querySelector('#anim'), [
-    { title: '三台从站', text: '每台有位置号（接线顺序）和主站写入的站地址（这里的 0x1001… 是示例值）。', apply: function () {} },
+    { title: '三台从站', text: '每台有位置号（接线顺序）和主站写入的站地址（IgH 扫描时设为位置号 + 1，即 0x0001、0x0002、0x0003；其他主站可能不同）。', apply: function () {} },
     { title: 'APRD：按位置发出', text: '主站发 APRD，ADP = 0x0000 表示"位置 0"，ADO = 0x0130 是 AL 状态寄存器。', apply: function (svg) {
       card(Academy.fx(svg), 'APRD (0x01)', 'ADP 0x0000 · ADO 0x0130', '2 B 待填', '0');
     } },
@@ -276,10 +276,10 @@ dmesg | grep -i "working counter"              # WKC 变化时 IgH 会打日志<
       notes(f, [['收到 ADP 0x0000', '= 0 → 命中，读', '+1'], ['收到 ADP 0x0001', '≠ 0 → 跳过', ''], ['收到 ADP 0x0002', '≠ 0 → 跳过', '']]);
       f.text('l3-data', '从站 1 的 AL 状态').text('l3-wkc', '1');
     } },
-    { title: 'FPRD：按站地址匹配', text: 'ADP 换成站地址 0x1002；只有 0x0010 寄存器等于它的从站 2 命中，WKC = 1。', apply: function (svg) {
+    { title: 'FPRD：按站地址匹配', text: 'ADP 换成站地址 0x0002；只有 0x0010 寄存器等于它的从站 2 命中，WKC = 1。', apply: function (svg) {
       var f = Academy.fx(svg).cool(S).hot('l3-s2-box');
-      card(f, 'FPRD (0x04)', 'ADP 0x1002 · ADO 0x0130', '从站 2 的 AL 状态', '1');
-      notes(f, [['0x1002 ≠ 本站 0x1001', '跳过', ''], ['0x1002 = 本站地址', '命中，读', '+1'], ['0x1002 ≠ 本站 0x1003', '跳过', '']]);
+      card(f, 'FPRD (0x04)', 'ADP 0x0002 · ADO 0x0130', '从站 2 的 AL 状态', '1');
+      notes(f, [['0x0002 ≠ 本站 0x0001', '跳过', ''], ['0x0002 = 本站地址', '命中，读', '+1'], ['0x0002 ≠ 本站 0x0003', '跳过', '']]);
     } },
     { title: 'BRD：人人都处理', text: '广播读每台都命中，各自把值按位或进数据并 +1，WKC 累加到 3。', apply: function (svg) {
       var f = Academy.fx(svg).cool(S).hot(S);
