@@ -257,7 +257,7 @@
 <tr data-cat="对象"><td><code>0x6098</code></td><td>Homing Method</td><td>回零方法号，如 17 负限位开关、35 当前位置为原点。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
 <tr data-cat="对象"><td><code>0x6099</code></td><td>Homing Speeds</td><td>回零速度：:01 找开关速度、:02 找零点速度。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
 <tr data-cat="对象"><td><code>0x609A</code></td><td>Homing Acceleration</td><td>回零加速度。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
-<tr data-cat="对象"><td><code>0x607C</code></td><td>Home Offset</td><td>原点偏移：回零完成后 6064 取这个值。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x607C</code></td><td>Home Offset</td><td>原点偏移。标准原义：应用零点 = 回零找到的机械原点 + 607C，即停在机械原点时 6064 = −607C；不少驱动器实现为 6064 = 607C，以手册为准。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
 <tr data-cat="对象"><td><code>0x60B8</code></td><td>Touch Probe Function</td><td>探针功能字：bit0 使能探针 1、bit1 单次/连续、bit2 触发源、bit4/bit5 正/负沿；bit8–13 探针 2。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
 <tr data-cat="对象"><td><code>0x60B9</code></td><td>Touch Probe Status</td><td>探针状态字：bit0 已使能、bit1 正沿已锁存、bit2 负沿已锁存；bit8–10 探针 2。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
 <tr data-cat="对象"><td><code>0x60BA</code></td><td>Touch Probe 1 Positive Edge</td><td>探针 1 正沿锁存的位置。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>

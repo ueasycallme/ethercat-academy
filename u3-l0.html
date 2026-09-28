@@ -449,7 +449,7 @@
   {"i":"0x606C","n":"实际速度","en":"Velocity actual value","a":"profile","ot":"VAR","dt":"INT32","acc":"ro","pdo":"可映射进 TxPDO","val":"单位：速度单位","note":"","les":["u6-l3"]},
   {"i":"0x6072","n":"最大转矩","en":"Max torque","a":"profile","ot":"VAR","dt":"UINT16","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：额定转矩（6076）的千分比，1000 = 100 %","note":"转矩层限制；与 60E0/60E1 同时存在时如何取值因厂商而异。","les":["u5-l4","u6-l3"]},
   {"i":"0x607A","n":"目标位置","en":"Target position","a":"profile","ot":"VAR","dt":"INT32","acc":"rw","pdo":"可映射进 RxPDO","val":"单位：位置单位；CSP 下每周期一个点","note":"","les":["u3-l3","u5-l2","u6-l3"]},
-  {"i":"0x607C","n":"原点偏移","en":"Home offset","a":"profile","ot":"VAR","dt":"INT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：位置单位；回零完成后 6064 = 回零方法定义的零点 + 607C","note":"","les":["u5-l4"]},
+  {"i":"0x607C","n":"原点偏移","en":"Home offset","a":"profile","ot":"VAR","dt":"INT32","acc":"因厂商而异","pdo":"因厂商而异","val":"标准原义：应用零点 = 回零找到的机械原点 + 607C，即停在机械原点时 6064 = −607C；不少驱动器实现为 6064 = 607C，以手册为准","note":"","les":["u5-l4"]},
   {"i":"0x607D","n":"软件限位","en":"Software position limit","a":"profile","ot":"ARRAY","dt":"INT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：位置单位；超出限位的目标被裁剪或拒绝，行为因厂商而异","subs":[[":00","最大子索引 = 2","UINT8"],[":01","最小位置限位","INT32"],[":02","最大位置限位","INT32"]],"note":"应设在硬限位开关（60FD bit0/bit1）之内。","les":["u5-l4"]},
   {"i":"0x607F","n":"最大轮廓速度","en":"Max profile velocity","a":"profile","ot":"VAR","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：速度单位；轮廓运动的指令速度被限幅到此值","note":"速度层限制。","les":["u5-l4","u5-l2"]},
   {"i":"0x6081","n":"轮廓速度","en":"Profile velocity","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：速度单位；PP 模式的巡航速度","note":"","les":["u5-l2"]},
