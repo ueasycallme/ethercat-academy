@@ -187,6 +187,7 @@
 
     <h3>控制字节：模式位和方向位</h3>
     <p>bit1–0 选模式：00 缓冲（三缓冲），10 邮箱（单缓冲）。bit3–2 选方向：00 主站读、固件写，01 主站写、固件读。bit5 让事件进 AL Event 请求寄存器（给固件发中断），bit6 让写入去触发过程数据看门狗。</p>
+    <p>四个 SM 的名字全部按主站视角：写邮箱、输出是主站→从站，读邮箱、输入是从站→主站；ESI 的 MBoxOut/MBoxIn 同样是主站视角，只有 SII 的 Receive/Send Mailbox 是从站视角（<a href="#next">见文末误区</a>）。</p>
     <div class="table-wrap">
       <table>
         <tr><th>惯例</th><th>控制字节</th><th>bit1–0 模式</th><th>bit3–2 方向</th><th>bit5 AL 事件</th><th>bit6 看门狗</th><th>用途</th></tr>
@@ -237,7 +238,7 @@
     <p>前面把邮箱和三缓冲分开讲了，这里把它们放进同一台从站、连续两帧：帧 1 在 0 ms，帧 2 在 1 ms，每一步只发生一个事件，右侧面板同步显示四个 SM 状态字节和 0x0220 AL 事件请求。共 19 个画面，前 10 个是帧 1，后 9 个是帧 2，点条上的段标签可直接跳到帧 2。</p>
     <p class="note">寄存器位以 ET1100 数据手册为准；时间数值为典型值。图分四块：时间标尺、网线、ESC 芯片（处理单元 / DPRAM / 寄存器）、从站 MCU，发光描边的框就是本步动作所在的域，说明标题里的 [ ] 也写明了。面板里蓝色粗体是本步刚变化（或刚被读）的格子，"—"表示保留或本节不演示；DPRAM 块的底色只表示状态：灰 = 空闲，粗字 = 最新，虚线框 = 正被访问，紫 = 邮箱满。</p>
     <div class="anim-stage" id="u22-ch-stage">
-      <svg viewBox="0 0 960 626" role="img" aria-label="一帧过四个通道，按域分区：最上一行是 0 到 2 ms 时间标尺；中间左右两侧是网线域，帧从 Port 0 进、Port 1 出；ESC 芯片框内分处理单元、DPRAM（SM0、SM1 各一块，SM2、SM3 各三块）和寄存器（SM 状态字节与 0x0220 AL 事件请求）；底部经 PDI 连到从站 MCU">
+      <svg viewBox="0 0 960 658" role="img" aria-label="一帧过四个通道，按域分区：最上一行是 0 到 2 ms 时间标尺；中间左右两侧是网线域，帧从 Port 0 进、Port 1 出；ESC 芯片框内分处理单元、DPRAM（SM0、SM1 各一块，SM2、SM3 各三块）和寄存器（SM 状态字节与 0x0220 AL 事件请求）；底部经 PDI 连到从站 MCU">
         <!-- 时间标尺（单独一行，不属于任何域） -->
         <text class="t-small t-bold" x="20" y="16">时间（不按比例；数值为典型值）</text>
         <text class="t-small t-muted t-end" x="940" y="16">一帧 100 B ≈ 8 µs（100 Mbit/s 每字节 80 ns）</text>
@@ -276,7 +277,7 @@
         <text class="t-small" x="858" y="208">Port 1 出线</text>
 
         <!-- 域：ESC 芯片 -->
-        <rect id="u22-dom-esc" class="box-muted" x="120" y="112" width="720" height="404" rx="10"/>
+        <rect id="u22-dom-esc" class="box-muted" x="120" y="112" width="720" height="436" rx="10"/>
         <text class="t-small t-bold" x="132" y="129">ESC 芯片</text>
 
         <!-- ESC · 处理单元 -->
@@ -289,7 +290,7 @@
         <text id="u22-c-stale" class="t-small t-fault is-hidden" x="704" y="209">WKC 完整 ≠ 数据新鲜</text>
 
         <!-- ESC · DPRAM -->
-        <rect id="u22-dom-dpram" class="box is-hot" x="132" y="224" width="404" height="284" rx="6"/>
+        <rect id="u22-dom-dpram" class="box is-hot" x="132" y="224" width="404" height="316" rx="6"/>
         <text class="t-small t-bold" x="142" y="241">DPRAM（SM 起始地址为示例）</text>
 
         <text class="t-small t-bold" x="142" y="266">SM0 · 写邮箱</text>
@@ -327,11 +328,13 @@
         <text id="u22-c-s3-0-t" class="t-small t-mid t-bold" x="283" y="462">最新 Tx4</text>
         <text id="u22-c-s3-1-t" class="t-small t-mid" x="383" y="462">空闲</text>
         <text id="u22-c-s3-2-t" class="t-small t-mid" x="483" y="462">空闲</text>
-        <text class="t-small t-muted" x="142" y="488">虚线框 = 正被访问（字上写明主站还是 PDI）；</text>
-        <text class="t-small t-muted" x="142" y="503"><tspan class="t-mail t-bold">紫色箭头</tspan> = 经 FMMU 映射，<tspan class="t-bus t-bold">蓝色箭头</tspan> = 直达物理地址</text>
+        <text class="t-small t-muted" x="142" y="490">写/读、输出/输入均为主站视角：</text>
+        <text class="t-small t-muted" x="142" y="505">写、输出 = 主站→从站，读、输入 = 从站→主站</text>
+        <text class="t-small t-muted" x="142" y="520">虚线框 = 正被访问（字上写明主站还是 PDI）；</text>
+        <text class="t-small t-muted" x="142" y="535"><tspan class="t-mail t-bold">紫色箭头</tspan> = 经 FMMU 映射，<tspan class="t-bus t-bold">蓝色箭头</tspan> = 直达物理地址</text>
 
         <!-- ESC · 寄存器 -->
-        <rect id="u22-dom-regs" class="box" x="546" y="224" width="282" height="284" rx="6"/>
+        <rect id="u22-dom-regs" class="box" x="546" y="224" width="282" height="316" rx="6"/>
         <text class="t-small t-bold" x="556" y="241">ESC 寄存器 0x0800 区 · 0x0220</text>
         <text class="t-small t-muted" x="556" y="262">状态字节</text>
         <text class="t-small t-mid t-mono t-muted" x="690" y="262">b3</text>
@@ -405,13 +408,13 @@
         </g>
 
         <!-- PDI：ESC 与 MCU 之间 -->
-        <line class="wire sw-3" x1="330" y1="516" x2="330" y2="546"/>
-        <text class="t-small t-bold" x="338" y="536">PDI</text>
+        <line class="wire sw-3" x1="330" y1="548" x2="330" y2="578"/>
+        <text class="t-small t-bold" x="338" y="568">PDI</text>
 
         <!-- 域：从站 MCU -->
-        <rect id="u22-dom-mcu" class="box-drive" x="120" y="546" width="720" height="70" rx="8"/>
-        <text class="t-small t-bold" x="132" y="566">从站 MCU</text>
-        <text id="u22-c-mcu-t" class="t-small" x="132" y="596">等待中断</text>
+        <rect id="u22-dom-mcu" class="box-drive" x="120" y="578" width="720" height="70" rx="8"/>
+        <text class="t-small t-bold" x="132" y="598">从站 MCU</text>
+        <text id="u22-c-mcu-t" class="t-small" x="132" y="628">等待中断</text>
 
         <!-- 收束（画面 18）：盖在处理单元上 -->
         <g id="u22-c-sum" class="is-hidden">

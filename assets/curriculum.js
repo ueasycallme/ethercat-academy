@@ -4,7 +4,7 @@
  */
 window.ACADEMY_CURRICULUM = {
   title: 'EtherCAT 学院',
-  version: '1.5.1',
+  version: '1.5.2',
   // 非课页（Academy.init 支持的页面 id 与标题）
   pages: { challenges: '单元诊断挑战', capstone: '结业任务', review: '复习' },
   // 速通路径：先把一台驱动器跑起来，其余课在需要时回来补
