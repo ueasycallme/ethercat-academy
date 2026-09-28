@@ -187,7 +187,7 @@
       <table>
         <tr><th>上下文</th><th>触发</th><th>做什么</th></tr>
         <tr><td><code>MainLoop</code></td><td>main() 里无限循环</td><td>处理 AL Control 事件（状态转换）、邮箱收发与 SDO；未开中断时也在这里轮询过程数据</td></tr>
-        <tr><td><code>PDI_Isr</code></td><td>ESC 的 PDI 中断（AL 事件，如 SM2 被写）</td><td>SM2 事件时调 PDO_OutputMapping → <code>APPL_OutputMapping</code> 取走输出；SM 同步模式下还接着调应用与输入拷贝</td></tr>
+        <tr><td><code>PDI_Isr</code></td><td>ESC 的 PDI 中断（AL 事件，如 SM2 被写）</td><td>SM2 事件时调 PDO_OutputMapping → <code>APPL_OutputMapping</code> 取走输出；SM 同步模式下还接着调应用与输入拷贝。逐步动画见 <a href="u2-l2.html#sm-two-cycles">u2-l2</a></td></tr>
         <tr><td><code>Sync0_Isr</code></td><td>ESC 的 SYNC0 引脚</td><td>DC 同步模式下调 <code>APPL_Application</code> 与 PDO_InputMapping → <code>APPL_InputMapping</code>，把新输入放进 SM3</td></tr>
         <tr><td><code>ECAT_CheckTimer</code></td><td>约 1 ms 的定时器</td><td>LED、状态转换超时、看门狗检查等计时类工作（具体内容以 SSC 版本为准）</td></tr>
       </table>

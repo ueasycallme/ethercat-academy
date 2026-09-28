@@ -103,6 +103,42 @@ def check(lid):
     return errs
 
 
+def check_changelog():
+    """changelog.html 须由当前 CHANGELOG.md 生成（内嵌 sha256 一致），最新版本号与 curriculum.js 一致。"""
+    import hashlib
+    errs = []
+    page, src = ROOT / 'changelog.html', ROOT / 'CHANGELOG.md'
+    if not page.exists():
+        return ['changelog.html 不存在，先运行 python3 _build_changelog.py']
+    ps = page.read_text(encoding='utf-8')
+    m = re.search(r'<meta name="changelog-hash" content="([0-9a-f]{64})">', ps)
+    digest = hashlib.sha256(src.read_bytes()).hexdigest()
+    if not m:
+        errs.append('changelog.html 缺少 changelog-hash')
+    elif m.group(1) != digest:
+        errs.append('changelog.html 与 CHANGELOG.md 不同步，运行 python3 _build_changelog.py 重新生成')
+    top = re.search(r'^## \[(\d+\.\d+\.\d+)\]', src.read_text(encoding='utf-8'), re.M)
+    ver = re.search(r"version: '([\d.]+)'", (ROOT / 'assets/curriculum.js').read_text(encoding='utf-8'))
+    if not top or not ver or top.group(1) != ver.group(1):
+        errs.append(f'CHANGELOG.md 最新版本 {top and top.group(1)} 与 curriculum.js version {ver and ver.group(1)} 不一致')
+    if "Academy.init('changelog')" not in ps:
+        errs.append("缺少 Academy.init('changelog')")
+    if re.search(r'<script[^>]+src="(?:https?:)?//', ps):
+        errs.append('外部脚本')
+    return errs
+
+
+def check_anchors():
+    """所有页面里 href="页面.html#id" 的锚点必须在目标页存在。"""
+    errs = []
+    pages = {p.name: p.read_text(encoding='utf-8') for p in ROOT.glob('*.html') if not p.name.startswith('_')}
+    for name, src in pages.items():
+        for target, anchor in set(re.findall(r'href="([\w.-]+\.html)#([\w-]+)"', src)):
+            if target in pages and not re.search(r'id="%s"' % re.escape(anchor), pages[target]):
+                errs.append(f'{name} → {target}#{anchor} 锚点不存在')
+    return sorted(errs)
+
+
 def main():
     ids = sys.argv[1:] or LESSONS
     bad = 0
@@ -121,6 +157,13 @@ def main():
             ok = rows >= 80 and not ext and "Academy.init('glossary')" in gs
             print(('OK   ' if ok else 'FAIL ') + f'glossary.html（约 {rows} 条，外部脚本 {len(ext)}）')
             bad += not ok
+    if not sys.argv[1:]:
+        errs = check_changelog()
+        print(('OK   ' if not errs else 'FAIL ') + 'changelog.html' + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
+        bad += bool(errs)
+        errs = check_anchors()
+        print(('OK   ' if not errs else 'FAIL ') + '跨页锚点' + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
+        bad += bool(errs)
     print(f'\n{len(ids) - bad if not sys.argv[1:] else len(ids)}/{len(ids)} 通过' if bad == 0 else f'\n{bad} 项未通过')
     sys.exit(1 if bad else 0)
 

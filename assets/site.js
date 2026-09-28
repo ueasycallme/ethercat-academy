@@ -19,6 +19,7 @@
 
   var LS_PROGRESS = 'ecat.progress';
   var LS_THEME = 'ecat.theme';
+  var LS_SEEN = 'ecat.seenVersion';
 
   function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
@@ -327,14 +328,24 @@
 
   // ---------- 步进器 ----------
   var steppers = [];
-  var activeStepper = null;
+  // 键盘 ← →：只作用于焦点所在的那个步进器；页面只有一个步进器时焦点在别处也作用于它（保持单步进器课页的旧行为）
+  function keyTarget() {
+    var a = document.activeElement;
+    for (var i = 0; i < steppers.length; i++) {
+      if (a && steppers[i]._zone.contains(a)) return steppers[i];
+    }
+    return steppers.length === 1 ? steppers[0] : null;
+  }
   document.addEventListener('keydown', function (e) {
-    if (!activeStepper || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     if (document.querySelector('dialog[open]')) return; // 对话框打开时不翻动画
     var t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-    if (e.key === 'ArrowRight') { e.preventDefault(); activeStepper.next(); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); activeStepper.prev(); }
+    var st = keyTarget();
+    if (!st) return;
+    e.preventDefault();
+    if (e.key === 'ArrowRight') st.next(); else st.prev();
   });
 
   /* stepper(el, steps, opts)
@@ -342,20 +353,33 @@
    * steps[i].apply(svg) 只做本步的增量修改；每次跳转先把 SVG 恢复为初始克隆，再依次 apply 0..i。
    *   注意：因为 SVG 会被替换为克隆，apply 里必须通过参数 svg（或 Academy.fx(svg)）查元素，不要缓存元素引用。
  *   同理，SVG 内的点击等交互要把事件委托到 .anim-stage 容器上，不要直接绑在 SVG 元素上。
-   * opts.interval 自动播放间隔 ms（默认 3000）；opts.onChange(i, svg) 每次渲染后回调。 */
+   * opts.interval 自动播放间隔 ms（默认 3000）；opts.onChange(i, svg) 每次渲染后回调。
+   * 一页多个步进器 / 共用一张 SVG（v1.3.0 起）：
+   *   opts.stage   要驱动的 .anim-stage 元素（默认从 el 里找）。多个步进器传同一个 stage 即共用一张 SVG，
+   *                初始克隆在第一个步进器创建时保存在 stage 上，大家共用；谁被操作就由谁重画整张图。
+   *   opts.bar     放控件的 .stepper 元素（共用 stage 时必须各传各的；默认 el 本身若是 .stepper，否则在 el/stage 附近找或新建）。
+   *   opts.prelude 数组：复位后、第 0 步之前先依次 apply 的步骤（可直接传上一段的 steps），
+   *                用来让"第二段的初始画面 = 第一段的末状态"。
+   *   共用 stage 时，后创建的步进器不在加载时重画图，只显示自己的第 0 步说明，直到被操作。
+   *   键盘 ← → 只作用于焦点所在的步进器（点控件或点它驱动的图都会把焦点给它）。 */
   function stepper(el, steps, opts) {
     opts = opts || {};
     if (!el) { console.error('Academy.stepper: el 为空'); return null; }
     if (!Array.isArray(steps) || !steps.length) { console.error('Academy.stepper: steps 为空'); return null; }
-    var stage = el.classList.contains('anim-stage') ? el : el.querySelector('.anim-stage');
+    var stage = opts.stage || (el.classList.contains('anim-stage') ? el : el.querySelector('.anim-stage'));
     if (!stage) stage = el;
     var root = stage.parentElement || el;
-    var svg = stage.querySelector('svg');
-    if (!svg) { console.error('Academy.stepper: 找不到 svg'); return null; }
-    var pristine = svg.cloneNode(true);
+    if (!stage.querySelector('svg')) { console.error('Academy.stepper: 找不到 svg'); return null; }
+    // 初始克隆存在 stage 上：共用同一 stage 的步进器共用同一份初始画面
+    if (!stage.__acPristine) stage.__acPristine = stage.querySelector('svg').cloneNode(true);
+    var pristine = stage.__acPristine;
+    var shared = !!stage.__acShared || steppers.some(function (x) { return x._stage === stage; });
+    stage.__acShared = shared;
+    var prelude = Array.isArray(opts.prelude) ? opts.prelude : [];
 
-    var bar = root.querySelector('.stepper');
-    if (!bar) { bar = h('div', { class: 'stepper' }); stage.insertAdjacentElement('afterend', bar); }
+    var bar = opts.bar || (el.classList.contains('stepper') ? el : null) ||
+      (opts.stage ? null : root.querySelector('.stepper'));
+    if (!bar) { bar = h('div', { class: 'stepper' }); (opts.stage ? el : stage).insertAdjacentElement(opts.stage ? 'beforeend' : 'afterend', bar); }
     bar.setAttribute('tabindex', '0');
     bar.setAttribute('aria-label', '动画步进器：左右方向键切换步骤');
     bar.innerHTML =
@@ -374,17 +398,26 @@
     });
     var cur = 0, timer = null;
 
-    function safeApply(k) {
-      if (typeof steps[k].apply !== 'function') return;
-      try { steps[k].apply(svg); }
-      catch (err) { console.error('Academy.stepper: 第 ' + k + ' 步 apply 出错', err); }
+    function applyOne(st, svg, label) {
+      var fn = typeof st === 'function' ? st : (st && st.apply);
+      if (typeof fn !== 'function') return;
+      try { fn(svg); }
+      catch (err) { console.error('Academy.stepper: ' + label + ' apply 出错', err); }
     }
     function render(i, animate) {
+      // 每次都取 stage 里当前那张图替换（共用 stage 时另一个步进器可能刚换过）
       var fresh = pristine.cloneNode(true);
+      var svg = stage.querySelector('svg');
       svg.replaceWith(fresh); svg = fresh;
-      for (var k = 0; k < i; k++) safeApply(k);
+      prelude.forEach(function (st, k) { applyOne(st, svg, '前置第 ' + k + ' 步'); });
+      for (var k = 0; k < i; k++) applyOne(steps[k], svg, '第 ' + k + ' 步');
       if (animate) svg.getBoundingClientRect(); // 刷新样式，让第 i 步的变化产生过渡
-      safeApply(i);
+      applyOne(steps[i], svg, '第 ' + i + ' 步');
+      stage.__acOwner = api;
+      steppers.forEach(function (x) { if (x._stage === stage) x._bar.classList.toggle('is-idle', x !== api); });
+      renderBar(i, svg);
+    }
+    function renderBar(i, svg) {
       bar.querySelector('.step-no').textContent = '步骤 ' + i + ' / ' + (steps.length - 1);
       bar.querySelector('.step-title').textContent = steps[i].title || '';
       bar.querySelector('.step-text').textContent = steps[i].text || '';
@@ -395,7 +428,7 @@
       });
       bar.querySelector('[data-act="prev"]').disabled = i === 0;
       bar.querySelector('[data-act="next"]').disabled = i === steps.length - 1;
-      if (opts.onChange) { try { opts.onChange(i, svg); } catch (err) { console.error(err); } }
+      if (svg && opts.onChange) { try { opts.onChange(i, svg); } catch (err) { console.error(err); } }
     }
     function go(i) {
       i = Math.max(0, Math.min(steps.length - 1, i | 0));
@@ -422,16 +455,28 @@
     var api = {
       go: go, next: next, prev: prev, play: play, pause: pause,
       get index() { return cur; },
-      get svg() { return svg; },
-      count: steps.length
+      get svg() { return stage.querySelector('svg'); },
+      count: steps.length,
+      _stage: stage, _bar: bar,
+      _zone: shared ? bar : root   // 键盘归属区域：独占 stage 时整个区块，共用时只算自己的控件条
     };
-    [root, bar].forEach(function (n) {
-      n.addEventListener('pointerdown', function () { activeStepper = api; });
-      n.addEventListener('focusin', function () { activeStepper = api; });
+    // 点控件条时把焦点给它（Safari 点按钮不聚焦），键盘 ← → 才知道该翻哪一个
+    bar.addEventListener('pointerdown', function (e) {
+      if (!bar.contains(document.activeElement)) bar.focus({ preventScroll: true });
     });
+    if (!stage.__acPointer) {
+      stage.__acPointer = true;
+      // 用 click 而不是 pointerdown：点不可聚焦的 SVG 时浏览器会在 mousedown 里把焦点移到 body，click 在那之后
+      stage.addEventListener('click', function () {
+        var owner = stage.__acOwner;
+        if (owner && !owner._zone.contains(document.activeElement)) owner._bar.focus({ preventScroll: true });
+      });
+    }
     steppers.push(api);
-    if (!activeStepper) activeStepper = api;
-    render(0, false);
+    // 第二个步进器接入同一 stage 时，把先来的那个的键盘区域也收窄到它自己的控件条
+    if (shared) steppers.forEach(function (x) { if (x._stage === stage) x._zone = x._bar; });
+    if (shared && stage.__acOwner) { bar.classList.add('is-idle'); renderBar(0, null); }
+    else render(0, false);
     return api;
   }
 
@@ -532,6 +577,7 @@
       '<span class="crumb">' + (lesson ? esc(lesson.unit.no + ' ' + lesson.unit.title + ' · ' + lesson.id) : esc(pageLabel || '')) + '</span>' +
       '<span class="top-spacer"></span>' +
       '<span class="top-progress" title="课程完成进度"><span class="bar"><i></i></span><span class="pct">0%</span></span>' +
+      (CUR.version ? '<a class="top-version" href="changelog.html" title="更新记录">v' + esc(CUR.version) + '<span class="new-badge" hidden>新</span></a>' : '') +
       '<button type="button" class="icon-btn theme-btn" aria-label="切换深浅主题" title="切换深浅主题">◐</button>';
     var menu = tb.querySelector('.menu-btn');
     menu.addEventListener('click', function () {
@@ -564,7 +610,8 @@
       s += '</ol></div>';
     });
     s += '<div class="side-unit"><a class="side-link' + (currentId === 'glossary' ? ' is-current' : '') + '" href="glossary.html">≡ 术语表</a></div>' +
-      (CUR.version ? '<div class="side-version" title="站点版本">v' + esc(CUR.version) + '</div>' : '') + '</nav>';
+      (CUR.version ? '<a class="side-version' + (currentId === 'changelog' ? ' is-current' : '') + '" href="changelog.html" title="查看更新记录">v' +
+        esc(CUR.version) + ' · 更新记录<span class="new-badge" hidden>新</span></a>' : '') + '</nav>';
     sb.innerHTML = s;
     if (!document.querySelector('.scrim')) {
       var scrim = h('div', { class: 'scrim' });
@@ -717,11 +764,22 @@
     var lesson = BY_ID[lessonId];
     if (lessonId === 'uX-lY') // _template.html 预览用的假课
       lesson = { id: 'uX-lY', title: '课名', hours: 0, highlight: ['esc', 'slave-stack'], prereq: ['u0-l1'], index: -1, unit: { no: 'UX', title: '模板' } };
-    if (!lesson && lessonId !== 'index' && lessonId !== 'glossary' && lessonId !== '404') console.error('Academy.init: 未知课号 ' + lessonId);
-    renderTopbar(lesson, { glossary: '术语表', index: '系统总图', '404': '页面不存在' }[lessonId] || '');
+    if (!lesson && ['index', 'glossary', '404', 'changelog'].indexOf(lessonId) < 0) console.error('Academy.init: 未知课号 ' + lessonId);
+    renderTopbar(lesson, { glossary: '术语表', index: '系统总图', '404': '页面不存在', changelog: '更新记录' }[lessonId] || '');
     renderSidebar(lessonId);
     if (lesson) renderLesson(lesson);
     if (lessonId === 'index') renderHome();
+    // 新版本提示：读者上次看到的版本与当前不同时，在版本链接上显示"新"；打开更新记录页即视为已看
+    if (CUR.version) {
+      if (lessonId === 'changelog') lsSet(LS_SEEN, CUR.version);
+      var seen = lsGet(LS_SEEN);
+      var fresh = lessonId !== 'changelog' && seen !== CUR.version;
+      document.querySelectorAll('.side-version, .top-version').forEach(function (a) {
+        a.classList.toggle('has-new', fresh);
+        var b = a.querySelector('.new-badge'); if (b) b.hidden = !fresh;
+        if (fresh) a.setAttribute('title', '有新版本 v' + CUR.version + '，点开看更新记录');
+      });
+    }
     refreshProgressUI();
     window.addEventListener('storage', function (e) { if (e.key === LS_PROGRESS) refreshProgressUI(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.body.classList.remove('nav-open'); });

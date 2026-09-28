@@ -23,12 +23,14 @@ python3 -m http.server 8765 --bind 127.0.0.1
 | `index.html` | 首页：可点击的系统总图、单元课表、完成进度 |
 | `u0-l1.html` … `u7-l2.html` | 23 课课页，每课一个文件（U3、U7 从 l0 起） |
 | `glossary.html` | 术语表（缩写、对象号、寄存器） |
+| `changelog.html` | 更新记录页，由 `_build_changelog.py` 从 `CHANGELOG.md` 生成，不要手改 |
 | `404.html` | 找不到页面时由 Cloudflare 返回 |
 | `assets/site.css` | 设计令牌、外壳、七区块样式、SVG 工具类、响应式规则（契约文件） |
 | `assets/site.js` | 全局 `Academy`：外壳、步进器、测验、进度、总图、`fx` 助手（契约文件） |
 | `assets/curriculum.js` | 课程目录与站点版本号（契约文件） |
 | `_template.html` | 课页模板，新课从它复制 |
 | `_check.py` | 静态检查：七区块、`Academy.init`、4 题测验、步进器步数、无外部脚本 |
+| `_build_changelog.py` | 从 `CHANGELOG.md` 生成 `changelog.html`（不上线） |
 | `DESIGN.md` | 软件设计文档：教学法、课程矩阵、接口契约、响应式规范、每课规格 |
 | `REVIEW.md` | 验收记录 |
 | `_AGENT_BRIEF.md`、`_reports.md` | 课页编写简报与各课"待抽查条目"汇总 |
@@ -49,12 +51,20 @@ python3 -m http.server 8765 --bind 127.0.0.1
 
 ## 版本规则
 
-语义化版本 `X.Y.Z`，每次发布打附注 tag `vX.Y.Z`，并同步修改 `assets/curriculum.js` 里的 `version`（侧栏底部会显示它）。
+语义化版本 `X.Y.Z`，每次发布打附注 tag `vX.Y.Z`，并同步修改 `assets/curriculum.js` 里的 `version`（侧栏底部和顶栏会显示它，点开是更新记录页）。
 
 - **X（主版本）**：课程结构重排、课号变化、契约接口不兼容（课页需要跟着改）。
 - **Y（次版本）**：新增课、新增单元、新增向后兼容的接口或页面功能。
 - **Z（修订）**：内容勘误、样式修正、不影响接口的 bug 修复。
 
+### 发版流程
+
 ```bash
-git tag -a v1.0.1 -m "勘误：…"
+# 1. 改 CHANGELOG.md：在最上面加 "## [x.y.z] - YYYY-MM-DD"，按 ### 新增 / ### 变更 / ### 修正 分组写条目；
+#    条目里写 [uX-lY] 会渲染成课页链接。同时把 assets/curriculum.js 的 version 改成 x.y.z
+python3 _build_changelog.py      # 2. 从 CHANGELOG.md 重新生成 changelog.html（更新记录页）
+python3 _check.py                # 3. 静态检查：课页、术语表、更新记录页与 CHANGELOG.md 是否同步、版本号是否一致
+git add -A && git commit -m "Release vx.y.z: …"
+git tag -a vx.y.z -m "…"
+git push origin main --tags
 ```

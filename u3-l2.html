@@ -349,6 +349,7 @@
           <li>确认从站至少在 PREOP，且 SM1 里没有未读的旧应答。</li>
           <li>组装邮箱头 + CoE 头 + SDO，用 FPWR 写满 SM0 整个缓冲区（写到最后一个字节 SM 才变"满"）。</li>
           <li>周期性 FPRD 读 SM1 状态（0x080D bit3 = 邮箱满），满了再 FPRD 读出整个 SM1。</li>
+          <li>一次 SDO 往返至少跨两个周期（请求在第 1 帧写进 SM0，应答最早在第 2 帧从 SM1 读回），逐步动画见 <a href="u2-l2.html#sm-two-cycles">u2-l2</a>。</li>
           <li>核对应答的索引、子索引；命令字节 0x80 时解出 abort code，上报给应用。超时由主站自己计时。</li>
         </ul>
       </div>

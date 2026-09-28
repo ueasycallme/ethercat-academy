@@ -13,3 +13,4 @@ wrangler.jsonc
 node_modules
 .wrangler
 RELEASE.md
+_build_changelog.py

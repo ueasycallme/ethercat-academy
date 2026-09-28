@@ -129,7 +129,7 @@
             <rect id="u21-aux-r" class="box-bus" x="380" y="226" width="300" height="48" rx="4"/>
             <text class="t-mid" x="530" y="247">事件 · 错误计数 · 看门狗</text>
             <text class="t-small t-mid" x="530" y="266">EEPROM 接口（0x0500）</text>
-            <text class="t-small t-muted" x="696" y="247">0x0200 事件 · 0x0300 错误计数</text>
+            <text class="t-small t-muted" x="696" y="247">0x0220 AL 事件请求 · 0x0300 错误</text>
             <text class="t-small t-muted" x="696" y="266">0x0400 看门狗 · 0x0500 EEPROM</text>
           </g>
           <text class="t-small t-mono t-end t-muted" x="370" y="255">0x0200</text>
@@ -188,7 +188,7 @@
         <tr><td><code>0x0010–0x0013</code></td><td>站地址、站别名</td><td>主站写站地址</td></tr>
         <tr><td><code>0x0100–0x0111</code></td><td>DL 控制与 DL 状态（端口、链路、回环）</td><td>主站诊断拓扑</td></tr>
         <tr><td><code>0x0120–0x0135</code></td><td>AL Control、AL Status、AL Status Code</td><td>ESM 状态机（u3-l1）</td></tr>
-        <tr><td><code>0x0200–0x0313</code></td><td>事件屏蔽与请求、错误计数器</td><td>中断、链路质量诊断</td></tr>
+        <tr><td><code>0x0200–0x0313</code></td><td>事件屏蔽与请求（<code>0x0220</code> AL 事件请求：SM n 事件 = bit 8+n，以 ET1100 手册为准，见 <a href="u2-l2.html#sm-two-cycles">u2-l2</a>）、错误计数器</td><td>中断、链路质量诊断</td></tr>
         <tr><td><code>0x0400–0x0443</code></td><td>看门狗分频、时间、状态</td><td>过程数据安全（u2-l2）</td></tr>
         <tr><td><code>0x0500–0x050F</code></td><td>EEPROM（SII）接口</td><td>读从站身份（u2-l4）</td></tr>
         <tr><td><code>0x0600–0x06FF</code></td><td>FMMU，每个 16 字节</td><td>逻辑寻址（u2-l3）</td></tr>
@@ -363,7 +363,7 @@ ethercat reg_read -p0 0x0300 8    # 端口 0–3 的 RX 错误计数</code></pre
     addr: ['站地址 0x0010–0x0013', [['0x0010', 'Configured Station Address', '主站写入，FPxx 命令按它匹配'], ['0x0012', 'Configured Station Alias', '上电从 SII 字 0x0004 装载，用于固定编号']]],
     dl: ['DL 区 0x0100–0x0111', [['0x0100', 'DL Control', '4 字节，含各端口回环（自动 / 强制开 / 强制关）'], ['0x0108', 'Physical Read/Write Offset', '2 字节'], ['0x0110', 'DL Status', '2 字节，bit4–7 端口 0–3 物理链路，bit8 起每端口回环/通信位']]],
     al: ['AL 区 0x0120–0x0135', [['0x0120', 'AL Control', '主站写：bit0–3 请求状态，bit4 错误确认'], ['0x0130', 'AL Status', '从站写：bit0–3 实际状态，bit4 错误指示'], ['0x0134', 'AL Status Code', '从站写：错误原因码，如 0x001B 看门狗']]],
-    aux: ['辅助区 0x0200–0x05FF', [['0x0200', 'ECAT Event Mask', '哪些事件映射到帧里的 IRQ 字段'], ['0x0204', 'AL Event Mask', '哪些事件触发 PDI 中断'], ['0x0220', 'AL Event Request', 'PDI 侧的事件请求位'], ['0x0300', 'RX Error Counter', '每端口 2 字节，查 CRC 与物理层错误'], ['0x0310', 'Lost Link Counter', '每端口 1 字节'], ['0x0400', 'Watchdog Divider', '看门狗时基'], ['0x0410', 'Watchdog Time PDI', 'PDI 看门狗'], ['0x0420', 'Watchdog Time Process Data', '过程数据看门狗'], ['0x0440', 'Watchdog Status PD', 'bit0 = 0 已过期'], ['0x0500', 'EEPROM 接口', '0x0500–0x050F，读写 SII']]],
+    aux: ['辅助区 0x0200–0x05FF', [['0x0200', 'ECAT Event Mask', '哪些事件映射到帧里的 IRQ 字段'], ['0x0204', 'AL Event Mask', '哪些事件触发 PDI 中断'], ['0x0220', 'AL Event Request（AL 事件请求）', 'PDI 侧的事件请求位，4 字节；SM0–SM3 事件位在 bit 8–11（SM n = bit 8+n，以 ET1100 手册为准）。逐帧演示见 <a href="u2-l2.html#sm-two-cycles">u2-l2 一帧过四个通道</a>'], ['0x0300', 'RX Error Counter', '每端口 2 字节，查 CRC 与物理层错误'], ['0x0310', 'Lost Link Counter', '每端口 1 字节'], ['0x0400', 'Watchdog Divider', '看门狗时基'], ['0x0410', 'Watchdog Time PDI', 'PDI 看门狗'], ['0x0420', 'Watchdog Time Process Data', '过程数据看门狗'], ['0x0440', 'Watchdog Status PD', 'bit0 = 0 已过期'], ['0x0500', 'EEPROM 接口', '0x0500–0x050F，读写 SII']]],
     cfg: ['配置单元 0x0600–0x09FF', [['0x0600', 'FMMU 0…', '每个 16 字节：逻辑起始、长度、物理起始、类型、激活'], ['0x0800', 'SM 0…', '每个 8 字节：物理起始、长度、控制、状态、激活、PDI 控制'], ['0x0900', 'DC', '接收时间、系统时间、偏移、延时、SYNC 配置']]],
     ram: ['用户 RAM 0x1000 起', [['0x1000', 'Process Data RAM', '大小 = 0x0006 × 1 KB；邮箱与过程数据缓冲都放在这里，位置由 SM 起始地址决定']]]
   };

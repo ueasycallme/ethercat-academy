@@ -220,3 +220,22 @@ curriculum 登记 u3-l0 并改两课课名、调整 u3-l1/u3-l2 前置；site.js
 - M2 DC 配置期校核改为 FPRD 0x092C 轮询至 < 10 µs（fsm_slave_config.c 1429、1478/1487；EC_DC_MAX_SYNC_DIFF_NS = 10000），其余 FPWR 0x09A0（1380）、0x0990（1528）、0x0980（1573）；帧账本 ⑦ 行、时间轴框"3 写+轮询"、动画第 ⑦ 步、主从对照同步。
 - M3 SII 缓存句：stable-1.6 无 SII 缓存，每次扫描完整重读。
 - 设计方已核对无误并接受：帧账本行号、7 个基础信息数据报、SII 读法、SDO 往返、0x0110 bit0、0x0508、0x0019、ethercat master 字段名（CommandMaster.cpp，Main/Backup/Common 各一段）；J 异议 1、2、5 接受。
+
+---
+# v1.3.0（2026-09-28）
+
+## 契约层（执行 session）
+- Academy.stepper 支持一页多个步进器、共用一张 SVG：opts.stage / opts.bar / opts.prelude；初始克隆存在 stage 上共用；谁被操作谁重画，另一个控件条变淡（.is-idle）；后创建的共用步进器加载时不重画。键盘 ← → 只作用于焦点所在步进器（页面只有一个步进器时保持旧行为）；点控件条或点图（click，晚于浏览器 mousedown 的焦点转移）把焦点交给当前拥有者。CDP 真实按键验证：无焦点三者都不动；聚焦哪个翻哪个；点共用图后翻帧 2。
+- 更新记录页：_build_changelog.py（CHANGELOG.md → changelog.html，内嵌 sha256，保留 ### 新增/变更/修正 分组并按 drive/bus/fault 着色，**加粗**、`代码`、[uX-lY] 与裸写课号转课页链接），.assetsignore 加该脚本；site.js 侧栏与顶栏版本号链到更新记录页、ecat.seenVersion 新版本提示（try/catch）；_check.py 加 changelog 同步与版本号一致检查、跨页锚点检查；README 发版流程。术语表加 0x0220（178 条）。
+
+## B — u2-l2「一帧过四个通道，连续两个周期」+ u2-l1 0x0220：_check OK；帧 1 10 画面、帧 2 9 画面（帧 2 第 0 步与帧 1 末步只差 #u22-c-ptr）；三个步进器回第 0 步一致；寄存器面板每步有值；375px 无溢出；浅/深主题可读；自测换题
+契约建议：opts.label（区分步号条属于哪一段，现以标题前缀"帧 1 ·/帧 2 ·"代替）；"本步开始"钩子（现由页内 C() 清上一步高亮）；机制拆解 5 个 h3 超简报 2–4，建议本节例外。
+对规格的异议：
+1. 画面 8"读 0x0220 后事件位清除"不符 ET1100：SM 事件位（bit 8+n）反映 SM 状态字节 bit0/1——写方向 SM 在 PDI 读缓冲首字节时清除，读方向 SM 在 PDI 写缓冲首字节时清除，读 0x0220 本身不清 SM 位。页面按此实现（帧 1 画面 8 清 SM0、SM2 位，画面 9 清 SM3 位）。
+2. 帧 2 画面 6 把 FPRD 0x080D 与 FPRD SM1 整段放同一帧，IgH 实际分两个周期发；画面文字已注明。
+待抽查：SM 状态字节位定义（bit3 满、bit5:4 最后写入缓冲 00/01/10=缓冲1/2/3、11 未写、bit6 读缓冲占用、bit7 写缓冲占用，凭记忆）；bit6/bit7 在邮箱模式下有效（推断）；SM 事件位置位/清除时机（凭记忆）；0x0220 为 4 字节、SM n = bit 8+n；时间典型值（ESC 内约 1 µs、MCU 几百 µs、100 B ≈ 8 µs）；SM 物理地址 0x1000/0x1080/0x1100/0x1180 为示例；LRW 的 WKC 整个数据报处理完才一次 +3（写 SM2 那几步显示 0）；"直接读空邮箱被拒、WKC 不加"沿用规格；u2-l1 0x0220 bit 8–11。
+
+## C — u3-l2 主从对照加"一次 SDO 往返至少跨两个周期…见 u2-l2#sm-two-cycles"。_check OK。
+## F — u6-l2 PDI_Isr 行链 u2-l2#sm-two-cycles。_check OK。
+
+## v1.3.0 推送前修正（amend）：site.css 表格单元格内行内 code 不拆行（.table-wrap td/th > code nowrap，1440 下全站表格无拆行）；B：u2-l2 寄存器面板 SM0/SM1 的 b6、b7 显示"—"，节内说明改为"—表示保留或本节不演示"。设计方接受 B 两条异议；B 三条契约建议记为以后待办；u2-l2 机制拆解 5 个 h3 开例外。

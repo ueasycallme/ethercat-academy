@@ -233,6 +233,7 @@
 <tr data-cat="概念"><td><code>功率级</code></td><td>Power Stage</td><td>驱动器里把直流母线按 PWM 开关成三相电压的逆变器部分。</td><td><a href="u6-l3.html">u6-l3</a></td></tr>
 <tr data-cat="概念"><td><code>帧账本</code></td><td>Frame Ledger</td><td>按阶段统计主站发出的帧与数据报数量，解释扫描与配置为何耗时。</td><td><a href="u7-l0.html">u7-l0</a></td></tr>
 <tr data-cat="概念"><td><code>发送周期</code></td><td>Send Interval</td><td>IgH 空闲时每个发送周期推进一次各从站状态机；默认 1 s/HZ，可用 ecrt_master_set_send_interval 修改。</td><td><a href="u7-l0.html">u7-l0</a></td></tr>
+<tr data-cat="寄存器"><td><code>0x0220</code></td><td>AL Event Request</td><td>AL 事件请求：ESC 通知从站 MCU 的事件位，SM n 的事件位为 bit 8+n（以 ET1100 手册为准）；MCU 读后清除。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
       </table>
     </div>
     <p class="gl-empty" id="gl-empty" hidden>没有匹配的条目。</p>
