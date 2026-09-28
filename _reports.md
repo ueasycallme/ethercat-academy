@@ -246,3 +246,31 @@ curriculum 登记 u3-l0 并改两课课名、调整 u3-l1/u3-l2 前置；site.js
 ## B — u2-l2 四通道动画：f1+f2 合成 19 画面单步进器（#u22-bar 紧贴图下，segments 帧 1 0–9 / 帧 2 10–18，删第二条控件条与 prelude），收束表用全局画面号 6/7/12/13；分区框：网线（u22-dom-wire，box-bus）、ESC 芯片（u22-dom-esc，内分处理单元 pu / DPRAM / 寄存器 regs，寄存器标题"ESC 寄存器 0x0800 区 · 0x0220"）、从站 MCU（u22-dom-mcu，box-drive），PDI 连线；时间标尺单独一行；每步标题"帧 n · [域] …"并恰好一个域框 hot；DPRAM 块底色只表示状态，"本步变化"改用加粗描边 u22-chg。viewBox 960×626，min-width 800（1440 无横向滚动，390 在 stage 内滚动）。
 偏差：画面 10 的域高亮沿用画面 9 的 MCU（保证画面 10 与 9 只差时间指针，文字已注明）；画面 8 按主要动作标 [MCU]，画面 16 标 [ESC · DPRAM]。无新增待抽查条目。
 ## 核对：u7-l0 五泳道（电源/主站程序/总线 ESM/驱动器/电机）域已清晰，未改；u3-l0 主站/从站两框，从站内 ESC 与对象字典（固件 RAM）靠标签区分、未加 MCU 框，判断为清晰，未改（可选：加一个"从站 MCU 固件"细框包住对象字典）。
+
+---
+# v1.4.0（2026-09-28）
+
+## 契约层（执行 session）
+- curriculum.js：每单元 challenge: true；pages { challenges, capstone }；fastPath 8 课。
+- site.js：Academy.challenge(el, data)（逐题显示、答错给解释与回链胶囊可重答、三题全对写 uX-c；progress.done 接受单元挑战 id，课时百分比只算课）；init('challenges') 自动渲染 .challenge[data-unit] + script.challenge-data；init('capstone') 恢复/保存 .capstone-task 的 data-item 勾选与 data-note 记录（ecat.capstone，全部勾完写 done，取消即清除），try/catch；侧栏每单元末尾"⚑ 单元挑战"、底部"✦ 结业任务"；首页单元卡片"⚑ 挑战（✓）"、"已结业"徽章、路径开关（ecat.path，html.path-fast 使侧栏与课表路径外课 opacity .42 仍可点、速通 8 课列表、继续学习按速通顺序）。
+- _check.py：challenges（八节 #u0–#u7、各 3 题、答案序号、links 课存在、init）、capstone（三条任务、每条 ≥3 项、总数 ≥4、data-item 唯一、init）。index 首页加"⚑ 单元挑战""✦ 结业任务"按钮。
+- 附录 C U5 读数：执行 session 指出 0x0231 bit4 = 1 与"母线无电"矛盾，设计方更正为 0x0221。
+
+## G — challenges.html、capstone.html：_check OK；CDP：8 挑战答错显示解释与回链、答对解锁下一题、三题全对写 u0-c…u7-c；capstone 刷新保持、全勾写 done、首页徽章；390/1440 无溢出，深浅主题可读，无报错
+正确选项位置分散（120/213/120/213/021/302/132/201）；附录没给的读数（域 Size、U6 607A/6064 具体值）未编造，写成省略号或 x/x+100、p/p/p；capstone 13 个清单项、12 个记录框，任务 3 加安全提示。
+对附录 C 的技术异议（数值未改，已转设计方）：
+1. U1 Q3"config 显示 Attached: no"与场景"slaves 全部 OP +"矛盾（IgH 未挂配置的从站留在 PREOP），措辞已弱化，建议换与 OP 不冲突的原因。
+2. U1 Q2"逐台 reg_read 0x0110"只能看链路，看不出谁没给 LRW 加 WKC；更直接是读 0x0600 起的 FMMU。页面保留原答案。
+3. U3 场景 SM2 长度方向写反：ecrt_slave_config_pdos 时主站按程序映射写 8 字节，6 字节是从站自身映射；结论不变。
+4. U4 Q2 shift 0 时 SYNC0 位置取决于 application time 设置时刻；措辞"大致落在主站周期起点"。
+5. 结业任务 3"拔末端网线"：拔最后一台出口网线不会故障（自动闭环），应拔进入最后一台的那根，请确认措辞。
+待抽查：U1 Q2 解释"从站没有自己的 MAC 地址"；U2 Q3"0x0420 写 0 关掉看门狗""关掉后继续执行最后一次输出"；U4 Q2"0x0300 是写进 DC 激活寄存器的激活字"未写地址（IgH 写 0x0980 起）；U5 Q2/Q3"直接写 0x000F 也要先经过 Switched on""很多驱动器在 bit4=0 时也接受 0x0006"；U7 upload 输出格式为示意；U6 Q3 60FD 抱闸/限位位厂商定义；capstone 任务 1 6041 高位因厂商而异、停机"0x06 再 0x00"为具体化；任务 2 示例偏移 0/2/6/8 按 u3-l3 映射。
+
+## A — u1-l3 主动画重做：_check OK；16 画面（设计方裁定：第 8、11 步各拆两步）；五段 segments 跳 0/5/7/10/14；回第 0 步一致；卡片终点主站 0、从站 188/432/676；路线用页内 CSS keyframes 由 onChange 只在当前画面播一次，跳步/回退无残余，减少动态效果时直接到终点；375px 页面无溢出、图在 stage 内滚动；深浅主题可读
+FMMU 按裁定：从站 1 输出 0x00–0x05、输入 0x06–0x0B；从站 2 0x0C–0x11 只读；从站 3 0x18–0x1D 只写；期望 WKC 6、掉站后 4。原"飞行读写"子图去掉，机制拆解加静态小图并链 u1-l1。第 2、3 步地址格显示 ADP 0xFFFF、0x0000。
+待设计方裁定：第 15 步（原规格第 13 步）从站 1 +3、从站 2 +1 同时变亮，拆开为 17 画面。
+待抽查：飞行读写"约 1 µs 量级转发延迟"已按设计方要求加"因芯片与 PHY 而异"；结果区 wc_state = EC_WC_COMPLETE / EC_WC_INCOMPLETE（IgH ecrt.h 枚举名）。
+
+## G — 按设计方裁定改：U1 整道重写（BRD 0x0130 → WKC 2；FPRD ADP 0x0003 → WKC 0；LRW → 4/6；答案 B/D/A）；U3 方向改正（主站按程序映射写 8 字节、从站实际 6 字节，答案 C/B/D）；U4 措辞保持；capstone 任务 3 改为"拔掉进入最后一台从站的那根网线"。
+G 指出：U1 Q3"reg_read -p1 0x0110 看链路位分辨网线还是掉电"做不到（两种情况链路都会消失），解释里补了"再看第三台的电源指示区分"，建议附录同步修改。
+设计方裁定（v1.4.0 放行前）：u1-l3 第 15 帧保持现状（重点是回主站比较 4 对 6）；U1 Q3 采用 G 的解释并同步附录。

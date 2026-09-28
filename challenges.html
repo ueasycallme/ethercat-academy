@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>单元诊断挑战 · EtherCAT 学院</title>
+<meta name="description" content="EtherCAT 学院单元诊断挑战：每单元一个真机场景、三个连续问题，从读数推到结论。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1f6feb">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+#challenges .challenge-scenario p { margin: .3em 0; }
+#challenges .challenge-scenario table { margin: .5em 0; background: var(--panel); }
+#challenges .challenge-scenario td:first-child { font-family: var(--font-mono); white-space: nowrap; }
+#challenges .ch-intro { color: var(--muted); font-size: .92rem; margin: .2em 0 .6em; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main id="challenges">
+
+  <header class="lesson-head">
+    <h1>单元诊断挑战</h1>
+    <p class="lesson-lede">每单元一个真机场景、三个连续问题：逐题作答，答对才出现下一题，答错会给出推理和回看的课；三题全对记为该单元挑战完成。</p>
+  </header>
+
+  <!-- U0 -->
+  <section class="lesson-block" id="u0">
+    <h2>U0 · 全景</h2>
+    <p class="ch-intro">从三条命令的输出判断：两台状态机各走到了哪一步，两条通路哪条能用。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>驱动器刚上电，主站 PC 上还没有运行任何应用程序。</p>
+<pre><code>$ ethercat master
+Master0
+  Phase: Idle
+  …
+$ ethercat slaves
+0  0:0  PREOP  +  Servo
+$ ethercat upload -p0 --type uint16 0x6041 0
+0x0250 592</code></pre>
+    </div>
+    <div class="challenge" data-unit="u0"></div>
+    <script type="application/json" class="challenge-data" data-unit="u0">
+{"questions": [
+  {"q": "现在哪条通路可用？", "options": ["过程数据可用、邮箱不可用：从站已经上线", "邮箱可用、过程数据未启用：从站在 PREOP", "两条都可用，只是驱动器还没使能", "两条都不可用：Phase Idle 说明主站没有在收发帧"], "answer": 1, "explain": "PREOP 允许邮箱通信，刚才 upload 能读到 6041 就是证据；SM2/SM3 过程数据要到 SAFEOP/OP 才启用。Phase Idle 只表示没有应用程序占用主站，主站自己仍在后台扫描、能处理 SDO 请求。", "links": ["u3-l1", "u7-l1"]},
+  {"q": "6041 = <code>0x0250</code> 说明驱动器在什么状态、母线有没有电？", "options": ["Operation Enabled，母线有电", "Fault，因为 bit6 置位", "Switch on disabled，bit4 = 1 母线有电", "Not ready to switch on，母线无电"], "answer": 2, "explain": "0x0250 &amp; 0x004F = 0x0040，对应 Switch on disabled；bit4 Voltage enabled = 1 表示功率级已有母线电压，bit9 Remote = 1。Fault 看的是 bit3，这里 bit3 = 0。", "links": ["u5-l1"]},
+  {"q": "要让电机动起来，还差哪两台状态机的哪些步？", "options": ["ESM：主站程序 activate 并周期收发，把从站推到 OP；CiA402：再用 6040 走 0x06 → 0x07 → 0x0F 到 Operation Enabled", "只要 <code>ethercat states -p0 OP</code>，驱动器会随总线一起自动使能", "只要用 SDO 把 6040 写成 0x0F 一次，驱动器直接进 Operation Enabled", "先给 6040 写 0x80 复位，再切到 OP"], "answer": 0, "explain": "ESM 和 CiA402 是两台独立的状态机：没有程序周期写输出，states OP 很快会被看门狗打回；6040 要逐级走 0x06 → 0x07 → 0x0F，每步等 6041 确认。当前不是 Fault，用不着复位。", "links": ["u0-l1", "u3-l1", "u5-l1", "u6-l1"]}
+]}
+    </script>
+  </section>
+
+  <!-- U1 -->
+  <section class="lesson-block" id="u1">
+    <h2>U1 · 物理层与帧</h2>
+    <p class="ch-intro">同一周期里的三条数据报，各自的 WKC 从不同角度指向同一个结论。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>线形连接 3 台从站。从站 1 有输出和输入，从站 2 只有输入，从站 3 只有输出，都在同一个域里。Wireshark 抓到同一周期的三条数据报（回帧）：</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>数据报</th><th>地址</th><th>回帧 WKC</th></tr>
+          <tr><td>BRD</td><td>ADO = 0x0130</td><td>2</td></tr>
+          <tr><td>FPRD</td><td>ADP = 0x0003，ADO = 0x0130</td><td>0</td></tr>
+          <tr><td>LRW</td><td>域的逻辑地址</td><td>4</td></tr>
+        </table>
+      </div>
+<pre><code>$ ethercat domains
+Domain0: LogBaseAddr 0x00000000, Size …, WorkingCounter 4/6</code></pre>
+    </div>
+    <div class="challenge" data-unit="u1"></div>
+    <script type="application/json" class="challenge-data" data-unit="u1">
+{"questions": [
+  {"q": "BRD 读 0x0130 回帧 WKC = 2，说明什么？", "options": ["有两台从站 AL 状态出了错", "只有 2 台从站在线应答：广播读每台在线从站 +1", "BRD 读和写各 +1，所以只有 1 台在线", "WKC 2 表示第 2 台从站有问题"], "answer": 1, "explain": "BRD 是广播读，帧经过的每台在线从站都会处理并把 WKC 加 1，与它的状态是否正常无关。接了 3 台只回来 2，说明有一台根本没有处理到这个数据报。", "links": ["u1-l3", "u2-l1"]},
+  {"q": "FPRD 站地址 0x0003 回帧 WKC = 0，说明什么？站地址 3 是哪一台？", "options": ["站地址 3 的从站在线，只是它的 0x0130 读出来是 0", "站地址 3 是位置 3 的第四台，本来就不存在，WKC 0 正常", "FPRD 不累加 WKC，WKC 0 是正常现象", "没有从站应答；IgH 按位置号 + 1 分配站地址，站地址 3 就是位置 2 的第三台，它不在线"], "answer": 3, "explain": "FPRD 只有站地址匹配的那一台会处理，处理了 WKC 就是 1，与读出的值无关，所以 0 表示没人应答。IgH 给从站写的站地址从 0x0001 开始，等于位置号 + 1，站地址 3 对应位置 2，也就是第三台。", "links": ["u1-l3", "u2-l1"]},
+  {"q": "LRW 期望 6、实际 4，少的 2 对应哪种贡献？下一步查什么？", "options": ["少的是只写从站的 +2，正是第三台，和前两问一致；下一步 <code>ethercat reg_read -p1 0x0110 2</code> 看从站 2 端口 1 的链路位", "少的是从站 1 读写贡献里的写那部分，说明从站 1 只读不写", "从站 2 的输入段被重复计数又扣掉了两次", "主站丢帧，下一步看 <code>ethercat master</code> 的 Lost frames"], "answer": 0, "explain": "期望 6 = 从站 1 读写 3 + 从站 2 只读 1 + 从站 3 只写 2，实际 4 正好缺了从站 3 的 2。帧能带着 WKC 4 回来，说明并没有丢帧。0x0110 bit5 是端口 1 的物理链路：链路没了，断点就锁定在从站 2 与第三台之间；网线断和第三台掉电都会让链路消失，再看第三台的电源指示区分。", "links": ["u1-l3", "u1-l1", "u7-l2"]}
+]}
+    </script>
+  </section>
+
+  <!-- U2 -->
+  <section class="lesson-block" id="u2">
+    <h2>U2 · ESC 从站控制器</h2>
+    <p class="ch-intro">只用五个寄存器读数，说出状态、原因和看门狗时间。注意读数是小端字节序。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>主站程序停止之后，逐个读 ESC 寄存器：</p>
+<pre><code>$ ethercat reg_read -p0 0x0130 2
+0x14 0x00
+$ ethercat reg_read -p0 0x0134 2
+0x1B 0x00
+$ ethercat reg_read -p0 0x0440 2
+0x00 0x00
+$ ethercat reg_read -p0 0x0420 2
+0x64 0x00
+$ ethercat reg_read -p0 0x0400 2
+0xC2 0x09</code></pre>
+    </div>
+    <div class="challenge" data-unit="u2"></div>
+    <script type="application/json" class="challenge-data" data-unit="u2">
+{"questions": [
+  {"q": "从站现在在什么状态，为什么？", "options": ["OP，bit4 只是一个警告位", "SAFEOP 且错误位置 1：输出 SM 看门狗到期", "PREOP：程序退出后主站把它退回了 PREOP", "INIT：从站自己复位了"], "answer": 1, "explain": "0x0130 = 0x14：低 4 位 = 4 是 SAFEOP，bit4 = 1 是错误指示。0x0134 = 0x001B 是同步管理器看门狗；0x0440 bit0 = 0 表示过程数据看门狗已经到期。", "links": ["u2-l1", "u2-l2", "u3-l1"]},
+  {"q": "这台从站的过程数据看门狗时间是多少？", "options": ["100 ms，ESC 默认值", "0.1 ms：0x0420 的 100 就是 100 µs", "10 ms：时基 100 µs × 100", "1 ms，等于主站周期"], "answer": 2, "explain": "0x0400 = 0x09C2 = 2498，时基 = (2498 + 2) × 40 ns = 100 µs；0x0420 = 0x0064 = 100 个时基，即 10 ms。ESC 复位默认是 1000 个时基（100 ms），这里主站把它改成了 100。", "links": ["u2-l2"]},
+  {"q": "如果主站周期抖动偶尔会到 12 ms，会怎样、该怎么改？", "options": ["偶尔超过 10 ms 就会间歇性报 0x001B；用 <code>ecrt_slave_config_watchdog</code> 把看门狗设为周期的若干倍，或修主站实时性", "不会有影响，看门狗只在程序退出时触发", "会报 0x001A 同步错误，应该调 SYNC0 shift", "把 0x0420 写 0 关掉看门狗最省事"], "answer": 0, "explain": "看门狗只看两次写输出 SM 之间的间隔，任何一次超过 10 ms 就到期，从站退 SAFEOP 并报 0x001B。0x001A 是 DC 同步错误，是另一回事；关掉看门狗会让从站在主站死掉后继续执行最后一次输出，失去保护。", "links": ["u2-l2", "u4-l2", "u6-l1"]}
+]}
+    </script>
+  </section>
+
+  <!-- U3 -->
+  <section class="lesson-block" id="u3">
+    <h2>U3 · 协议与状态机</h2>
+    <p class="ch-intro">一次被拒绝的状态切换：谁拒绝的，差在哪几个字节，该让哪一边迁就。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>主站程序 activate 之后，从站停在 PREOP 且带 E。</p>
+<pre><code>$ ethercat slaves
+0  0:0  PREOP  E  Servo
+$ ethercat reg_read -p0 0x0134 2
+0x1D 0x00
+$ ethercat pdos -p0
+SM2: PhysAddr …, DefaultSize 6, …
+  RxPDO 0x1600 …
+    PDO entry 0x6040:00, 16 bit
+    PDO entry 0x607A:00, 32 bit</code></pre>
+      <p>程序 syncs 里 0x1600 的映射：</p>
+<pre><code>{0x6040, 0x00, 16},
+{0x607A, 0x00, 32},
+{0x60B8, 0x00, 16},</code></pre>
+    </div>
+    <div class="challenge" data-unit="u3"></div>
+    <script type="application/json" class="challenge-data" data-unit="u3">
+{"questions": [
+  {"q": "AL 状态码 0x001D 是什么，是谁拒绝的？", "options": ["SDO abort：主站拒绝下载映射", "同步错误：DC 配置不对", "无效输出配置：从站在 PREOP → SAFEOP 检查输出 SM 长度与自己的映射不符时拒绝", "看门狗到期"], "answer": 2, "explain": "0x001D 是 Invalid Output Configuration。拒绝发生在从站：主站写 0x0120 请求 SAFEOP，从站固件检查输出 SM 的长度与自己的映射对不上，于是留在 PREOP、置错误位并把原因写进 0x0134。", "links": ["u3-l1", "u3-l3"]},
+  {"q": "长度差在哪里？", "options": ["607A 应该是 16 位", "主站按程序映射算出 8 字节写进 SM2，从站实际映射只有 6 字节（固定映射，或 1600 下载失败）：多出的是 60B8 的 2 字节", "主站把 SM2 写成了 6 字节，是程序映射少了 2 字节", "SM2 里缺少 6041"], "answer": 1, "explain": "程序映射 16 + 32 + 16 = 64 bit = 8 字节，IgH 按它算出 SM2 长度写进 ESC。pdos 显示从站真实映射只有 6040 + 607A = 6 字节，差的 2 字节就是 60B8（Touch probe function）。6041 是输入，属于 SM3。", "links": ["u3-l3"]},
+  {"q": "正确的做法是？", "options": ["反复请求 SAFEOP 直到成功", "用 <code>reg_write</code> 把 SM2 长度改成 6", "切到 OP 后再用 SDO 改 0x1C12", "先用 <code>ethercat pdos</code> 核对从站真实映射：固定映射就从程序里去掉 60B8，可动态映射就确认 1600 下载成功；改完写 0x0120 = 0x12 确认错误再重试"], "answer": 3, "explain": "两边的映射必须一致：固定映射改不了，只能让程序迁就它；可动态映射时 IgH 在 PREOP 下载 1600，失败会在 dmesg 留下记录。0x12 = bit4 错误确认 + 状态 2（PREOP）。reg_write 改 SM 长度与主站的域布局冲突，下次配置也会被覆盖；0x1C12 只能在 PREOP 改，OP 下会得到 abort 0x08000022。", "links": ["u3-l3", "u3-l1", "u7-l2"]}
+]}
+    </script>
+  </section>
+
+  <!-- U4 -->
+  <section class="lesson-block" id="u4">
+    <h2>U4 · 时间同步</h2>
+    <p class="ch-intro">间歇性的同步错误：先看配置里的余量，再看抖动。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>4 轴 DC 同步，主站周期 1 ms。几小时出现一次某一轴 SAFEOP + E，<code>0x0134</code> = 0x1A 0x00。</p>
+<pre><code>/* 主站程序里的 DC 配置 */
+ecrt_slave_config_dc(sc, 0x0300, 1000000, 0, 0, 0);
+
+$ cyclictest …        # 实测最大延迟 380 µs</code></pre>
+    </div>
+    <div class="challenge" data-unit="u4"></div>
+    <script type="application/json" class="challenge-data" data-unit="u4">
+{"questions": [
+  {"q": "0x001A 的含义与触发条件是？", "options": ["同步错误：过程数据晚于 SYNC0 到达，次数累计超过阈值", "过程数据看门狗到期", "DC 参考时钟从站掉线", "从站 PLL 失锁，属于硬件故障"], "answer": 0, "explain": "0x001A 是 Synchronization error。DC 同步模式下从站在 SYNC0 时刻取用输出，帧晚到算一次同步丢失，累计超过从站的阈值就报错退回 SAFEOP。几小时才一次，说明是主站偶发迟到，而不是持续的配置错误。", "links": ["u4-l2", "u3-l1"]},
+  {"q": "这套配置给帧留的余量是多少，够不够？", "options": ["余量是一个完整周期 1 ms，足够", "余量刚好 380 µs，正好够", "sync0_shift = 0：发帧时刻与 SYNC0 之间几乎没有余量，380 µs 的唤醒抖动足以让帧晚到", "余量由 0x0300 决定，是 768 µs"], "answer": 2, "explain": "参数依次是 assign_activate、sync0_cycle、sync0_shift、sync1_cycle、sync1_shift。shift 为 0 时 SYNC0 大致落在主站周期起点，而帧要等主站线程醒来才发出，线程晚醒多少，帧就晚多少。0x0300 是写进 DC 激活寄存器的激活字，不是时间。", "links": ["u4-l2", "u4-l1", "u6-l1"]},
+  {"q": "应该从哪两方面改？", "options": ["把 sync0_cycle 改成 2 ms，并关闭 DC", "把 sync0_shift 设为周期的一部分（如 500000 ns），同时压抖动：PREEMPT_RT、隔离 CPU、关深度节能", "加大看门狗时间", "把 assign_activate 改成 0x0000"], "answer": 1, "explain": "shift 给帧留出从发出到到达的时间窗口，压抖动则让发帧时刻本身更稳，两者要一起做。看门狗对应的是 0x001B 而不是 0x001A；把激活字清零等于关掉 SYNC0，放弃同步。", "links": ["u4-l2", "u6-l1"]}
+]}
+    </script>
+  </section>
+
+  <!-- U5 -->
+  <section class="lesson-block" id="u5">
+    <h2>U5 · CiA402 驱动器</h2>
+    <p class="ch-intro">使能序列卡在半路：是故障，还是缺了一个前提？</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>总线已 OP，按顺序写控制字：</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>操作 / 读数</th><th>结果</th></tr>
+          <tr><td>6040 = 0x0006</td><td>6041 = 0x0221</td></tr>
+          <tr><td>6040 = 0x0007</td><td>6041 仍为 0x0221</td></tr>
+          <tr><td>603F</td><td>0x0000</td></tr>
+          <tr><td>1001</td><td>0x00</td></tr>
+          <tr><td>48 V 动力电源</td><td>指示灯灭</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="challenge" data-unit="u5"></div>
+    <script type="application/json" class="challenge-data" data-unit="u5">
+{"questions": [
+  {"q": "6041 = <code>0x0221</code> 是什么状态？", "options": ["Switched on", "Switch on disabled", "Fault", "Ready to switch on，bit4 Voltage enabled = 0"], "answer": 3, "explain": "0x0221 &amp; 0x004F = 0x0001，不匹配这一组的任何状态；再用 0x006F：0x0221 &amp; 0x006F = 0x0021，即 Ready to switch on。bit4 = 0 表示没有母线电压，bit3 = 0 不是故障。", "links": ["u5-l1"]},
+  {"q": "为什么写 0x0007 不生效？", "options": ["Switch on 需要功率级就绪；bit4 = 0 说明母线无电，驱动器留在 Ready to switch on，这不是故障", "控制字写错了，应该直接写 0x000F", "驱动器有故障，要先写 0x80 复位", "PDO 映射里没有 6040，写入没有到达驱动器"], "answer": 0, "explain": "写 0x0006 后 6041 从 Switch on disabled 变成了 Ready to switch on，说明控制字确实到达了驱动器；603F = 0、1001 = 0、bit3 = 0 排除了故障。直接写 0x000F 也要先经过 Switched on，母线无电同样过不去。", "links": ["u5-l1", "u5-l3"]},
+  {"q": "顺序上应该怎么做？", "options": ["先写 0x0007 再上动力电，驱动器会记住这条命令", "先把 6060 改成 CSP，再写 0x0007", "先接通动力电，等 6041 bit4 = 1，再写 0x0007（很多驱动器在 bit4 = 0 时也接受 0x0006）", "反复写 0x0007，直到状态变化"], "answer": 2, "explain": "Switched on 之后驱动器要对功率级负责，所以要求母线电压已经就绪；主站应该以 6041 为准推进，每一步等状态确认再写下一条。运行模式 6060 与这一步的转换条件无关。", "links": ["u5-l1", "u5-l3", "u6-l1"]}
+]}
+    </script>
+  </section>
+
+  <!-- U6 -->
+  <section class="lesson-block" id="u6">
+    <h2>U6 · 软件实现</h2>
+    <p class="ch-intro">上面几层全绿，电机就是不动：用排除法把问题压到最后一层。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>最小主站程序在运行。</p>
+<pre><code>$ ethercat master | grep Phase
+  Phase: Operation
+$ ethercat slaves
+0  0:0  OP  +  Servo
+$ ethercat domains
+Domain0: … WorkingCounter 3/3
+6041 = 0x1237</code></pre>
+      <div class="table-wrap">
+        <table>
+          <tr><th>周期</th><th>607A（程序写）</th><th>6064（驱动器回）</th></tr>
+          <tr><td>n</td><td>x</td><td>p</td></tr>
+          <tr><td>n+1</td><td>x + 100</td><td>p</td></tr>
+          <tr><td>n+2</td><td>x + 200</td><td>p</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="challenge" data-unit="u6"></div>
+    <script type="application/json" class="challenge-data" data-unit="u6">
+{"questions": [
+  {"q": "这三处读数说明哪些层是正常的？", "options": ["只有 ESM 正常，过程数据可能没到驱动器", "ESM、过程数据通路、CiA402 都正常；6041 bit12 = 1 表示驱动器在跟随指令", "都不可信，需要从网线查起", "CiA402 不正常：bit12 置位是厂商故障位"], "answer": 1, "explain": "slaves 全部 OP +，domains 3/3 说明周期数据完整；0x1237 &amp; 0x006F = 0x0027 是 Operation Enabled。CSP 下 6041 bit12 = 1 表示驱动器正在跟随目标位置，故障位 bit3 = 0。", "links": ["u7-l1", "u5-l1", "u5-l2"]},
+  {"q": "6064 不变，最可能是哪一层的问题？", "options": ["网卡丢帧，607A 没送到", "ESM 在 SAFEOP，输出被忽略", "6040 没写 0x0F", "电机控制或机械层：抱闸未松、限位，或生效的模式不是 CSP，先读 6061"], "answer": 3, "explain": "上面三层已经排除：WKC 完整、状态 OP、6041 已是 Operation Enabled。驱动器收下了指令却不产生运动，要么生效的模式不是你以为的（6060 是请求，6061 才是实际生效值），要么力矩出不来或被机械挡住。", "links": ["u5-l2", "u6-l3", "u5-l3"]},
+  {"q": "读到 6061 = 8，而 60F4 在持续增大，该做什么？", "options": ["继续递增 607A，等跟随误差自己消除", "把 6065 跟随误差窗口调大", "跟随误差在累积：停止递增 607A，读 60FD 的抱闸/限位输入和 603F，检查抱闸是否释放", "写 6040 = 0x80 复位"], "answer": 2, "explain": "60F4 是实际跟随误差：指令在走、位置不动，误差会一直涨，直到超出 6065 触发故障，或者阻挡一消失就猛冲。先停指令再查原因；调大窗口只是推迟报警，现在也还没有故障可复位。", "links": ["u6-l3", "u5-l3"]}
+]}
+    </script>
+  </section>
+
+  <!-- U7 -->
+  <section class="lesson-block" id="u7">
+    <h2>U7 · 综合诊断</h2>
+    <p class="ch-intro">把决策树完整走一遍：定层、读懂错误码、按顺序修复。</p>
+    <div class="challenge-scenario">
+      <p><strong>场景：</strong>现场报告"电机不动"。</p>
+<pre><code>$ ethercat slaves
+0  0:0  OP  +  Servo
+$ ethercat domains
+Domain0: … WorkingCounter 3/3
+$ ethercat upload -p0 --type uint16 0x6041 0
+0x0668 1640
+$ ethercat upload -p0 --type uint16 0x603F 0
+0x8611 34321
+$ ethercat upload -p0 --type int8 0x6061 0
+0x08 8</code></pre>
+    </div>
+    <div class="challenge" data-unit="u7"></div>
+    <script type="application/json" class="challenge-data" data-unit="u7">
+{"questions": [
+  {"q": "按三问决策树，问题在哪一层？", "options": ["总线层：WKC 虽然满了，但帧里可能有错", "过程数据通路：6041 读数异常说明映射错位", "CiA402 层：总线与通路正常；6041 两种掩码都判不出标准状态，但 bit3 = 1，按故障处理", "电机控制层：6061 = 8 说明模式正常，只能是电机本身"], "answer": 2, "explain": "slaves OP + 与 WKC 3/3 排除了 ESM 和过程数据通路。0x0668 &amp; 0x004F = 0x0048、&amp; 0x006F = 0x0068，都不在状态表里；决定性的是 bit3 Fault = 1，问题停在驱动器状态机这一层。", "links": ["u7-l2", "u5-l1"]},
+  {"q": "603F = <code>0x8611</code> 是什么，上一次最可能发生了什么？", "options": ["跟随误差：使能时 607A 与 6064 不一致，或主站给的指令每周期不可达", "过流：电机相间短路", "编码器断线", "过程数据看门狗超时"], "answer": 0, "explain": "CiA 402 错误码 0x8611 是 Following error（位置跟随误差）。常见诱因是使能那一刻 607A 没对齐 6064，驱动器瞬间要追一个大误差；或者主站插补给的点每周期根本走不到。看门狗超时是 ESM 层的 0x001B，不会出现在 603F。", "links": ["u5-l3", "u6-l3", "u7-l2"]},
+  {"q": "修复的顺序是？", "options": ["6040 写 0x80 再写 0x0F，立刻恢复插补", "读懂原因 → 6040 0x00 → 0x80 复位 → 607A = 6064 → 0x06 / 0x07 / 0x0F → 恢复插补", "重启主站程序就好", "先写 0x0F 使能，再写 0x80 复位"], "answer": 1, "explain": "复位靠 bit7 上升沿，所以先写 0x00；复位后驱动器回到 Switch on disabled，必须重新走 0x06 → 0x07 → 0x0F。使能前把 607A 对齐 6064，否则会立刻再次跟随误差。", "links": ["u5-l3", "u7-l2", "u6-l1"]}
+]}
+    </script>
+  </section>
+
+</main>
+</div>
+
+<script>Academy.init('challenges');</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>结业任务 · EtherCAT 学院</title>
+<meta name="description" content="EtherCAT 学院结业任务：把驱动器从上电带到运动、解释周期帧的每个字节、定位一个故障。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1f6feb">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+#capstone .capstone-task > label { display: block; margin: .6em 0; font-weight: 600; }
+#capstone .capstone-task > label textarea { display: block; margin-top: .25em; font-weight: 400; }
+#capstone .cap-list code { font-size: .85em; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main id="capstone">
+
+  <header class="lesson-head">
+    <h1>结业任务</h1>
+    <p class="lesson-lede">三条真机任务对应课程的完成标准：能从上电把驱动器带到 OP 并使能运动；能解释周期帧里每个字节的来历；能根据 AL 状态码、WKC、603F 定位故障所在层。逐项勾选并记下读数，三条全部勾完即结业。勾选与记录只保存在这台浏览器。</p>
+  </header>
+
+  <section class="lesson-block capstone-task" data-task="t1">
+    <h2>任务 1 · 把一台驱动器从上电带到运动</h2>
+    <p>目标：亲手走完两台状态机，看着 6041 一步步变化，让电机按 607A 转起来再有序停下。相关课：<a class="lid-chip" href="u7-l0.html">u7-l0</a><a class="lid-chip" href="u5-l1.html">u5-l1</a><a class="lid-chip" href="u6-l1.html">u6-l1</a></p>
+    <ul class="cap-list">
+      <li><label><input type="checkbox" data-item="t1-1"><span>上电后运行 <code>ethercat slaves</code>，记下每台从站的位置与 ESM 状态（没有应用程序时应为 PREOP）。</span></label></li>
+      <li><label><input type="checkbox" data-item="t1-2"><span>运行 u6-l1 的最小主站程序，确认 <code>ethercat master</code> 的 Phase 为 Operation、<code>ethercat slaves</code> 全部 OP +。</span></label></li>
+      <li><label><input type="checkbox" data-item="t1-3"><span>按 6040 = 0x06 → 0x07 → 0x0F 使能，每步等 6041 确认，记录 6041 的三次变化（示例 0x0231 → 0x0233 → 0x0237）。</span></label></li>
+      <li><label><input type="checkbox" data-item="t1-4"><span>使能前令 607A = 6064；进入 Operation Enabled 后每周期把 607A 加 100，记录 6064 是否跟上。</span></label></li>
+      <li><label><input type="checkbox" data-item="t1-5"><span>有序停机：先停止递增 607A，再用 6040 断使能（0x06，再 0x00），最后 <code>ecrt_release_master</code>；记录 6041 回到 0x0250。</span></label></li>
+    </ul>
+    <h3>读数记录</h3>
+    <label>ethercat slaves（上电后）<textarea data-note="t1-slaves" placeholder="例：0  0:0  PREOP  +  Servo"></textarea></label>
+    <label>6041 三次变化<textarea data-note="t1-6041" placeholder="例：0x0231 → 0x0233 → 0x0237"></textarea></label>
+    <label>607A 与 6064 跟随（取几个周期）<textarea data-note="t1-6064" placeholder="例：周期 n：607A = x，6064 = …；周期 n+1：607A = x + 100，6064 = …"></textarea></label>
+    <label>停机后的 6041<textarea data-note="t1-stop" placeholder="例：0x0250"></textarea></label>
+  </section>
+
+  <section class="lesson-block capstone-task" data-task="t2">
+    <h2>任务 2 · 解释周期帧的每个字节</h2>
+    <p>目标：从 PDO 映射出发算出域里每个字节的位置，再在真实的帧里把它们一个个指出来。相关课：<a class="lid-chip" href="u1-l2.html">u1-l2</a><a class="lid-chip" href="u3-l3.html">u3-l3</a><a class="lid-chip" href="u2-l3.html">u2-l3</a></p>
+    <ul class="cap-list">
+      <li><label><input type="checkbox" data-item="t2-1"><span>运行 <code>ethercat cstruct -p0</code>，抄下 RxPDO 与 TxPDO 的映射项（索引、子索引、位长）。</span></label></li>
+      <li><label><input type="checkbox" data-item="t2-2"><span>按映射算出每个条目在域里的字节偏移，并与程序里 <code>ecrt_domain_reg_pdo_entry_list</code> 得到的偏移对照。</span></label></li>
+      <li><label><input type="checkbox" data-item="t2-3"><span>抓一帧 LRW（Wireshark 过滤 <code>ecat.cmd == 12</code>，或 <code>ethercat data | hexdump -C</code>），标出 6040、607A、6041、6064 各占哪几个字节，注意小端序。</span></label></li>
+      <li><label><input type="checkbox" data-item="t2-4"><span>算出期望 WKC（LRW 域：每台有输出 +2、有输入 +1），与 <code>ethercat domains</code> 的 WorkingCounter 对照。</span></label></li>
+    </ul>
+    <h3>读数记录</h3>
+    <label>映射（cstruct 摘录）<textarea data-note="t2-map" placeholder="例：0x6040:00 16 bit；0x607A:00 32 bit；0x6041:00 16 bit；0x6064:00 32 bit"></textarea></label>
+    <label>域偏移<textarea data-note="t2-offset" placeholder="例：6040 → 0，607A → 2，6041 → 6，6064 → 8"></textarea></label>
+    <label>帧里的字节<textarea data-note="t2-bytes" placeholder="例：数据区第 0–1 字节 = 6040 = 0F 00 …"></textarea></label>
+    <label>期望 WKC 与实测<textarea data-note="t2-wkc" placeholder="例：1 台 × 3 = 3；domains 显示 3/3"></textarea></label>
+  </section>
+
+  <section class="lesson-block capstone-task" data-task="t3">
+    <h2>任务 3 · 定位一个故障</h2>
+    <p>目标：人为制造三种典型故障，每次都用同一组五个读数（slaves、0x0134、domains、6041、603F）把它归到"哪台状态机、哪条通路、哪一层"。相关课：<a class="lid-chip" href="u7-l1.html">u7-l1</a><a class="lid-chip" href="u7-l2.html">u7-l2</a></p>
+    <div class="warn">只在空载、低速、能随时急停的条件下做；故障三会让电机突然动作，电机轴上不要带负载。</div>
+    <ul class="cap-list">
+      <li><label><input type="checkbox" data-item="t3-1"><span>故障一：运行中拔掉进入最后一台从站的那根网线，记下五个读数。</span></label></li>
+      <li><label><input type="checkbox" data-item="t3-2"><span>故障二：运行中停掉主站程序（Ctrl+C 或 kill），记下五个读数。</span></label></li>
+      <li><label><input type="checkbox" data-item="t3-3"><span>故障三：使能前不把 607A 对齐 6064，记下五个读数。</span></label></li>
+      <li><label><input type="checkbox" data-item="t3-4"><span>对三次故障分别写出：哪台状态机（ESM / CiA402）、哪条通路（邮箱 / 过程数据）、哪一层。</span></label></li>
+    </ul>
+    <h3>读数记录</h3>
+    <label>故障一：拔掉进入最后一台从站的网线<textarea data-note="t3-f1" placeholder="slaves：… ／ 0x0134：… ／ domains：… ／ 6041：… ／ 603F：…"></textarea></label>
+    <label>故障二：停主站程序<textarea data-note="t3-f2" placeholder="slaves：… ／ 0x0134：… ／ domains：… ／ 6041：… ／ 603F：…"></textarea></label>
+    <label>故障三：不对齐 607A<textarea data-note="t3-f3" placeholder="slaves：… ／ 0x0134：… ／ domains：… ／ 6041：… ／ 603F：…"></textarea></label>
+    <label>三次故障的定层结论<textarea data-note="t3-analysis" placeholder="例：故障二 → ESM（0x001B 看门狗）、过程数据通路中断、主站程序层"></textarea></label>
+  </section>
+
+  <p id="cap-result" class="note"></p>
+
+</main>
+</div>
+
+<script>Academy.init('capstone');</script>
+</body>
+</html>

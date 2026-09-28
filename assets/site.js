@@ -20,6 +20,15 @@
   var LS_PROGRESS = 'ecat.progress';
   var LS_THEME = 'ecat.theme';
   var LS_SEEN = 'ecat.seenVersion';
+  var LS_PATH = 'ecat.path';        // 'full' | 'fast'
+  var LS_CAP = 'ecat.capstone';     // {items:{}, notes:{}, done: ISO}
+  var FAST = CUR.fastPath || [];
+  var PAGES = CUR.pages || {};
+  function pathMode() { return lsGet(LS_PATH) === 'fast' ? 'fast' : 'full'; }
+  function isChallengeId(id) {
+    var m = /^(u\d)-c$/.exec(id || '');
+    return !!(m && CUR.units.some(function (u) { return u.id === m[1] && u.challenge; }));
+  }
 
   function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
@@ -66,7 +75,7 @@
     },
     isDone: function (id) { return Object.prototype.hasOwnProperty.call(progress.get(), id); },
     done: function (id) {
-      if (!BY_ID[id]) { console.warn('Academy.progress.done: 未知课号 ' + id); return false; }
+      if (!BY_ID[id] && !isChallengeId(id)) { console.warn('Academy.progress.done: 未知课号 ' + id); return false; }
       var p = progress.get();
       if (!p[id]) p[id] = new Date().toISOString();
       var ok = lsSet(LS_PROGRESS, JSON.stringify(p));
@@ -634,12 +643,17 @@
       s += '<div class="side-unit' + (inUnit ? ' is-current-unit' : '') + '"><div class="side-unit-title"><span class="unit-no">' + esc(u.no) + '</span>' + esc(u.title) + '</div><ol>';
       u.lessons.forEach(function (l) {
         var cur = l.id === currentId;
-        s += '<li><a class="side-lesson' + (cur ? ' is-current' : '') + '" data-done-id="' + l.id + '" href="' + href(l.id) + '"' + (cur ? ' aria-current="page"' : '') + '>' +
+        s += '<li><a class="side-lesson' + (cur ? ' is-current' : '') + (FAST.length && FAST.indexOf(l.id) < 0 ? ' off-path' : '') + '" data-done-id="' + l.id + '" href="' + href(l.id) + '"' + (cur ? ' aria-current="page"' : '') + '>' +
           '<span class="check" aria-hidden="true">✓</span><span><span class="lid">' + l.id + '</span>' + esc(l.title) + '</span></a></li>';
       });
+      if (u.challenge) {
+        s += '<li><a class="side-lesson side-challenge" data-done-id="' + u.id + '-c" href="challenges.html#' + u.id + '" title="' + esc(u.no) + ' 单元诊断挑战">' +
+          '<span class="check" aria-hidden="true">✓</span><span>⚑ 单元挑战</span></a></li>';
+      }
       s += '</ol></div>';
     });
-    s += '<div class="side-unit"><a class="side-link' + (currentId === 'glossary' ? ' is-current' : '') + '" href="glossary.html">≡ 术语表</a></div>' +
+    s += '<div class="side-unit"><a class="side-link' + (currentId === 'glossary' ? ' is-current' : '') + '" href="glossary.html">≡ 术语表</a>' +
+      '<a class="side-link' + (currentId === 'capstone' ? ' is-current' : '') + '" href="capstone.html">✦ 结业任务</a></div>' +
       (CUR.version ? '<a class="side-version' + (currentId === 'changelog' ? ' is-current' : '') + '" href="changelog.html" title="查看更新记录">v' +
         esc(CUR.version) + ' · 更新记录<span class="new-badge" hidden>新</span></a>' : '') + '</nav>';
     sb.innerHTML = s;
@@ -736,6 +750,167 @@
     });
   }
 
+  // ---------- 学习路径：完整 / 速通（ecat.path），html 上的 path-fast 类让侧栏与课表淡化路径外的课 ----------
+  function applyPath() { document.documentElement.classList.toggle('path-fast', pathMode() === 'fast'); }
+  function renderPathSwitch(unitsEl) {
+    var box = document.getElementById('path-switch') || h('div', { id: 'path-switch', class: 'path-switch' });
+    var mode = pathMode();
+    box.innerHTML =
+      '<div class="path-seg" role="group" aria-label="学习路径">' +
+      '<button type="button" class="step-btn" data-path="full" aria-pressed="' + (mode === 'full') + '">完整路径 · ' + LESSONS.length + ' 课</button>' +
+      '<button type="button" class="step-btn" data-path="fast" aria-pressed="' + (mode === 'fast') + '">速通路径 · ' + FAST.length + ' 课</button></div>' +
+      '<p class="path-note">' + (mode === 'fast'
+        ? '先把一台驱动器跑起来，其余课在需要时回来补。速通模式下路径外的课变淡，但仍可以点。'
+        : '按单元由底到顶学完全部课。想先把一台驱动器跑起来，可以切到速通路径。') + '</p>' +
+      (mode === 'fast' ? '<ol class="fast-path">' + FAST.map(function (id) { return BY_ID[id] ? '<li>' + lessonLink(BY_ID[id]) + '</li>' : ''; }).join('') + '</ol>' : '');
+    if (!box.parentNode) unitsEl.parentNode.insertBefore(box, unitsEl);
+    box.querySelectorAll('[data-path]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        lsSet(LS_PATH, b.getAttribute('data-path'));
+        applyPath(); renderPathSwitch(unitsEl); refreshProgressUI(); updateContinue();
+      });
+    });
+    refreshProgressUI();
+  }
+  function updateContinue() {
+    var cont = document.getElementById('continue-btn');
+    if (!cont) return;
+    var p = progress.get();
+    var pool = pathMode() === 'fast' && FAST.length ? FAST.map(function (id) { return BY_ID[id]; }).filter(Boolean) : LESSONS;
+    var nextUndone = pool.filter(function (l) { return !p[l.id]; })[0];
+    if (nextUndone) { cont.href = href(nextUndone.id); cont.textContent = (Object.keys(p).length ? '继续学习：' : '从第一课开始：') + nextUndone.id; }
+    else { cont.href = pool === LESSONS ? 'capstone.html' : 'index.html'; cont.textContent = pool === LESSONS ? LESSONS.length + ' 课全部完成 ✓ · 去做结业任务' : '速通 ' + pool.length + ' 课完成 ✓'; }
+  }
+
+  // ---------- 结业任务（ecat.capstone）----------
+  function capState() {
+    try { var v = JSON.parse(lsGet(LS_CAP) || '{}'); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }
+    catch (e) { return {}; }
+  }
+  function renderCapstoneBadge() {
+    var hero = document.querySelector('.home-hero h1');
+    if (!hero) return;
+    var st = capState(), old = document.getElementById('grad-badge');
+    if (old) old.remove();
+    if (st.done) hero.insertAdjacentHTML('beforeend', ' <span id="grad-badge" class="grad-badge" title="结业任务全部完成（' + esc(String(st.done).slice(0, 10)) + '，只记录在本机）">✦ 已结业</span>');
+  }
+  /* 结业任务页：页内每条任务 <section class="capstone-task" data-task="t1">，
+   * 清单项 <input type="checkbox" data-item="t1-1">，读数记录 <textarea data-note="t1-6041"> 或 <input data-note=…>。
+   * 勾选与记录存 ecat.capstone，全部勾完写 done（首页显示"已结业"）。 */
+  function initCapstone() {
+    var st = capState(); st.items = st.items || {}; st.notes = st.notes || {};
+    var boxes = [].slice.call(document.querySelectorAll('.capstone-task input[type="checkbox"][data-item]'));
+    var notes = [].slice.call(document.querySelectorAll('.capstone-task [data-note]'));
+    boxes.forEach(function (b) { b.checked = !!st.items[b.getAttribute('data-item')]; });
+    notes.forEach(function (n) { var v = st.notes[n.getAttribute('data-note')]; if (typeof v === 'string') n.value = v; });
+    function save() {
+      boxes.forEach(function (b) { st.items[b.getAttribute('data-item')] = b.checked; });
+      notes.forEach(function (n) { st.notes[n.getAttribute('data-note')] = n.value; });
+      var all = boxes.length > 0 && boxes.every(function (b) { return b.checked; });
+      if (all && !st.done) st.done = new Date().toISOString();
+      if (!all) delete st.done;
+      lsSet(LS_CAP, JSON.stringify(st));
+      paint();
+    }
+    function paint() {
+      document.querySelectorAll('.capstone-task').forEach(function (t) {
+        var bs = t.querySelectorAll('input[type="checkbox"][data-item]'), n = 0;
+        bs.forEach(function (b) { if (b.checked) n++; });
+        t.classList.toggle('is-done', bs.length > 0 && n === bs.length);
+        var c = t.querySelector('.cap-count');
+        if (!c) { c = h('p', { class: 'cap-count' }); var h2 = t.querySelector('h2'); if (h2) h2.insertAdjacentElement('afterend', c); else t.prepend(c); }
+        c.textContent = '已完成 ' + n + ' / ' + bs.length + (n === bs.length && bs.length ? ' ✓' : '');
+      });
+      var res = document.getElementById('cap-result');
+      if (res) res.textContent = st.done ? '三条任务全部完成（' + String(st.done).slice(0, 10) + '），首页已显示"已结业"。记录只保存在这台浏览器。' : '全部勾完后，首页会显示"已结业"徽章（只记录在这台浏览器）。';
+    }
+    boxes.forEach(function (b) { b.addEventListener('change', save); });
+    notes.forEach(function (n) { n.addEventListener('input', save); });
+    paint();
+  }
+
+  // ---------- 单元诊断挑战 ----------
+  /* challenge(el, data)：data = {unit: 'u0', questions: [{q, options[], answer, explain, links: ['u3-l1', …]}]}
+   * 逐题显示：前一题答对才出现下一题；答错立即给解释与回链课，可重答；三题全对写进度 uX-c。 */
+  function challenge(el, data) {
+    data = data || {};
+    var qs = data.questions, unit = data.unit, id = unit + '-c';
+    var err = validQuestions(qs);
+    if (!err && qs.some(function (q) { return !Array.isArray(q.links) || !q.links.length || q.links.some(function (l) { return !BY_ID[l]; }); })) err = '每题需要 links（存在的课号）';
+    if (!err && !isChallengeId(id)) err = '未知单元 ' + unit;
+    if (err) { console.error('Academy.challenge: ' + err); el.innerHTML = '<p class="warn">挑战数据有误：' + esc(err) + '</p>'; return null; }
+    var solved = qs.map(function () { return false; }), KEYS = 'ABCDEFGH';
+    el.innerHTML = '';
+    var list = h('ol', { class: 'quiz-list challenge-list' });
+    var items = qs.map(function (q, qi) {
+      var li = h('li', { class: 'quiz-q' + (qi > 0 ? ' is-locked' : '') });
+      if (qi > 0) li.hidden = true;
+      li.appendChild(h('p', { class: 'q-text' }, q.q));
+      var box = h('div', { class: 'q-opts', role: 'group' });
+      q.options.forEach(function (o, oi) {
+        var b = h('button', { type: 'button', class: 'q-opt' }, '<span class="q-key">' + KEYS[oi] + '.</span><span>' + o + '</span>');
+        b.addEventListener('click', function () { answer(qi, oi, li); });
+        box.appendChild(b);
+      });
+      li.appendChild(box);
+      li.appendChild(h('div', { class: 'q-explain', hidden: true }));
+      list.appendChild(li);
+      return li;
+    });
+    el.appendChild(list);
+    var bar = h('div', { class: 'quiz-bar' });
+    var result = h('div', { class: 'quiz-result', 'aria-live': 'polite' });
+    var reset = h('button', { type: 'button', class: 'step-btn' }, '重做');
+    reset.addEventListener('click', function () { challenge(el, data); });
+    bar.appendChild(result); bar.appendChild(reset); el.appendChild(bar);
+    function linksHtml(q) {
+      return '<span class="ch-links">回看：' + q.links.map(function (l) { return '<a class="lid-chip" href="' + href(l) + '">' + l + '</a>'; }).join('') + '</span>';
+    }
+    function answer(qi, oi, li) {
+      if (solved[qi]) return;
+      var q = qs[qi], ok = oi === q.answer;
+      var btns = li.querySelectorAll('.q-opt');
+      btns.forEach(function (b, k) { b.classList.remove('is-wrong'); if (k === oi && !ok) b.classList.add('is-wrong'); });
+      var ex = li.querySelector('.q-explain'); ex.hidden = false;
+      if (ok) {
+        solved[qi] = true;
+        btns[oi].classList.add('is-right');
+        btns.forEach(function (b) { b.disabled = true; });
+        ex.className = 'q-explain is-right';
+        ex.innerHTML = '<strong>✓ 正确。</strong>' + q.explain + ' ' + linksHtml(q);
+        var nx = items[qi + 1];
+        if (nx) { nx.hidden = false; nx.classList.remove('is-locked'); }
+      } else {
+        ex.className = 'q-explain is-wrong';
+        ex.innerHTML = '<strong>✗ 不对，再选一次。</strong>' + q.explain + ' ' + linksHtml(q);
+      }
+      update();
+    }
+    function update() {
+      var n = solved.filter(Boolean).length, all = n === qs.length;
+      result.className = 'quiz-result' + (all ? ' is-done' : '');
+      if (all) {
+        var saved = progress.done(id);
+        result.textContent = '三题全对' + (saved ? '，本单元挑战已记录 ✓' : '，但浏览器禁止本地存储，进度未保存');
+      } else {
+        var prev = progress.get()[id];
+        result.textContent = '已答对 ' + n + ' / ' + qs.length + (prev ? '（本单元挑战已于 ' + String(prev).slice(0, 10) + ' 完成）' : '，三题全对记为完成');
+      }
+    }
+    update();
+    return { reset: function () { challenge(el, data); } };
+  }
+  function initChallenges() {
+    document.querySelectorAll('.challenge[data-unit]').forEach(function (el) {
+      var u = el.getAttribute('data-unit');
+      var src = document.querySelector('script.challenge-data[data-unit="' + u + '"]');
+      var data = null;
+      try { data = JSON.parse(src ? src.textContent : 'null'); } catch (e) { console.error('Academy: 挑战 ' + u + ' 的 JSON 不合法', e); }
+      if (data) { data.unit = u; challenge(el, data); }
+      else el.innerHTML = '<p class="warn">找不到挑战数据：' + esc(u) + '</p>';
+    });
+  }
+
   // 首页：#home-map 放总图 + 层面板，#home-units 放单元课表
   function renderHome() {
     var mapEl = document.getElementById('home-map-svg');
@@ -771,16 +946,13 @@
       unitsEl.innerHTML = CUR.units.map(function (u) {
         return '<div class="unit-card"><h3><span><span class="unit-no" style="color:var(--bus)">' + esc(u.no) + '</span> ' + esc(u.title) + '</span><small data-unit-count="' + u.id + '"></small></h3>' +
           '<div class="ubar" data-unit-bar="' + u.id + '"><i></i></div><ol>' +
-          u.lessons.map(function (l) { return '<li>' + lessonLink(l) + '</li>'; }).join('') + '</ol></div>';
+          u.lessons.map(function (l) { return '<li' + (FAST.length && FAST.indexOf(l.id) < 0 ? ' class="off-path"' : '') + '>' + lessonLink(l) + '</li>'; }).join('') + '</ol>' +
+          (u.challenge ? '<p class="unit-foot"><a class="unit-challenge" data-done-id="' + u.id + '-c" href="challenges.html#' + u.id + '">⚑ 挑战</a></p>' : '') + '</div>';
       }).join('');
+      if (FAST.length) renderPathSwitch(unitsEl);
     }
-    var cont = document.getElementById('continue-btn');
-    if (cont) {
-      var p = progress.get();
-      var nextUndone = LESSONS.filter(function (l) { return !p[l.id]; })[0];
-      if (nextUndone) { cont.href = href(nextUndone.id); cont.textContent = (Object.keys(p).length ? '继续学习：' : '从第一课开始：') + nextUndone.id; }
-      else { cont.href = 'u7-l2.html'; cont.textContent = LESSONS.length + ' 课全部完成 ✓'; }
-    }
+    renderCapstoneBadge();
+    updateContinue();
   }
 
   var inited = false;
@@ -794,11 +966,14 @@
     var lesson = BY_ID[lessonId];
     if (lessonId === 'uX-lY') // _template.html 预览用的假课
       lesson = { id: 'uX-lY', title: '课名', hours: 0, highlight: ['esc', 'slave-stack'], prereq: ['u0-l1'], index: -1, unit: { no: 'UX', title: '模板' } };
-    if (!lesson && ['index', 'glossary', '404', 'changelog'].indexOf(lessonId) < 0) console.error('Academy.init: 未知课号 ' + lessonId);
-    renderTopbar(lesson, { glossary: '术语表', index: '系统总图', '404': '页面不存在', changelog: '更新记录' }[lessonId] || '');
+    if (!lesson && ['index', 'glossary', '404', 'changelog'].indexOf(lessonId) < 0 && !PAGES[lessonId]) console.error('Academy.init: 未知课号 ' + lessonId);
+    applyPath();
+    renderTopbar(lesson, { glossary: '术语表', index: '系统总图', '404': '页面不存在', changelog: '更新记录' }[lessonId] || PAGES[lessonId] || '');
     renderSidebar(lessonId);
     if (lesson) renderLesson(lesson);
     if (lessonId === 'index') renderHome();
+    if (lessonId === 'challenges') initChallenges();
+    if (lessonId === 'capstone') initCapstone();
     // 新版本提示：读者上次看到的版本与当前不同时，在版本链接上显示"新"；打开更新记录页即视为已看
     if (CUR.version) {
       if (lessonId === 'changelog') lsSet(LS_SEEN, CUR.version);
@@ -840,6 +1015,7 @@
     init: init,
     stepper: stepper,
     quiz: quiz,
+    challenge: challenge,
     progress: progress,
     hex: hex,
     bits: bits,

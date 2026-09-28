@@ -564,3 +564,48 @@ g.is-hot-fault > :is(rect, circle, ellipse, path, polygon, polyline, line) { str
 .unit-card .ubar { height: 5px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
 .unit-card .ubar i { display: block; height: 100%; background: var(--drive); }
 .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+
+/* ---------- v1.4.0：单元挑战、结业任务、速通路径 ---------- */
+/* 侧栏：单元挑战条目 */
+.side-challenge { color: var(--muted); }
+.side-challenge .check { border-style: dashed; }
+.side-challenge.is-done { color: var(--ink); }
+/* 速通模式：路径外的课变淡但仍可点 */
+.path-fast .side-lesson.off-path, .path-fast .unit-card li.off-path { opacity: .42; }
+.path-fast .side-lesson.off-path:hover, .path-fast .unit-card li.off-path:hover { opacity: .8; }
+/* 首页路径开关与速通列表 */
+.path-switch { margin: 0 0 14px; }
+.path-seg { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.path-seg .step-btn { border: 0; border-radius: 0; }
+.path-seg .step-btn + .step-btn { border-left: 1px solid var(--line); }
+.path-seg .step-btn[aria-pressed="true"] { background: var(--bus); color: #fff; }
+.path-note { color: var(--muted); font-size: .92rem; margin: .5em 0; }
+.fast-path { display: flex; flex-wrap: wrap; gap: 6px 10px; list-style: none; padding: 0; margin: .4em 0 0; counter-reset: fp; }
+.fast-path li { counter-increment: fp; border: 1px solid var(--bus); background: var(--bus-soft); border-radius: 8px; padding: 3px 10px 3px 6px; font-size: .9rem; }
+.fast-path li::before { content: counter(fp); display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; margin-right: .35em; border-radius: 50%; background: var(--bus); color: #fff; font-size: .75rem; font-family: var(--font-mono); }
+.fast-path li a { color: var(--ink); }
+.fast-path .is-done::after { content: " ✓"; color: var(--drive); font-weight: 700; }
+/* 首页单元卡片：挑战链接 */
+.unit-foot { margin: .5em 0 0; padding-top: .4em; border-top: 1px dashed var(--line); font-size: .88rem; }
+.unit-challenge { color: var(--muted); font-weight: 600; }
+.unit-challenge.is-done { color: var(--drive); }
+/* 结业徽章 */
+.grad-badge { display: inline-block; vertical-align: middle; font-family: var(--font-body); font-size: .9rem; font-weight: 700; color: var(--drive); border: 1px solid var(--drive); background: var(--drive-soft); border-radius: 999px; padding: .1em .8em; }
+/* 挑战页 */
+.challenge-scenario { border-left: 4px solid var(--fault); background: var(--fault-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 8px 14px; margin: .6em 0 1em; }
+.challenge-scenario pre { background: var(--panel); }
+.challenge-list .quiz-q[hidden] { display: none; }
+.ch-links { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: .2em; color: var(--muted); font-size: .88rem; }
+/* 结业任务页 */
+.capstone-task .cap-list { list-style: none; padding: 0; margin: .5em 0; }
+.capstone-task .cap-list li { margin: .35em 0; }
+.capstone-task .cap-list label { display: grid; grid-template-columns: 1.4em minmax(0, 1fr); gap: .3em; cursor: pointer; }
+.capstone-task .cap-list input[type="checkbox"] { width: 1.05em; height: 1.05em; margin-top: .3em; accent-color: var(--drive); }
+.capstone-task textarea, .capstone-task input[data-note] {
+  width: 100%; font: inherit; font-family: var(--font-mono); font-size: .88rem; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
+}
+.capstone-task textarea { min-height: 4.5em; resize: vertical; }
+.cap-count { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); margin: -.2em 0 .4em; }
+.capstone-task.is-done { border-color: var(--drive); box-shadow: inset 4px 0 0 var(--drive), var(--shadow); }
+.capstone-task.is-done .cap-count { color: var(--drive); font-weight: 700; }

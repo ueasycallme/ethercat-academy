@@ -128,6 +128,71 @@ def check_changelog():
     return errs
 
 
+def check_challenges():
+    """challenges.html：#u0…#u7 八节，每节 .challenge[data-unit] + script.challenge-data 3 题，答案序号合法，每题 links 指向存在的课。"""
+    errs = []
+    f = ROOT / 'challenges.html'
+    if not f.exists():
+        return ['challenges.html 不存在']
+    src = f.read_text(encoding='utf-8')
+    if "Academy.init('challenges')" not in src:
+        errs.append("缺少 Academy.init('challenges')")
+    if re.search(r'<script[^>]+src="(?:https?:)?//', src):
+        errs.append('外部脚本')
+    for u in [f'u{i}' for i in range(8)]:
+        if not re.search(r'id="%s"' % u, src):
+            errs.append(f'缺少锚点 #{u}')
+        if not re.search(r'class="challenge" data-unit="%s"' % u, src):
+            errs.append(f'{u}：缺少 <div class="challenge" data-unit="{u}">')
+        m = re.search(r'<script type="application/json" class="challenge-data" data-unit="%s">(.*?)</script>' % u, src, re.S)
+        if not m:
+            errs.append(f'{u}：缺少挑战 JSON'); continue
+        try:
+            qs = json.loads(m.group(1)).get('questions')
+        except (json.JSONDecodeError, AttributeError) as e:
+            errs.append(f'{u}：JSON 解析失败 {e}'); continue
+        if not isinstance(qs, list) or len(qs) != 3:
+            errs.append(f'{u}：应为 3 题'); continue
+        for i, q in enumerate(qs, 1):
+            opts = q.get('options')
+            if not isinstance(q.get('q'), str) or not q['q'].strip(): errs.append(f'{u} Q{i} 缺 q')
+            if not isinstance(opts, list) or len(opts) < 2: errs.append(f'{u} Q{i} options 少于 2')
+            elif not isinstance(q.get('answer'), int) or not 0 <= q['answer'] < len(opts): errs.append(f'{u} Q{i} answer 越界')
+            if not isinstance(q.get('explain'), str) or not q['explain'].strip(): errs.append(f'{u} Q{i} 缺 explain')
+            links = q.get('links')
+            if not isinstance(links, list) or not links: errs.append(f'{u} Q{i} 缺 links（回链课）')
+            else:
+                bad = [l for l in links if l not in LESSONS]
+                if bad: errs.append(f'{u} Q{i} 回链课不存在：{bad}')
+    return errs
+
+
+def check_capstone():
+    """capstone.html：三条任务 .capstone-task[data-task]，每条 ≥3 个清单项、全页 ≥4，清单项 data-item 唯一。"""
+    errs = []
+    f = ROOT / 'capstone.html'
+    if not f.exists():
+        return ['capstone.html 不存在']
+    src = f.read_text(encoding='utf-8')
+    if "Academy.init('capstone')" not in src:
+        errs.append("缺少 Academy.init('capstone')")
+    if re.search(r'<script[^>]+src="(?:https?:)?//', src):
+        errs.append('外部脚本')
+    tasks = re.split(r'(?=<section[^>]*class="[^"]*capstone-task[^"]*"[^>]*data-task=)', src)[1:]
+    if len(tasks) != 3:
+        errs.append(f'结业任务应为 3 条，当前 {len(tasks)}')
+    items_all = []
+    for t in tasks:
+        tid = re.search(r'data-task="([^"]+)"', t).group(1)
+        body = t.split('</section>', 1)[0]
+        items = re.findall(r'<input[^>]*type="checkbox"[^>]*data-item="([^"]+)"', body)
+        items_all += items
+        if len(items) < 3: errs.append(f'{tid}：清单项少于 3（{len(items)}）')
+    if len(items_all) < 4: errs.append(f'清单项总数 {len(items_all)} < 4')
+    if len(set(items_all)) != len(items_all): errs.append('data-item 有重复')
+    return errs
+
+
 def check_anchors():
     """所有页面里 href="页面.html#id" 的锚点必须在目标页存在。"""
     errs = []
@@ -161,6 +226,10 @@ def main():
         errs = check_changelog()
         print(('OK   ' if not errs else 'FAIL ') + 'changelog.html' + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
         bad += bool(errs)
+        for name, fn in (('challenges.html', check_challenges), ('capstone.html', check_capstone)):
+            errs = fn()
+            print(('OK   ' if not errs else 'FAIL ') + name + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
+            bad += bool(errs)
         errs = check_anchors()
         print(('OK   ' if not errs else 'FAIL ') + '跨页锚点' + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
         bad += bool(errs)

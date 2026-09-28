@@ -15,6 +15,18 @@
 <link rel="stylesheet" href="assets/site.css">
 <script src="assets/curriculum.js"></script>
 <script src="assets/site.js"></script>
+<style>
+/* u1-l3 主动画：卡片"经过某台再回主站"的路线，只在当前画面由 onChange 加类播放一次（位置 = 相对主站的 translate x） */
+.lesson .l3-r-s2s3m { animation: l3-kf-s2s3m 2.4s ease-in-out both; }
+.lesson .l3-r-s1s2s3m { animation: l3-kf-s1s2s3m 3.2s ease-in-out both; }
+.lesson .l3-r-ms1s2m { animation: l3-kf-ms1s2m 3.2s ease-in-out both; }
+@keyframes l3-kf-s2s3m { 0% { transform: translate(432px, 0px); } 35%, 60% { transform: translate(676px, 0px); } 100% { transform: translate(0px, 0px); } }
+@keyframes l3-kf-s1s2s3m { 0% { transform: translate(188px, 0px); } 22%, 40% { transform: translate(432px, 0px); } 58%, 70% { transform: translate(676px, 0px); } 100% { transform: translate(0px, 0px); } }
+@keyframes l3-kf-ms1s2m { 0% { transform: translate(0px, 0px); } 22%, 38% { transform: translate(188px, 0px); } 56%, 70% { transform: translate(432px, 0px); } 100% { transform: translate(0px, 0px); } }
+@media (prefers-reduced-motion: reduce) {
+  .lesson .l3-r-s2s3m, .lesson .l3-r-s1s2s3m, .lesson .l3-r-ms1s2m { animation: none; }
+}
+</style>
 </head>
 <body>
 <header class="topbar" id="topbar"></header>
@@ -64,68 +76,70 @@
   <section class="lesson-block lesson-anim" id="anim">
     <h2>主动画</h2>
     <div class="anim-stage">
-<svg viewBox="0 0 960 440" role="img" aria-label="主动画：同一台主站依次发 APRD、FPRD、BRD、LRW 四种命令，三台从站按各自的寻址规则决定是否处理，WKC 随之累加，最后与期望值比较">
-<rect class="box-bus" x="160" y="18" width="740" height="92" rx="8"/>
-<text class="t-small t-muted" x="172" y="36">数据报（在网线上流动）</text>
-<rect class="box" x="180" y="44" width="160" height="56" rx="5"/>
-<text class="t-small t-muted" x="190" y="62">Cmd</text>
-<text id="l3-cmd" class="t-mono t-bold" x="190" y="88">—</text>
-<rect class="box" x="350" y="44" width="250" height="56" rx="5"/>
-<text class="t-small t-muted" x="360" y="62">地址</text>
-<text id="l3-addr" class="t-mono" x="360" y="88">—</text>
-<rect class="box" x="610" y="44" width="170" height="56" rx="5"/>
-<text class="t-small t-muted" x="620" y="62">数据</text>
-<text id="l3-data" class="" x="620" y="88">—</text>
-<rect class="box" x="790" y="44" width="95" height="56" rx="5"/>
-<text class="t-small t-muted" x="800" y="62">WKC</text>
-<text id="l3-wkc" class="t-mono t-bold t-bus" x="800" y="88">—</text>
-<g id="l3-master"><rect class="box-bus" x="16" y="160" width="120" height="160" rx="8"/><text class="t-title t-mid" x="76" y="190">主站</text>
-<g id="l3-cmp" class="is-hidden"><text id="l3-exp" class="t-small t-mid" x="76" y="228">期望 WKC 6</text><text id="l3-got" class="t-small t-mid" x="76" y="252">收到 WKC 6</text><text id="l3-verdict" class="t-drive t-bold t-mid" x="76" y="284">完整</text></g></g>
-<line id="l3-w0" class="wire-bus" x1="136" y1="240" x2="210" y2="240"/>
-<line id="l3-w1" class="wire-bus" x1="390" y1="240" x2="470" y2="240"/>
-<line id="l3-w2" class="wire-bus" x1="650" y1="240" x2="730" y2="240"/>
-<g id="l3-s1"><rect id="l3-s1-box" class="box-drive" x="210" y="160" width="180" height="160" rx="8"/>
-<text class="t-title" x="222" y="188">从站 1</text>
-<text id="l3-s1-inc" class="t-big t-bold t-bus t-end t-mono" x="378" y="190"></text>
-<text class="t-small t-muted" x="222" y="212">位置 0</text>
-<text class="t-small t-mono" x="222" y="232">站地址 0x0001</text>
-<text id="l3-s1-a" class="t-small" x="222" y="272"></text>
-<text id="l3-s1-b" class="t-small t-bold" x="222" y="294"></text></g>
-<g id="l3-s2"><rect id="l3-s2-box" class="box-drive" x="470" y="160" width="180" height="160" rx="8"/>
-<text class="t-title" x="482" y="188">从站 2</text>
-<text id="l3-s2-inc" class="t-big t-bold t-bus t-end t-mono" x="638" y="190"></text>
-<text class="t-small t-muted" x="482" y="212">位置 1</text>
-<text class="t-small t-mono" x="482" y="232">站地址 0x0002</text>
-<text id="l3-s2-a" class="t-small" x="482" y="272"></text>
-<text id="l3-s2-b" class="t-small t-bold" x="482" y="294"></text></g>
-<g id="l3-s3"><rect id="l3-s3-box" class="box-drive" x="730" y="160" width="180" height="160" rx="8"/>
-<text class="t-title" x="742" y="188">从站 3</text>
-<text id="l3-s3-inc" class="t-big t-bold t-bus t-end t-mono" x="898" y="190"></text>
-<text class="t-small t-muted" x="742" y="212">位置 2</text>
-<text class="t-small t-mono" x="742" y="232">站地址 0x0003</text>
-<text id="l3-s3-a" class="t-small" x="742" y="272"></text>
-<text id="l3-s3-b" class="t-small t-bold" x="742" y="294"></text></g>
-<g id="l3-otf" class="is-hidden"><rect class="box" x="160" y="336" width="740" height="98" rx="8"/>
-<text class="t-small t-bold" x="176" y="356">飞行读写（放大一台从站）</text>
-<rect class="box-muted" x="250" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="294" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="338" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="382" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="426" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="470" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="514" y="368" width="36" height="26" rx="3"/>
-<rect class="box-muted" x="558" y="368" width="36" height="26" rx="3"/>
-<rect class="box-bus" x="602" y="368" width="36" height="26" rx="3"/>
-<rect class="box-bus" x="646" y="368" width="36" height="26" rx="3"/>
-<rect class="box-bus" x="690" y="368" width="36" height="26" rx="3"/>
-<rect class="box-bus" x="734" y="368" width="36" height="26" rx="3"/>
-<rect class="box-bus" x="778" y="368" width="36" height="26" rx="3"/>
-<rect class="box-bus" x="822" y="368" width="36" height="26" rx="3"/>
-<line class="stroke-drive sw-3" x1="562" y1="362" x2="562" y2="400"/>
-<text class="t-small t-drive t-bold" x="490" y="356">ESC 处理点</text>
-<text class="t-small t-muted" x="176" y="386">帧的方向 →</text>
-<text class="t-small" x="176" y="424">字节一边流过一边被读写：从站不等整帧收完，只引入很短的固定延迟。蓝色 = 已经过处理点。</text>
+<svg viewBox="0 0 960 420" role="img" aria-label="主动画：一张数据报卡片从主站出发，依次经过三台从站再回到主站。每台从站把自己做的地址比较写在框内，命中时变亮并给 WKC 加数。五段分别演示位置寻址 APRD、站地址寻址 FPRD、广播 BRD、逻辑寻址 LRW，以及末端从站掉线后 WKC 不完整。">
+<g id="l3-master"><rect class="box-bus" x="8" y="116" width="172" height="260" rx="8"/>
+<text class="t-title" x="20" y="184">主站</text>
+<g id="l3-exp" class="is-hidden"><rect class="box" x="20" y="200" width="148" height="46" rx="5"/>
+<text class="t-small t-muted" x="30" y="217">期望 WKC</text><text id="l3-exp-v" class="t-mono t-bold t-bus" x="30" y="238">6</text></g>
+<text id="l3-m-r1" class="t-small t-bold" x="20" y="272"></text>
+<text id="l3-m-r2" class="t-small" x="20" y="294"></text>
+<text id="l3-m-r3" class="t-small" x="20" y="316"></text>
+<text id="l3-m-r4" class="t-small t-mono" x="20" y="338"></text>
 </g>
+<g id="l3-s1"><rect id="l3-s1-box" class="box-muted" x="196" y="116" width="220" height="260" rx="8"/>
+<text class="t-title" x="208" y="184">从站 1</text>
+<text id="l3-s1-inc" class="t-big t-bold t-bus t-end t-mono" x="404" y="186"></text>
+<text class="t-small" x="208" y="206">位置 0 · 站地址 <tspan class="t-mono">0x0001</tspan></text>
+<text class="t-small t-muted t-mono" x="208" y="228">FMMU 输出 0x00–0x05</text>
+<text class="t-small t-muted t-mono" x="208" y="246">FMMU 输入 0x06–0x0B</text>
+<line class="stroke-line sw-1" x1="208" y1="262" x2="404" y2="262"/>
+<text class="t-small t-muted" x="208" y="282">判断</text>
+<text id="l3-s1-j1" class="t-small" x="208" y="306"></text>
+<text id="l3-s1-j2" class="t-small t-bold" x="208" y="330"></text>
+</g>
+<g id="l3-s2"><rect id="l3-s2-box" class="box-muted" x="440" y="116" width="220" height="260" rx="8"/>
+<text class="t-title" x="452" y="184">从站 2</text>
+<text id="l3-s2-inc" class="t-big t-bold t-bus t-end t-mono" x="648" y="186"></text>
+<text class="t-small" x="452" y="206">位置 1 · 站地址 <tspan class="t-mono">0x0002</tspan></text>
+<text class="t-small t-muted t-mono" x="452" y="228">FMMU 输入 0x0C–0x11</text>
+<line class="stroke-line sw-1" x1="452" y1="262" x2="648" y2="262"/>
+<text class="t-small t-muted" x="452" y="282">判断</text>
+<text id="l3-s2-j1" class="t-small" x="452" y="306"></text>
+<text id="l3-s2-j2" class="t-small t-bold" x="452" y="330"></text>
+</g>
+<g id="l3-s3"><rect id="l3-s3-box" class="box-muted" x="684" y="116" width="220" height="260" rx="8"/>
+<text class="t-title" x="696" y="184">从站 3</text>
+<text id="l3-s3-inc" class="t-big t-bold t-bus t-end t-mono" x="892" y="186"></text>
+<text class="t-small" x="696" y="206">位置 2 · 站地址 <tspan class="t-mono">0x0003</tspan></text>
+<text class="t-small t-muted t-mono" x="696" y="228">FMMU 输出 0x18–0x1D</text>
+<line class="stroke-line sw-1" x1="696" y1="262" x2="892" y2="262"/>
+<text class="t-small t-muted" x="696" y="282">判断</text>
+<text id="l3-s3-j1" class="t-small" x="696" y="306"></text>
+<text id="l3-s3-j2" class="t-small t-bold" x="696" y="330"></text>
+</g>
+<line id="l3-go-a" class="wire-bus" x1="180" y1="132" x2="660" y2="132"/>
+<line id="l3-go-b" class="wire-bus" x1="660" y1="132" x2="930" y2="132"/>
+<path id="l3-turn3" class="fill-none stroke-bus sw-3" d="M930,132 C948,132 948,148 930,148"/>
+<line id="l3-back-b" class="wire-bus" x1="930" y1="148" x2="660" y2="148"/>
+<line id="l3-back-a" class="wire-bus" x1="660" y1="148" x2="180" y2="148"/>
+<path id="l3-turn2" class="fill-none stroke-bus sw-3 is-hidden" d="M652,132 C670,132 670,148 652,148"/>
+<path id="l3-ag1" class="fill-bus" d="M184,127 L192,132 L184,137 z"/>
+<path id="l3-ab1" class="fill-bus" d="M192,143 L184,148 L192,153 z"/>
+<path id="l3-ag2" class="fill-bus" d="M424,127 L432,132 L424,137 z"/>
+<path id="l3-ab2" class="fill-bus" d="M432,143 L424,148 L432,153 z"/>
+<path id="l3-ag3" class="fill-bus" d="M668,127 L676,132 L668,137 z"/>
+<path id="l3-ab3" class="fill-bus" d="M676,143 L668,148 L676,153 z"/>
+<text class="t-small t-muted" x="196" y="402">上线 = 去程：每台从站依次判断、命中就读写　下线 = 回程：只转发</text>
+<g id="l3-card"><rect class="box-bus" x="8" y="10" width="226" height="96" rx="8"/>
+<text class="t-small t-muted" x="18" y="30">Cmd</text>
+<text class="t-small t-muted" x="18" y="52">地址</text>
+<text class="t-small t-muted" x="18" y="74">数据</text>
+<text class="t-small t-muted" x="18" y="96">WKC</text>
+<rect id="l3-c-wkcbox" class="box" x="54" y="82" width="70" height="20" rx="4"/>
+<text id="l3-c-cmd" class="t-small t-mono t-bold" x="60" y="30">—</text>
+<text id="l3-c-addr" class="t-small t-mono" x="60" y="52">—</text>
+<text id="l3-c-data" class="t-small t-mono" x="60" y="74">—</text>
+<text id="l3-c-wkc" class="t-small t-mono t-bold t-bus" x="60" y="96">—</text></g>
 </svg>
     </div>
     <div class="stepper"></div>
@@ -146,6 +160,36 @@
       </table>
     </div>
     <p>BRD 时每台从站把自己寄存器的值与帧里的数据按位或，所以读回的是全体的"或"。</p>
+    <figure>
+      <div class="fig-scroll">
+<svg viewBox="0 0 960 170" role="img" aria-label="飞行读写示意：帧的字节从左向右流过一台从站的 ESC 处理点，右侧是已流过、已被读写的字节，左侧是还没到的字节；帧不在从站里停留">
+<text class="t-small t-muted" x="100" y="34">帧的方向 →</text>
+<rect class="box-drive" x="451" y="14" width="120" height="30" rx="6"/><text class="t-small t-mid t-bold" x="511" y="34">ESC 处理点</text>
+<rect class="box-muted" x="100" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="120" y="84">FCS</text>
+<rect class="box-muted" x="146" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="166" y="84">填充</text>
+<rect class="box-muted" x="192" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="212" y="84">WKC</text>
+<rect class="box-muted" x="238" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="258" y="84">数据</text>
+<rect class="box-muted" x="284" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="304" y="84">DG头</text>
+<rect class="box-muted" x="330" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="350" y="84">WKC</text>
+<rect class="box-muted" x="376" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="396" y="84">数据</text>
+<rect class="box-muted" x="422" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="442" y="84">数据</text>
+<rect class="box-muted" x="468" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="488" y="84">数据</text>
+<rect class="box-bus" x="514" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="534" y="84">数据</text>
+<rect class="box-bus" x="560" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="580" y="84">数据</text>
+<rect class="box-bus" x="606" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="626" y="84">数据</text>
+<rect class="box-bus" x="652" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="672" y="84">DG头</text>
+<rect class="box-bus" x="698" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="718" y="84">EC头</text>
+<rect class="box-bus" x="744" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="764" y="84">Eth</text>
+<rect class="box-bus" x="790" y="62" width="40" height="34" rx="3"/><text class="t-small t-mid" x="810" y="84">Eth</text>
+<line class="stroke-drive sw-3" x1="511" y1="44" x2="511" y2="110"/>
+<text class="t-small t-muted t-end" x="501" y="128">← 还没到达的字节（灰）</text>
+<text class="t-small t-bus" x="521" y="128">已流过处理点（蓝）：命中的数据就在这一刻读出或写入</text>
+<text class="t-small" x="100" y="156">帧不在从站里停留：帧头已经发往下一台时，帧尾还在进入这一台。</text>
+</svg>
+      </div>
+      <figcaption>飞行读写：字节从左向右流过处理点，蓝色是已经流过、已被读写的部分。</figcaption>
+    </figure>
+    <p>四种寻址都是"飞行读写"：从站在数据报经过时就地读写，帧不停留。每台只引入约 1 µs 量级的转发延迟（因芯片与 PHY 而异），帧在各端口之间怎样走一圈见 <a href="u1-l1.html">u1-l1</a>。</p>
 
     <h3>命令码表</h3>
     <div class="table-wrap">
@@ -257,53 +301,134 @@ dmesg | grep -i "working counter"              # WKC 变化时 IgH 会打日志<
 
 <script>
 (function () {
-  function notes(f, list) {
-    list.forEach(function (n, i) {
-      f.text('l3-s' + (i + 1) + '-a', n[0]).text('l3-s' + (i + 1) + '-b', n[1]).text('l3-s' + (i + 1) + '-inc', n[2]);
-    });
-  }
+  // 卡片位置（相对主站处的 translate x，viewBox 单位）
+  var P = { M: 0, S1: 188, S2: 432, S3: 676 };
+  var BOX = ['l3-s1-box', 'l3-s2-box', 'l3-s3-box'];
+  // 每步开头：熄掉"刚才那一下"的高亮（从站光晕、WKC 格），保留本段已命中的底色
+  function F(svg) { return Academy.fx(svg).cool(BOX.concat('l3-c-wkcbox')); }
+  function at(f, pos) { f.move('l3-card', P[pos], 0); return f; }
   function card(f, cmd, addr, data, wkc) {
-    f.text('l3-cmd', cmd).text('l3-addr', addr).text('l3-data', data).text('l3-wkc', wkc);
+    f.text('l3-c-cmd', cmd).text('l3-c-addr', addr).text('l3-c-data', data).text('l3-c-wkc', wkc); return f;
   }
-  var S = ['l3-s1-box', 'l3-s2-box', 'l3-s3-box'];
-  Academy.stepper(document.querySelector('#anim'), [
-    { title: '三台从站', text: '每台有位置号（接线顺序）和主站写入的站地址（IgH 扫描时设为位置号 + 1，即 0x0001、0x0002、0x0003；其他主站可能不同）。', apply: function () {} },
-    { title: 'APRD：按位置发出', text: '主站发 APRD，ADP = 0x0000 表示"位置 0"，ADO = 0x0130 是 AL 状态寄存器。', apply: function (svg) {
-      card(Academy.fx(svg), 'APRD (0x01)', 'ADP 0x0000 · ADO 0x0130', '2 B 待填', '0');
+  function wkc(f, v) { f.text('l3-c-wkc', v).hot('l3-c-wkcbox'); return f; }
+  // 从站 n 写下自己的判断；hit = 命中（框变亮）
+  function judge(f, n, j1, j2, inc, hit) {
+    f.text('l3-s' + n + '-j1', j1).text('l3-s' + n + '-j2', j2).text('l3-s' + n + '-inc', inc || '');
+    if (hit) f.cls('l3-s' + n + '-box', 'box-bus').hot('l3-s' + n + '-box');
+    return f;
+  }
+  function result(f, lines, tone) {
+    for (var i = 1; i <= 4; i++) f.text('l3-m-r' + i, lines[i - 1] || '');
+    f.cls('l3-m-r1', 't-drive', tone === 'ok').cls('l3-m-r1', 't-fault', tone === 'bad');
+    return f;
+  }
+  // 段首：清掉上一段留在从站和主站上的判断与结果
+  function fresh(f) {
+    [1, 2, 3].forEach(function (n) { judge(f, n, '', '', ''); });
+    f.cls(BOX, 'box-bus', false);
+    return result(f, []);
+  }
+
+  // 段：每个带 seg 的画面开一段，到下一段之前结束
+  function segOf(list) {
+    var segs = [];
+    list.forEach(function (s, i) {
+      if (!s.seg) return;
+      if (segs.length) segs[segs.length - 1].to = i - 1;
+      segs.push({ label: s.seg, from: i, to: i });
+    });
+    segs[segs.length - 1].to = list.length - 1;
+    return segs;
+  }
+
+  var steps;
+  Academy.stepper(document.querySelector('#anim'), steps = [
+    { seg: '位置寻址 APRD', title: '初始画面', text: '数据报卡片在主站；三台从站是灰的，框上标着位置号、站地址（IgH 扫描时设为位置号 + 1）和各自的 FMMU 窗口。', apply: function () {} },
+    { title: 'APRD：主站发出', text: '主站发 APRD：ADP = 0xFFFE（即 −2）表示"往后数第 2 台"，ADO = 0x0130 是 AL 状态寄存器，WKC 从 0 开始。', apply: function (svg) {
+      card(at(F(svg), 'M'), 'APRD (0x01)', 'ADP 0xFFFE ADO 0x0130', '—', '0');
     } },
-    { title: 'APRD：收到 0 的那台命中', text: '每台把 ADP 加 1 后转发；从站 1 收到 0 命中并读出，WKC +1，后两台收到的已不是 0。', apply: function (svg) {
-      var f = Academy.fx(svg).hot('l3-s1-box');
-      notes(f, [['收到 ADP 0x0000', '= 0 → 命中，读', '+1'], ['收到 ADP 0x0001', '≠ 0 → 跳过', ''], ['收到 ADP 0x0002', '≠ 0 → 跳过', '']]);
-      f.text('l3-data', '从站 1 的 AL 状态').text('l3-wkc', '1');
+    { title: 'APRD：从站 1 不处理', text: '到从站 1：ADP = −2 ≠ 0，不处理；它把 ADP 加 1 变成 −1 后转发。', apply: function (svg) {
+      var f = at(F(svg), 'S1').text('l3-c-addr', 'ADP 0xFFFF ADO 0x0130');
+      judge(f, 1, 'ADP = −2 ≠ 0 → 不处理', 'ADP + 1 后转发（→ −1）');
     } },
-    { title: 'FPRD：按站地址匹配', text: 'ADP 换成站地址 0x0002；只有 0x0010 寄存器等于它的从站 2 命中，WKC = 1。', apply: function (svg) {
-      var f = Academy.fx(svg).cool(S).hot('l3-s2-box');
-      card(f, 'FPRD (0x04)', 'ADP 0x0002 · ADO 0x0130', '从站 2 的 AL 状态', '1');
-      notes(f, [['0x0002 ≠ 本站 0x0001', '跳过', ''], ['0x0002 = 本站地址', '命中，读', '+1'], ['0x0002 ≠ 本站 0x0003', '跳过', '']]);
+    { title: 'APRD：从站 2 不处理', text: '到从站 2：ADP = −1 ≠ 0，同样不处理；ADP 加 1 变成 0 后转发。', apply: function (svg) {
+      var f = at(F(svg), 'S2').text('l3-c-addr', 'ADP 0x0000 ADO 0x0130');
+      judge(f, 2, 'ADP = −1 ≠ 0 → 不处理', 'ADP + 1 后转发（→ 0）');
     } },
-    { title: 'BRD：人人都处理', text: '广播读每台都命中，各自把值按位或进数据并 +1，WKC 累加到 3。', apply: function (svg) {
-      var f = Academy.fx(svg).cool(S).hot(S);
-      card(f, 'BRD (0x07)', 'ADO 0x0130（ADP 不寻址）', '三台 AL 状态的或', '3');
-      notes(f, [['广播：命中', '读并按位或', '+1'], ['广播：命中', '读并按位或', '+1'], ['广播：命中', '读并按位或', '+1']]);
+    { title: 'APRD：从站 3 命中', text: '到从站 3：ADP = 0，命中；读出 AL 状态 0x0008 填进数据格，WKC 变 1，卡片随帧回到主站。', apply: function (svg) {
+      var f = at(F(svg), 'M').text('l3-c-data', '0x0008');
+      judge(f, 3, 'ADP = 0 → 命中', '读 0x0130 → +1', '+1', true);
+      wkc(f, '1');
+      result(f, ['位置 2 的 AL 状态', '= 0x0008（OP）']);
+    }, route: 'l3-r-s2s3m' },
+    { seg: '站地址 FPRD', title: 'FPRD：发出，从站 1 比较', text: '主站发 FPRD，ADP = 0x0002；从站 1 拿自己的 0x0010 = 0x0001 比较，不相等，转发。', apply: function (svg) {
+      var f = card(fresh(at(F(svg), 'S1')), 'FPRD (0x04)', 'ADP 0x0002 ADO 0x0130', '—', '0');
+      judge(f, 1, '0x0010 = 0x0001 ≠ 0x0002', '→ 不处理，转发');
     } },
-    { title: 'LRW：按 FMMU 匹配逻辑地址', text: '逻辑读写：从站 1 写输出+读输入 +3，从站 2 只读输入 +1，从站 3 只写输出 +2，WKC = 6。', apply: function (svg) {
-      var f = Academy.fx(svg);
-      card(f, 'LRW (0x0C)', '逻辑 0x00000000', '输出写入 / 输入读出', '6');
-      notes(f, [['FMMU：输出 + 输入', '写 +2，读 +1', '+3'], ['FMMU：只有输入', '读', '+1'], ['FMMU：只有输出', '写', '+2']]);
+    { title: 'FPRD：从站 2 命中', text: '从站 2 的 0x0010 = 0x0002，命中，读出数据，WKC 1；从站 3 比较不相等只转发，卡片回到主站。', apply: function (svg) {
+      var f = at(F(svg), 'M').text('l3-c-data', '0x0008');
+      judge(f, 2, '0x0010 = 0x0002 → 命中', '读 0x0130 → +1', '+1', true);
+      judge(f, 3, '0x0010 = 0x0003 ≠ 0x0002', '→ 不处理，转发');
+      wkc(f, '1');
+      result(f, ['站地址 0x0002 的', 'AL 状态 = 0x0008']);
+    }, route: 'l3-r-s1s2s3m' },
+    { seg: '广播 BRD', title: 'BRD：发出，从站 1 命中', text: '主站发 BRD 读 0x0130，不看 ADP；从站 1 命中，把自己的 0x08 按位或进数据，WKC 1。', apply: function (svg) {
+      var f = card(fresh(at(F(svg), 'S1')), 'BRD (0x07)', 'ADO 0x0130（广播）', '0x0008', '1');
+      judge(f, 1, '广播 → 人人命中', '数据 |= 0x08 → +1', '+1', true);
+      f.hot('l3-c-wkcbox');
     } },
-    { title: '飞行读写', text: '从站不等整帧收完：字节一边流过处理点一边被读写，帧只被延迟很短的固定时间。', apply: function (svg) {
-      Academy.fx(svg).show('l3-otf').flow(['l3-w0', 'l3-w1', 'l3-w2']);
+    { title: 'BRD：从站 2 命中', text: '从站 2 同样命中，把 0x08 按位或进数据（仍是 0x0008），WKC 2。', apply: function (svg) {
+      var f = at(F(svg), 'S2');
+      judge(f, 2, '广播 → 人人命中', '数据 |= 0x08 → +1', '+1', true);
+      wkc(f, '2');
     } },
-    { title: 'WKC 对比期望值', text: '帧回到主站，实际 WKC 6 等于期望 6：这个数据报的每次读写都成功了。', apply: function (svg) {
-      Academy.fx(svg).hide('l3-otf').show('l3-cmp');
+    { title: 'BRD：从站 3 命中，回主站', text: '从站 3 命中，WKC 3，卡片回到主站：WKC 等于在线从站数 3，数据是三台 AL 状态的按位或。', apply: function (svg) {
+      var f = at(F(svg), 'M');
+      judge(f, 3, '广播 → 人人命中', '数据 |= 0x08 → +1', '+1', true);
+      wkc(f, '3');
+      result(f, ['WKC 3 = 在线从站数', '数据 = 各台按位或']);
+    }, route: 'l3-r-s2s3m' },
+    { seg: '逻辑 LRW', title: 'LRW：主站发出，算好期望值', text: '主站发 LRW，逻辑地址 0x00000000、长 36 字节；按映射算出期望 WKC 6（读写 3 + 只读 1 + 只写 2）。', apply: function (svg) {
+      var f = card(fresh(at(F(svg), 'M')), 'LRW (0x0C)', '逻辑 0x00000000', '36 B（0x00–0x23）', '0');
+      f.show('l3-exp');
     } },
-    { title: '少一台：WKC 不完整', text: '若末端的从站 3 掉线，从站 2 端口 1 自动闭环，少了从站 3 的 +2，主站收到 4/6，判为不完整。', apply: function (svg) {
-      var f = Academy.fx(svg).cool('l3-s3-box').fault('l3-s3-box').flow('l3-w2', false).dim('l3-w2');
-      f.text('l3-s3-a', '掉线，不在环上').text('l3-s3-b', '无贡献').text('l3-s3-inc', '');
-      f.text('l3-s2-a', '端口 1 无链路 → 闭环');
-      f.text('l3-wkc', '4').text('l3-got', '收到 WKC 4').text('l3-verdict', '不完整').cls('l3-verdict', 't-fault');
-    } }
-  ]);
+    { title: 'LRW：从站 1 读写 +3', text: '从站 1 的 FMMU 窗口 0x00–0x0B 与数据报相交：写 6 字节输出、读 6 字节输入，WKC +3 → 3。', apply: function (svg) {
+      var f = at(F(svg), 'S1');
+      judge(f, 1, '窗口 0x00–0x0B 与数据报相交', '写 6 B、读 6 B → +3', '+3', true);
+      wkc(f, '3');
+    } },
+    { title: 'LRW：从站 2 只读 +1', text: '从站 2 的窗口 0x0C–0x11 只有输入：读 6 字节，WKC +1 → 4。', apply: function (svg) {
+      var f = at(F(svg), 'S2');
+      judge(f, 2, '窗口 0x0C–0x11 → 只读', '读 6 B → +1', '+1', true);
+      wkc(f, '4');
+    } },
+    { title: 'LRW：从站 3 只写 +2，回主站', text: '从站 3 的窗口 0x18–0x1D 只有输出：写 6 字节，WKC +2 → 6；卡片回到主站，6 = 6，完整。', apply: function (svg) {
+      var f = at(F(svg), 'M');
+      judge(f, 3, '窗口 0x18–0x1D → 只写', '写 6 B → +2', '+2', true);
+      wkc(f, '6');
+      result(f, ['WKC 6 = 期望 6', '完整', 'wc_state =', 'EC_WC_COMPLETE'], 'ok');
+    }, route: 'l3-r-s2s3m' },
+    { seg: '少一台', title: '从站 3 掉线，主站重发', text: '从站 3 掉线：从站 2 的端口 1 没了链路，自动闭环，帧在从站 2 折回；主站再发同一个 LRW。', apply: function (svg) {
+      var f = card(fresh(at(F(svg), 'M')), 'LRW (0x0C)', '逻辑 0x00000000', '36 B（0x00–0x23）', '0');
+      f.cls('l3-s3-box', 'dashed').dim(['l3-s3', 'l3-go-b', 'l3-turn3', 'l3-back-b', 'l3-ag3', 'l3-ab3']).show('l3-turn2');
+      judge(f, 3, '掉线，不在环上', '');
+      f.text('l3-s2-j1', '端口 1 无链路 → 自动闭环');
+    } },
+    { title: '回到主站：4 ≠ 6，不完整', text: '从站 1 +3、从站 2 +1，回到主站 WKC 4，期望 6：不完整，差的 2 正是只写从站 3 的贡献，IgH 报 wc_state = EC_WC_INCOMPLETE。', apply: function (svg) {
+      var f = at(F(svg), 'M');
+      judge(f, 1, '窗口 0x00–0x0B 与数据报相交', '写 6 B、读 6 B → +3', '+3', true);
+      judge(f, 2, '窗口 0x0C–0x11 → 只读 +1', '端口 1 无链路 → 在此折回', '+1', true);
+      wkc(f, '4');
+      result(f, ['WKC 4 ≠ 期望 6', '差 2 = 只写从站 3', 'wc_state =', 'EC_WC_INCOMPLETE'], 'bad');
+    }, route: 'l3-r-ms1s2m' }
+  ], {
+    segments: segOf(steps),
+    interval: 3800,
+    // 卡片的经过路线（经过某台再回主站）只在当前画面播一次：apply 只放终点，路线动画在这里加
+    onChange: function (i, svg) {
+      if (steps[i].route) Academy.fx(svg).cls('l3-card', steps[i].route);
+    }
+  });
   Academy.init('u1-l3');
 })();
 </script>
