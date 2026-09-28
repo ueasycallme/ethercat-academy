@@ -405,7 +405,7 @@
         <tr><td>RECORD</td><td>9</td><td>多个成员，类型<strong>可以不同</strong></td><td>最大子索引（UINT8）</td><td><code>0x1018</code>、<code>0x1600</code>、<code>0x1C32</code></td></tr>
       </table>
     </div>
-    <p>Complete Access（SDO 命令字节 bit4，见 u3-l2）让一次 SDO 读写整个对象的全部子索引，常用来整块下载 PDO 映射；IgH 应用层用 <code>ecrt_slave_config_complete_sdo()</code> 配置这种下载，从站是否支持以 ESI 或手册为准。下面的浏览器收了约 30 条常用对象，点一条看它的全部属性。</p>
+    <p>Complete Access（SDO 命令字节 bit4，见 u3-l2）让一次 SDO 读写整个对象的全部子索引，常用来整块下载 PDO 映射；IgH 应用层用 <code>ecrt_slave_config_complete_sdo()</code> 配置这种下载，从站是否支持以 ESI 或手册为准。下面的浏览器收录了常用对象，点一条看它的全部属性。</p>
 
     <div class="odb" id="odb" aria-label="对象浏览器">
       <div class="odb-bar" role="group" aria-label="按分区筛选">
@@ -445,16 +445,31 @@
   {"i":"0x6060","n":"运行模式","en":"Modes of operation","a":"profile","ot":"VAR","dt":"INT8","acc":"rw","pdo":"可映射进 RxPDO","val":"1 PP、2 VL、3 PV、4 TQ、6 HM、7 IP、8 CSP、9 CSV、10 CST；负值为厂商自定义","note":"写入后以 6061 的回读为准，切换时机因厂商而异。","les":["u5-l2"]},
   {"i":"0x6061","n":"运行模式显示","en":"Modes of operation display","a":"profile","ot":"VAR","dt":"INT8","acc":"ro","pdo":"可映射进 TxPDO","val":"取值同 6060","note":"","les":["u5-l2"]},
   {"i":"0x6064","n":"实际位置","en":"Position actual value","a":"profile","ot":"VAR","dt":"INT32","acc":"ro","pdo":"可映射进 TxPDO","val":"单位：位置单位（与电机增量的换算见下一节）","note":"","les":["u3-l3","u6-l3"]},
-  {"i":"0x6065","n":"跟随误差窗口","en":"Following error window","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"通常不映射，因厂商而异","val":"单位：位置单位；0xFFFFFFFF 表示关闭跟随误差监控（以驱动器手册为准）","note":"配合 6066 跟随误差超时使用。","les":["u6-l3"]},
+  {"i":"0x6065","n":"跟随误差窗口","en":"Following error window","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"通常不映射，因厂商而异","val":"单位：位置单位；0xFFFFFFFF 表示关闭跟随误差监控（以驱动器手册为准）","note":"配合 6066 跟随误差超时使用。","les":["u6-l3","u5-l4"]},
   {"i":"0x606C","n":"实际速度","en":"Velocity actual value","a":"profile","ot":"VAR","dt":"INT32","acc":"ro","pdo":"可映射进 TxPDO","val":"单位：速度单位","note":"","les":["u6-l3"]},
+  {"i":"0x6072","n":"最大转矩","en":"Max torque","a":"profile","ot":"VAR","dt":"UINT16","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：额定转矩（6076）的千分比，1000 = 100 %","note":"转矩层限制；与 60E0/60E1 同时存在时如何取值因厂商而异。","les":["u5-l4","u6-l3"]},
   {"i":"0x607A","n":"目标位置","en":"Target position","a":"profile","ot":"VAR","dt":"INT32","acc":"rw","pdo":"可映射进 RxPDO","val":"单位：位置单位；CSP 下每周期一个点","note":"","les":["u3-l3","u5-l2","u6-l3"]},
+  {"i":"0x607C","n":"原点偏移","en":"Home offset","a":"profile","ot":"VAR","dt":"INT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：位置单位；回零完成后 6064 = 回零方法定义的零点 + 607C","note":"","les":["u5-l4"]},
+  {"i":"0x607D","n":"软件限位","en":"Software position limit","a":"profile","ot":"ARRAY","dt":"INT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：位置单位；超出限位的目标被裁剪或拒绝，行为因厂商而异","subs":[[":00","最大子索引 = 2","UINT8"],[":01","最小位置限位","INT32"],[":02","最大位置限位","INT32"]],"note":"应设在硬限位开关（60FD bit0/bit1）之内。","les":["u5-l4"]},
+  {"i":"0x607F","n":"最大轮廓速度","en":"Max profile velocity","a":"profile","ot":"VAR","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：速度单位；轮廓运动的指令速度被限幅到此值","note":"速度层限制。","les":["u5-l4","u5-l2"]},
   {"i":"0x6081","n":"轮廓速度","en":"Profile velocity","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：速度单位；PP 模式的巡航速度","note":"","les":["u5-l2"]},
   {"i":"0x6083","n":"轮廓加速度","en":"Profile acceleration","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：加速度单位","note":"","les":["u5-l2"]},
   {"i":"0x6084","n":"轮廓减速度","en":"Profile deceleration","a":"profile","ot":"VAR","dt":"UINT32","acc":"rw","pdo":"可映射（可选），因厂商而异","val":"单位：加速度单位","note":"","les":["u5-l2"]},
-  {"i":"0x6091","n":"齿轮比","en":"Gear ratio","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"通常不映射","val":"齿轮比 = :01 / :02","subs":[[":00","最大子索引 = 2","UINT8"],[":01","电机转数 Motor revolutions","UINT32"],[":02","轴转数 Shaft revolutions","UINT32"]],"note":"","les":["u6-l3"]},
-  {"i":"0x6092","n":"进给常数","en":"Feed constant","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"通常不映射","val":"进给常数 = :01 / :02（位置单位每轴转）","subs":[[":00","最大子索引 = 2","UINT8"],[":01","进给量 Feed","UINT32"],[":02","轴转数 Shaft revolutions","UINT32"]],"note":"","les":["u6-l3"]},
+  {"i":"0x608F","n":"位置编码器分辨率","en":"Position encoder resolution","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"分辨率 = :01 / :02（编码器增量每电机转）","subs":[[":00","最大子索引 = 2","UINT8"],[":01","编码器增量 Encoder increments","UINT32"],[":02","电机转数 Motor revolutions","UINT32"]],"note":"因子组之一，与 6091、6092 一起决定位置单位到增量的换算。","les":["u5-l4","u6-l3"]},
+  {"i":"0x6091","n":"齿轮比","en":"Gear ratio","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"通常不映射","val":"齿轮比 = :01 / :02","subs":[[":00","最大子索引 = 2","UINT8"],[":01","电机转数 Motor revolutions","UINT32"],[":02","轴转数 Shaft revolutions","UINT32"]],"note":"","les":["u6-l3","u5-l4"]},
+  {"i":"0x6092","n":"进给常数","en":"Feed constant","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":"通常不映射","val":"进给常数 = :01 / :02（位置单位每轴转）","subs":[[":00","最大子索引 = 2","UINT8"],[":01","进给量 Feed","UINT32"],[":02","轴转数 Shaft revolutions","UINT32"]],"note":"","les":["u6-l3","u5-l4"]},
+  {"i":"0x6096","n":"速度因子","en":"Velocity factor","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"因子 = :01 / :02；把速度单位换算到驱动器内部速度单位","subs":[[":00","最大子索引 = 2","UINT8"],[":01","分子 Numerator","UINT32"],[":02","分母 Divisor","UINT32"]],"note":"是否支持因厂商而异。","les":["u5-l4"]},
+  {"i":"0x6097","n":"加速度因子","en":"Acceleration factor","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"因子 = :01 / :02；把加速度单位换算到驱动器内部单位","subs":[[":00","最大子索引 = 2","UINT8"],[":01","分子 Numerator","UINT32"],[":02","分母 Divisor","UINT32"]],"note":"是否支持因厂商而异。","les":["u5-l4"]},
+  {"i":"0x6098","n":"回零方法","en":"Homing method","a":"profile","ot":"VAR","dt":"INT8","acc":"因厂商而异","pdo":"因厂商而异","val":"1/2 带零脉冲的限位开关回零；17/18 不带零脉冲的限位开关回零；19–22 原点开关；33/34 只用零脉冲；35/37 当前位置即原点；负值为厂商自定义；支持哪些方法因厂商而异","note":"在 6060 = 6（HM）下由 6040 bit4 上升沿启动。","les":["u5-l4"]},
+  {"i":"0x6099","n":"回零速度","en":"Homing speeds","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：速度单位","subs":[[":00","最大子索引 = 2","UINT8"],[":01","找开关速度 Speed during search for switch","UINT32"],[":02","找零点速度 Speed during search for zero","UINT32"]],"note":"","les":["u5-l4"]},
+  {"i":"0x609A","n":"回零加速度","en":"Homing acceleration","a":"profile","ot":"VAR","dt":"UINT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：加速度单位","note":"","les":["u5-l4"]},
+  {"i":"0x60B8","n":"探针功能","en":"Touch probe function","a":"profile","ot":"VAR","dt":"UINT16","acc":"因厂商而异","pdo":"因厂商而异","val":"bit0 使能探针 1；bit1 0 单次 / 1 连续；bit2 触发源 0 探针输入 / 1 零脉冲；bit4 正沿使能；bit5 负沿使能；bit8–13 探针 2 同理","note":"例：0x0011 = 探针 1 使能、单次、探针输入、正沿。常见做法是映射进 RxPDO。","les":["u5-l4"]},
+  {"i":"0x60B9","n":"探针状态","en":"Touch probe status","a":"profile","ot":"VAR","dt":"UINT16","acc":"因厂商而异","pdo":"因厂商而异","val":"bit0 探针 1 已使能；bit1 正沿已锁存；bit2 负沿已锁存；bit8–10 探针 2 同理","note":"主站读它判断是否已锁存，再去读 60BA 等。常见做法是映射进 TxPDO。","les":["u5-l4"]},
+  {"i":"0x60BA","n":"探针 1 正沿位置","en":"Touch probe 1 positive edge","a":"profile","ot":"VAR","dt":"INT32","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：位置单位；探针 1 正沿时锁存的位置","note":"负沿在 60BB，探针 2 在 60BC/60BD。","les":["u5-l4"]},
   {"i":"0x60C2","n":"插补周期","en":"Interpolation time period","a":"profile","ot":"RECORD","dt":"—（各子索引类型不同）","acc":"rw","pdo":"通常不映射","val":"周期 = :01 × 10^(:02) 秒，例如 :01 = 1、:02 = −3 即 1 ms","subs":[[":00","最大子索引 = 2","UINT8"],[":01","周期数值","UINT8"],[":02","周期指数","INT8"]],"note":"两个成员类型不同，所以是 RECORD 不是 ARRAY。应与总线周期一致。","les":["u4-l2","u5-l2"]},
-  {"i":"0x60FD","n":"数字输入","en":"Digital inputs","a":"profile","ot":"VAR","dt":"UINT32","acc":"ro","pdo":"可映射进 TxPDO","val":"bit0 负限位、bit1 正限位、bit2 原点开关、bit3 interlock；bit16–31 厂商自定义","note":"","les":["u5-l3"]},
+  {"i":"0x60E0","n":"正转矩限制","en":"Positive torque limit value","a":"profile","ot":"VAR","dt":"UINT16","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：额定转矩（6076）的千分比","note":"达到限制时 6041 bit11（内部限幅）可能置 1，因厂商而异。","les":["u5-l4","u6-l3"]},
+  {"i":"0x60E1","n":"负转矩限制","en":"Negative torque limit value","a":"profile","ot":"VAR","dt":"UINT16","acc":"因厂商而异","pdo":"因厂商而异","val":"单位：额定转矩（6076）的千分比","note":"","les":["u5-l4","u6-l3"]},
+  {"i":"0x60FD","n":"数字输入","en":"Digital inputs","a":"profile","ot":"VAR","dt":"UINT32","acc":"ro","pdo":"可映射进 TxPDO","val":"bit0 负限位、bit1 正限位、bit2 原点开关、bit3 interlock；bit16–31 厂商自定义","note":"","les":["u5-l3","u5-l4"]},
   {"i":"0x60FE","n":"数字输出","en":"Digital outputs","a":"profile","ot":"ARRAY","dt":"UINT32","acc":"rw","pdo":":01 通常可映射进 RxPDO，因厂商而异","val":":01 bit0 = set brake；bit16–31 厂商自定义","subs":[[":00","最大子索引","UINT8"],[":01","物理输出","UINT32"],[":02","位掩码","UINT32"]],"note":"","les":["u5-l3"]},
   {"i":"0x6502","n":"支持的运行模式","en":"Supported drive modes","a":"profile","ot":"VAR","dt":"UINT32","acc":"ro","pdo":"通常不映射","val":"位图：bit0 PP、bit1 VL、bit2 PV、bit3 TQ、bit5 HM、bit6 IP、bit7 CSP、bit8 CSV、bit9 CST；bit16–31 厂商自定义","note":"写 6060 之前先读它，确认驱动器支持该模式。","les":["u5-l2"]}
 ]

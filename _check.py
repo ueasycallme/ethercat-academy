@@ -142,6 +142,10 @@ def check_challenges():
     for u in [f'u{i}' for i in range(8)]:
         if not re.search(r'id="%s"' % u, src):
             errs.append(f'缺少锚点 #{u}')
+        # 折叠/展开两种渲染都需要：折叠时只留 h2 + 解锁条，展开时要有场景与答题区
+        sec = re.search(r'<section[^>]*id="%s"[^>]*>(.*?)</section>' % u, src, re.S)
+        if not sec or '<h2' not in sec.group(1) or 'challenge-scenario' not in sec.group(1):
+            errs.append(f'{u}：节内缺 h2 或 .challenge-scenario（折叠/展开两种渲染都需要）')
         if not re.search(r'class="challenge" data-unit="%s"' % u, src):
             errs.append(f'{u}：缺少 <div class="challenge" data-unit="{u}">')
         m = re.search(r'<script type="application/json" class="challenge-data" data-unit="%s">(.*?)</script>' % u, src, re.S)
@@ -193,6 +197,49 @@ def check_capstone():
     return errs
 
 
+def quizbank_digest():
+    """与 _build_quizbank.py 的 collect() 相同的算法：按课号顺序拼接各课 quiz-data 原文求 sha256。"""
+    import hashlib
+    h = hashlib.sha256()
+    for lid in LESSONS:
+        f = ROOT / f'{lid}.html'
+        if not f.exists():
+            return None
+        m = re.search(r'<script type="application/json" id="quiz-data">(.*?)</script>', f.read_text(encoding='utf-8'), re.S)
+        if not m:
+            return None
+        h.update(lid.encode() + b'\n' + m.group(1).strip().encode('utf-8') + b'\n')
+    return h.hexdigest()
+
+
+def check_review():
+    """review.html 结构；assets/quizbank.js 须由当前各课 quiz-data 生成（sources 哈希一致），题数 = 课数 × 4。"""
+    errs = []
+    f, qb = ROOT / 'review.html', ROOT / 'assets/quizbank.js'
+    if not f.exists():
+        return ['review.html 不存在']
+    src = f.read_text(encoding='utf-8')
+    if "Academy.init('review')" not in src: errs.append("缺少 Academy.init('review')")
+    if 'assets/quizbank.js' not in src: errs.append('没有引入 assets/quizbank.js')
+    for i in ('review-heat', 'review-weak', 'review-quiz'):
+        if f'id="{i}"' not in src: errs.append(f'缺少 #{i}')
+    if not qb.exists():
+        return errs + ['assets/quizbank.js 不存在，先运行 python3 _build_quizbank.py']
+    t = qb.read_text(encoding='utf-8')
+    m = re.search(r'window\.ACADEMY_QUIZBANK = (\{.*\});\s*$', t, re.S)
+    try:
+        bank = json.loads(m.group(1))
+    except (AttributeError, json.JSONDecodeError):
+        return errs + ['assets/quizbank.js 解析失败']
+    digest = quizbank_digest()
+    if digest is None: errs.append('有课页缺 quiz-data，无法校验题库')
+    elif bank.get('sources') != digest: errs.append('题库与各课 quiz-data 不同步，运行 python3 _build_quizbank.py 重新生成')
+    ids = [q['id'] for q in bank.get('questions', [])]
+    if len(ids) != len(set(ids)): errs.append('题库题 id 重复')
+    if len(ids) != 4 * len(LESSONS): errs.append(f'题库 {len(ids)} 题，应为 {4 * len(LESSONS)}')
+    return errs
+
+
 def check_anchors():
     """所有页面里 href="页面.html#id" 的锚点必须在目标页存在。"""
     errs = []
@@ -226,7 +273,7 @@ def main():
         errs = check_changelog()
         print(('OK   ' if not errs else 'FAIL ') + 'changelog.html' + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
         bad += bool(errs)
-        for name, fn in (('challenges.html', check_challenges), ('capstone.html', check_capstone)):
+        for name, fn in (('challenges.html', check_challenges), ('capstone.html', check_capstone), ('review.html + 题库', check_review)):
             errs = fn()
             print(('OK   ' if not errs else 'FAIL ') + name + ('' if not errs else '\n     - ' + '\n     - '.join(errs)))
             bad += bool(errs)

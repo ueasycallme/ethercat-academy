@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="从已完成课的自测题里抽题复习，错题优先，按单元统计正确率。">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>复习 · EtherCAT 学院</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1f6feb">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/quizbank.js"></script>
+<script src="assets/site.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main id="review">
+  <header class="lesson-head">
+    <h1>复习</h1>
+    <p class="lesson-lede">从你已经完成的课的自测题里随机抽 10 题，一题一题作答。答错的题会立即给出解释和对应的课，下次复习时优先再出。记录只保存在这台浏览器。</p>
+  </header>
+
+  <section class="lesson-block" id="review-stats">
+    <h2>各单元正确率</h2>
+    <p class="step-hint">按你在复习里的历次作答统计；绿 ≥ 80%，黄 50–79%，红 &lt; 50%。</p>
+    <div class="heat-grid" id="review-heat"></div>
+    <div id="review-weak"></div>
+  </section>
+
+  <section class="lesson-block" id="review-run">
+    <h2>本轮题目</h2>
+    <div id="review-quiz"></div>
+  </section>
+</main>
+</div>
+
+<script>Academy.init('review');</script>
+</body>
+</html>

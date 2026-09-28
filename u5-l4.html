@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>限制、回零与探针 · EtherCAT 学院</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1f6feb">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/curriculum.js"></script>
+<script src="assets/site.js"></script>
+<style>
+  .lesson .pager a, .lesson .next-card { overflow-wrap: anywhere; }
+  .lesson .u54-blk rect { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+  .lesson .u54-blk.u54-on rect { fill: var(--drive-soft); stroke: var(--drive); stroke-width: 3; }
+  .lesson .u54-loop rect { fill: var(--panel); stroke: var(--muted); stroke-width: 1.5; }
+  .lesson .u54-swt rect { fill: var(--panel2); stroke: var(--muted); stroke-width: 1.5; }
+  .lesson .u54-swt.u54-act rect { fill: var(--fault-soft); stroke: var(--fault); stroke-width: 3; }
+  .lesson .u54-arw { fill: none; stroke: var(--muted); stroke-width: 2; marker-end: url(#u54-ah); }
+  .lesson .u54-hp { fill: none; stroke: var(--drive); stroke-width: 3; marker-end: url(#u54-ah-d); }
+  .lesson #u54-car.u54-sel rect { stroke: var(--bus); stroke-width: 4; }
+  .lesson .u54-hmseg { fill: none; stroke: var(--drive); stroke-width: 3; marker-end: url(#u54-hm-ah); }
+  .lesson .u54-hmcon { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .lesson .u54-hmctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; }
+  .lesson .u54-hmctl label { font-weight: 700; }
+  .lesson .u54-hmctl select {
+    font: inherit; font-size: .95rem; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel); color: var(--ink); max-width: 100%;
+  }
+  .lesson .u54-hmdesc { margin: .3em 0 .6em; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+<main class="lesson" id="lesson" data-lesson="u5-l4">
+
+  <header class="lesson-head">
+    <p class="lesson-kicker"></p>
+    <h1 class="lesson-title">限制、回零与探针：让轴在真实机械上安全可用</h1>
+    <p class="lesson-lede">驱动器出厂时既不知道你的机械用什么单位，也不知道边界在哪；增量编码器上电后连自己在哪都不知道。本课用四组对象补上这三件事：因子组、限制对象、回零对象和探针对象。</p>
+  </header>
+
+  <section class="lesson-block lesson-locate" id="locate">
+    <h2>定位</h2>
+    <div class="locate-grid">
+      <div class="overview-thumb" data-overview></div>
+      <div>
+        <h3>本课目标</h3>
+        <ol class="goals">
+          <li>用因子组 608F、6091、6092（及 6096、6097）把用户单位换算成编码器增量，知道 607E 极性位。</li>
+          <li>说出位置、速度、转矩三层限制对象和窗口类对象各在哪一环生效、超限会怎样。</li>
+          <li>执行一次回零：6060 = 6、6098 选方法、6040 bit4 启动，看 6041 bit12/bit13 判断结果。</li>
+          <li>用 60B8/60B9 配置并读取探针，知道锁存值在 60BA–60BD。</li>
+        </ol>
+        <h3>前置课</h3>
+        <ul class="prereq" data-auto></ul>
+        <h3>先知道这些</h3>
+        <dl class="pre-terms">
+          <dt>6060 / 6061</dt>
+          <dd>6060 请求模式、6061 回显生效模式，回零是 6。<a class="lid-chip" href="u5-l2.html">u5-l2</a></dd>
+          <dt>605D 停车</dt>
+          <dd>6040 bit8 Halt 按 605D 停住，不离开运行使能。<a class="lid-chip" href="u5-l3.html">u5-l3</a></dd>
+          <dt>三环</dt>
+          <dd>位置环→速度环→电流环级联，限制对象就夹在各环入口。<a class="lid-chip" href="u6-l3.html">u6-l3</a></dd>
+          <dt>SDO 写参数</dt>
+          <dd>因子组与限制一般在 PREOP 用 SDO 写一次。<a class="lid-chip" href="u3-l2.html">u3-l2</a></dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-anim" id="anim">
+    <h2>主动画</h2>
+    <div class="anim-stage">
+      <svg viewBox="0 0 960 470" role="img" aria-label="主动画：一根轴的边界。上方主站经网线把参数和目标交给驱动器，驱动器内位置、速度、转矩三层限幅器串在三个环的入口；下方一根水平轴，两端机械挡块和限位开关，中间原点开关，上方一个探针输入，演示单位换算、限幅、撞限位、回零与探针锁存">
+        <defs>
+          <marker id="u54-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="fill-muted" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u54-ah-bus" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path class="fill-bus" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="u54-ah-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path class="fill-drive" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+
+        <!-- 主站侧 -->
+        <rect class="box-bus" x="12" y="30" width="200" height="120" rx="8"/>
+        <text class="t-title t-mid" x="112" y="54">主站</text>
+        <text id="u54-m1" class="t-mid t-small t-mono" x="112" y="86">（参数未写）</text>
+        <text id="u54-m2" class="t-mid t-small" x="112" y="110">607A 目标 · 6081 速度</text>
+        <text class="t-mid t-small t-muted" x="112" y="138">参数走 SDO，指令走 PDO</text>
+
+        <!-- 网线 -->
+        <path id="u54-cable" class="wire-bus" d="M212 75 H248" marker-end="url(#u54-ah-bus)"/>
+
+        <!-- 从站侧：驱动器内三层限幅串在三个环入口 -->
+        <rect class="box stroke-drive" x="240" y="8" width="704" height="160" rx="10"/>
+        <text class="t-title t-end t-drive" x="932" y="30">驱动器</text>
+        <text id="u54-mode" class="t-small t-mono" x="252" y="30">6061 = 1（PP）</text>
+
+        <g id="u54-c-pos" class="u54-blk"><rect x="252" y="40" width="116" height="70" rx="8"/><text class="t-mid t-bold" x="310" y="62">位置限幅</text><text class="t-mid t-small t-mono" x="310" y="82">607D</text><text id="u54-cp-v" class="t-mid t-small t-muted" x="310" y="101">未设</text></g>
+        <path class="u54-arw" d="M368 75 H378"/>
+        <g class="u54-loop"><rect x="380" y="50" width="76" height="50" rx="8"/><text class="t-mid t-small t-bold" x="418" y="80">位置环</text></g>
+        <path class="u54-arw" d="M456 75 H466"/>
+        <g id="u54-c-vel" class="u54-blk"><rect x="468" y="40" width="116" height="70" rx="8"/><text class="t-mid t-bold" x="526" y="62">速度限幅</text><text class="t-mid t-small t-mono" x="526" y="82">607F · 6080</text><text id="u54-cv-v" class="t-mid t-small t-muted" x="526" y="101">未设</text></g>
+        <path class="u54-arw" d="M584 75 H594"/>
+        <g class="u54-loop"><rect x="596" y="50" width="76" height="50" rx="8"/><text class="t-mid t-small t-bold" x="634" y="80">速度环</text></g>
+        <path class="u54-arw" d="M672 75 H682"/>
+        <g id="u54-c-trq" class="u54-blk"><rect x="684" y="40" width="150" height="70" rx="8"/><text class="t-mid t-bold" x="759" y="62">转矩限幅</text><text class="t-mid t-small t-mono" x="759" y="82">6072 · 60E0 · 60E1</text><text id="u54-ct-v" class="t-mid t-small t-muted" x="759" y="101">未设</text></g>
+        <path class="u54-arw" d="M834 75 H844"/>
+        <g class="u54-loop"><rect x="846" y="50" width="86" height="50" rx="8"/><text class="t-mid t-small t-bold" x="889" y="80">电流环</text></g>
+        <path class="u54-arw" d="M889 100 V160"/>
+
+        <text id="u54-sw" class="t-small t-mono" x="252" y="136">6041  bit10 = 0 · bit11 = 0 · bit12 = 0 · bit13 = 0</text>
+        <text id="u54-di" class="t-small t-mono" x="252" y="157">60FD  bit0 = 0 · bit1 = 0 · bit2 = 0</text>
+
+        <!-- 机械侧：一根轴 -->
+        <text id="u54-unit" class="t-small t-muted" x="20" y="206">刻度：编码器增量 inc（上电位置记为 0）</text>
+        <text id="u54-pos" class="t-mono t-bold t-end" x="944" y="206">6064 = 0 inc</text>
+
+        <rect class="box-muted" x="14" y="250" width="18" height="60" rx="3"/>
+        <rect class="box-muted" x="928" y="250" width="18" height="60" rx="3"/>
+        <text class="t-small t-mid t-muted" x="23" y="326">挡块</text>
+        <text class="t-small t-mid t-muted" x="937" y="326">挡块</text>
+
+        <g id="u54-swl" class="is-hidden">
+          <rect class="fill-drive-soft" x="160" y="256" width="640" height="44"/>
+          <line class="stroke-drive sw-2 dashed" x1="160" y1="254" x2="160" y2="300"/>
+          <line class="stroke-drive sw-2 dashed" x1="800" y1="254" x2="800" y2="300"/>
+          <text class="t-small t-mid t-drive t-mono" x="160" y="250">607D:01 = −80 000</text>
+          <text class="t-small t-mid t-drive t-mono" x="800" y="250">607D:02 = +80 000</text>
+        </g>
+
+        <line class="stroke-muted sw-3" x1="32" y1="300" x2="928" y2="300"/>
+        <line class="stroke-muted sw-1" x1="120" y1="302" x2="120" y2="310"/>
+        <line class="stroke-muted sw-1" x1="300" y1="302" x2="300" y2="310"/>
+        <line class="stroke-muted sw-1" x1="480" y1="302" x2="480" y2="310"/>
+        <line class="stroke-muted sw-1" x1="660" y1="302" x2="660" y2="310"/>
+        <line class="stroke-muted sw-1" x1="840" y1="302" x2="840" y2="310"/>
+        <text id="u54-tk0" class="t-small t-mid t-mono" x="120" y="326">−2 621 440</text>
+        <text id="u54-tk1" class="t-small t-mid t-mono" x="300" y="326">−1 310 720</text>
+        <text id="u54-tk2" class="t-small t-mid t-mono" x="480" y="326">0</text>
+        <text id="u54-tk3" class="t-small t-mid t-mono" x="660" y="326">1 310 720</text>
+        <text id="u54-tk4" class="t-small t-mid t-mono" x="840" y="326">2 621 440</text>
+
+        <g id="u54-lsn" class="u54-swt"><rect x="80" y="354" width="20" height="18" rx="3"/><text class="t-small t-mid" x="90" y="390">负限位 60FD bit0</text></g>
+        <g id="u54-hs" class="u54-swt"><rect x="470" y="354" width="20" height="18" rx="3"/><text class="t-small t-mid" x="480" y="390">原点开关 60FD bit2</text></g>
+        <g id="u54-lsp" class="u54-swt"><rect x="860" y="354" width="20" height="18" rx="3"/><text class="t-small t-mid" x="848" y="390">正限位 60FD bit1</text></g>
+
+        <g id="u54-prb">
+          <rect class="box-mail" x="630" y="226" width="20" height="20" rx="3"/>
+          <line class="stroke-mail sw-2 dashed" x1="640" y1="246" x2="640" y2="258"/>
+          <text class="t-small t-end t-mail" x="624" y="240">探针输入</text>
+        </g>
+
+        <g id="u54-tgt" class="is-hidden">
+          <line class="stroke-fault sw-2 dashed" x1="860" y1="240" x2="860" y2="300"/>
+          <text class="t-small t-end t-fault t-mono" x="930" y="232">607A = +95 000 → 裁到 +80 000</text>
+        </g>
+
+        <g id="u54-home" class="is-hidden">
+          <line class="stroke-bus sw-3" x1="100" y1="244" x2="100" y2="300"/>
+          <text id="u54-home-t" class="t-small t-mid t-bus t-bold" x="100" y="234">零点</text>
+        </g>
+
+        <g id="u54-latch" class="is-hidden">
+          <line class="stroke-mail sw-3" x1="640" y1="246" x2="640" y2="300"/>
+          <circle class="fill-mail" cx="640" cy="300" r="6"/>
+          <text class="t-small t-mid t-mail t-mono" x="640" y="206">锁存 60BA = +40 000 · 60B9 bit1 = 1</text>
+        </g>
+
+        <g id="u54-car">
+          <rect class="box-drive" x="452" y="262" width="56" height="34" rx="5"/>
+          <text class="t-small t-mid" x="480" y="284">滑台</text>
+          <path class="fill-drive" d="M474 296 L486 296 L480 303 z"/>
+        </g>
+
+        <g id="u54-load" class="is-hidden">
+          <path class="fill-none stroke-fault sw-3" d="M892 279 H834" marker-end="url(#u54-ah)"/>
+          <text class="t-small t-fault" x="870" y="270">负载</text>
+        </g>
+
+        <path id="u54-hp1" class="u54-hp is-hidden" d="M860 418 H206"/>
+        <text id="u54-hp1-t" class="t-small t-mid t-drive is-hidden" x="530" y="440">① 以 6099:01 找开关速度向负方向</text>
+        <path id="u54-hp2" class="u54-hp is-hidden" d="M200 418 H88 V432 H98"/>
+        <text id="u54-hp2-t" class="t-small t-drive is-hidden" x="112" y="458">② 碰到负限位后以 6099:02 反向，开关释放沿 = 零点</text>
+
+        <!-- 收束：三张表 -->
+        <g id="u54-sum" class="is-hidden">
+          <rect class="box" x="12" y="180" width="936" height="284" rx="8"/>
+          <text class="t-bold" x="36" y="208">因子组</text>
+          <text class="t-bold" x="336" y="208">限制对象</text>
+          <text class="t-bold" x="656" y="208">回零 / 探针</text>
+          <text class="t-small t-mono" x="36" y="234">608F:01/:02  UINT32  增量 / 电机转</text>
+          <text class="t-small t-mono" x="36" y="255">6091:01/:02  UINT32  电机转 / 轴转</text>
+          <text class="t-small t-mono" x="36" y="276">6092:01/:02  UINT32  用户单位 / 轴转</text>
+          <text class="t-small t-mono" x="36" y="297">6096:01/:02  UINT32  速度因子</text>
+          <text class="t-small t-mono" x="36" y="318">6097:01/:02  UINT32  加速度因子</text>
+          <text class="t-small t-mono" x="36" y="339">607E  UINT8  bit7 位置 / bit6 速度极性</text>
+          <text class="t-small t-mono" x="336" y="234">607D:01/:02  INT32  用户位置单位</text>
+          <text class="t-small t-mono" x="336" y="255">607B:01/:02  INT32  用户位置单位</text>
+          <text class="t-small t-mono" x="336" y="276">607F  UINT32  用户速度单位</text>
+          <text class="t-small t-mono" x="336" y="297">6080  UINT32  电机转速</text>
+          <text class="t-small t-mono" x="336" y="318">6072  UINT16  额定转矩 ‰</text>
+          <text class="t-small t-mono" x="336" y="339">6073  UINT16  额定电流 ‰</text>
+          <text class="t-small t-mono" x="336" y="360">60E0/60E1  UINT16  额定转矩 ‰</text>
+          <text class="t-small t-mono" x="336" y="381">6065 UINT32 · 6066 UINT16 ms</text>
+          <text class="t-small t-mono" x="336" y="402">6067 UINT32 · 6068 UINT16 ms</text>
+          <text class="t-small t-mono" x="336" y="423">606D UINT16 · 606E UINT16 ms</text>
+          <text class="t-small t-mono" x="656" y="234">6098  INT8  回零方法</text>
+          <text class="t-small t-mono" x="656" y="255">6099:01/:02  UINT32  用户速度单位</text>
+          <text class="t-small t-mono" x="656" y="276">609A  UINT32  用户加速度单位</text>
+          <text class="t-small t-mono" x="656" y="297">607C  INT32  用户位置单位</text>
+          <text class="t-small t-mono" x="656" y="318">60B8  UINT16  探针功能字</text>
+          <text class="t-small t-mono" x="656" y="339">60B9  UINT16  探针状态字</text>
+          <text class="t-small t-mono" x="656" y="360">60BA–60BD  INT32  用户位置单位</text>
+          <text class="t-small t-muted" x="36" y="450">数据类型以驱动器 ESI 为准；"用户单位"由因子组决定，6080 的单位以驱动器手册为准（多为 rpm）。</text>
+        </g>
+      </svg>
+    </div>
+    <div class="stepper"></div>
+  </section>
+
+  <section class="lesson-block lesson-mech" id="mech">
+    <h2>机制拆解</h2>
+
+    <h3>因子组：用户单位怎样变成编码器增量</h3>
+    <p>主站写的 607A、读的 6064、设的 607D 都是用户单位，驱动器内部用编码器增量，二者靠因子组换算：增量 = 用户位置 × (608F:01 ÷ 608F:02) × (6091:01 ÷ 6091:02) ÷ (6092:01 ÷ 6092:02)。6096 速度因子、6097 加速度因子对速度、加速度做同样的事（有的驱动器直接由位置因子推导，因厂商而异）。607E 极性位 bit7 反转位置方向、bit6 反转速度方向，用于电机装反时不改接线。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>对象</th><th>本例取值</th><th>含义</th></tr>
+        <tr><td><code>608F:01</code> / <code>:02</code></td><td>1048576 / 1</td><td>20 位编码器：电机每转 2<sup>20</sup> 个增量</td></tr>
+        <tr><td><code>6091:01</code> / <code>:02</code></td><td>10 / 1</td><td>齿轮比：电机转 10 圈，输出轴转 1 圈</td></tr>
+        <tr><td><code>6092:01</code> / <code>:02</code></td><td>360000 / 1</td><td>进给常数：输出轴 1 圈 = 360 000 个用户单位，即用户单位 0.001°</td></tr>
+        <tr><td>结果</td><td>1048576 × 10 ÷ 360000 ≈ 29.13</td><td>1 个用户单位 ≈ 29.13 个增量；小数部分如何取整、是否累积误差因厂商而异</td></tr>
+      </table>
+    </div>
+
+    <h3>限制分层：夹在哪一环、什么单位、超限怎样</h3>
+    <p>限制对象按它夹住的信号分层：位置限幅在位置环入口，速度限幅在速度环入口，转矩限幅在电流环入口，窗口类对象不夹信号，只判断"到没到、差多少"。所以位置限幅只管位置类模式，CST 下能约束电机的只剩转矩层。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>层</th><th>对象</th><th>单位</th><th>作用位置</th><th>超限时</th></tr>
+        <tr><td>位置</td><td><code>607D:01</code>/<code>:02</code> 软件限位</td><td>用户位置单位</td><td>位置指令进位置环前（PP、CSP、IP 等位置类模式）</td><td>目标被裁剪到限位或被拒绝，是否报警因厂商而异；多数驱动器回零后才生效</td></tr>
+        <tr><td>位置</td><td><code>607B:01</code>/<code>:02</code> 位置范围限制</td><td>用户位置单位</td><td>位置值的数值范围（旋转轴取模）</td><td>超出后数值回绕到另一端，不是停车限位</td></tr>
+        <tr><td>速度</td><td><code>607F</code> 最大轮廓速度</td><td>用户速度单位</td><td>轮廓速度与速度指令</td><td>被限幅</td></tr>
+        <tr><td>速度</td><td><code>6080</code> 电机最大转速</td><td>以驱动器手册为准（多为 rpm）</td><td>速度环入口</td><td>被限幅；超速是否报故障因厂商而异</td></tr>
+        <tr><td>转矩</td><td><code>6072</code> 最大转矩</td><td>额定转矩的 ‰</td><td>电流环入口</td><td>被限幅，6041 bit11 = 1</td></tr>
+        <tr><td>转矩</td><td><code>6073</code> 最大电流</td><td>额定电流的 ‰</td><td>电流环</td><td>被限幅</td></tr>
+        <tr><td>转矩</td><td><code>60E0</code> / <code>60E1</code> 正 / 负转矩限制</td><td>额定转矩的 ‰</td><td>电流环入口，分方向</td><td>被限幅，6041 bit11 = 1</td></tr>
+        <tr><td>窗口</td><td><code>6065</code> / <code>6066</code></td><td>用户位置单位 / ms</td><td>跟随误差 60F4 = 6062 − 6064</td><td>超窗口且超时：bit13 Following error，常伴随故障</td></tr>
+        <tr><td>窗口</td><td><code>6067</code> / <code>6068</code></td><td>用户位置单位 / ms</td><td>位置到达判断</td><td>进窗口并保持够时间：bit10 Target reached</td></tr>
+        <tr><td>窗口</td><td><code>606D</code> / <code>606E</code></td><td>用户速度单位 / ms</td><td>速度到达判断（PV）</td><td>进窗口并保持够时间：bit10 Target reached</td></tr>
+      </table>
+    </div>
+
+    <h3>回零方法：6098 选一种参考信号</h3>
+    <p>回零就是用一个可重复的物理信号（限位开关、原点开关、编码器零脉冲）给增量坐标定锚，完成后驱动器把零点处的 6064 设为 607C。1–14 用"开关 + 零脉冲"，17–30 是同样的开关逻辑但零点取开关边沿，33/34 只找零脉冲，35（新版标准改号为 37）不运动。6040 bit4 上升沿启动，bit8 Halt 中止；6041 bit12 = 1 且 bit13 = 0 表示成功，bit13 = 1 表示出错。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>方法</th><th>参考信号</th><th>零点在哪</th><th>适用</th></tr>
+        <tr><td>1 / 2</td><td>负 / 正限位开关 + 零脉冲</td><td>离开限位开关后遇到的第一个零脉冲</td><td>没有原点开关、要求高重复精度</td></tr>
+        <tr><td>17 / 18</td><td>负 / 正限位开关</td><td>限位开关的释放沿</td><td>没有零脉冲的编码器</td></tr>
+        <tr><td>19–22</td><td>原点开关（19/20 开关在正侧有效，21/22 在负侧有效）</td><td>原点开关边沿，19/21 与 20/22 从边沿的不同侧逼近</td><td>有独立原点开关的轴</td></tr>
+        <tr><td>33 / 34</td><td>只用零脉冲</td><td>向负 / 正方向遇到的第一个零脉冲</td><td>单圈内定位、行程极短</td></tr>
+        <tr><td>35 / 37</td><td>无</td><td>当前位置</td><td>绝对编码器一次性设零、调试</td></tr>
+        <tr><td>其余</td><td colspan="3">3–14、23–30 为原点开关与零脉冲、限位的组合；各驱动器支持哪些方法、两档速度怎样用，以驱动器手册为准</td></tr>
+      </table>
+    </div>
+    <div class="u54-hmctl">
+      <label for="u54-hm-sel">回零方法选择器：6098 =</label>
+      <select id="u54-hm-sel">
+        <option value="1">1 · 负限位 + 零脉冲</option>
+        <option value="2">2 · 正限位 + 零脉冲</option>
+        <option value="17" selected>17 · 负限位开关</option>
+        <option value="18">18 · 正限位开关</option>
+        <option value="19">19 · 原点开关（释放沿）</option>
+        <option value="20">20 · 原点开关（触发沿）</option>
+        <option value="33">33 · 负方向零脉冲</option>
+        <option value="35">35 · 当前位置</option>
+      </select>
+    </div>
+    <p class="u54-hmdesc" id="u54-hm-desc" aria-live="polite"></p>
+    <figure>
+      <div class="fig-scroll">
+      <svg id="u54-hm-svg" viewBox="0 0 960 280" role="img" aria-label="回零方法演示：一根轴上的限位开关、原点开关、零脉冲，以及所选方法的搜索路径和零点位置">
+        <defs>
+          <marker id="u54-hm-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path class="fill-drive" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+        <text class="t-small t-bold" x="16" y="68">轴</text>
+        <text class="t-small t-bold" x="16" y="102">限位开关</text>
+        <text class="t-small t-bold" x="16" y="132">原点开关</text>
+        <text class="t-small t-bold" x="16" y="162">零脉冲</text>
+        <text class="t-small t-bold" x="16" y="214">搜索路径</text>
+        <line class="stroke-muted sw-3" x1="140" y1="64" x2="940" y2="64"/>
+        <rect class="box-fault" x="140" y="88" width="40" height="18" rx="3"/>
+        <rect class="box-fault" x="880" y="88" width="60" height="18" rx="3"/>
+        <text class="t-small t-fault" x="188" y="102">← 负限位有效区（60FD bit0）</text>
+        <text class="t-small t-end t-fault" x="872" y="102">正限位有效区（60FD bit1）→</text>
+        <rect class="box-bus" x="600" y="118" width="340" height="18" rx="3"/>
+        <text class="t-small t-end t-bus" x="592" y="132">原点开关在正侧有效（60FD bit2）→</text>
+        <g class="stroke-mail sw-2">
+          <line x1="160" y1="148" x2="160" y2="166"/><line x1="220" y1="148" x2="220" y2="166"/><line x1="280" y1="148" x2="280" y2="166"/>
+          <line x1="340" y1="148" x2="340" y2="166"/><line x1="400" y1="148" x2="400" y2="166"/><line x1="460" y1="148" x2="460" y2="166"/>
+          <line x1="520" y1="148" x2="520" y2="166"/><line x1="580" y1="148" x2="580" y2="166"/><line x1="640" y1="148" x2="640" y2="166"/>
+          <line x1="700" y1="148" x2="700" y2="166"/><line x1="760" y1="148" x2="760" y2="166"/><line x1="820" y1="148" x2="820" y2="166"/>
+          <line x1="880" y1="148" x2="880" y2="166"/>
+        </g>
+        <path class="fill-drive" d="M432 50 L448 50 L440 62 z"/>
+        <text class="t-small t-mid" x="440" y="44">起点</text>
+        <g id="u54-hm-path"></g>
+        <text class="t-small t-muted" x="140" y="272">每格零脉冲 = 电机转一圈；图中位置只为示意，不按比例</text>
+      </svg>
+      </div>
+      <figcaption>绿色箭头按先后分行画出；第一段一般用 6099:01（找开关速度），之后用 6099:02（找零点速度），具体用法因厂商而异。蓝色竖线是零点，完成后 6064 = 607C。</figcaption>
+    </figure>
+
+    <h3>探针：让硬件在边沿那一刻记下位置</h3>
+    <p>探针（touch probe）在驱动器硬件里锁存位置，精度与总线周期无关，适合测量工件边缘、飞剪对标或回零后复核。60B8 = 0x0011 表示使能探针 1、单次模式、数字输入触发、正沿锁存；锁存后 60B9 bit1 置 1，位置在 60BA。单次模式锁存一次后不再更新，再次布防一般要把对应边沿使能位清零再置 1，以驱动器手册为准。</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>位</th><th>60B8 功能字</th><th>60B9 状态字</th></tr>
+        <tr><td>0</td><td>使能探针 1</td><td>探针 1 已使能</td></tr>
+        <tr><td>1</td><td>0 = 单次（只锁第一次）/ 1 = 连续</td><td>探针 1 正沿已锁存（60BA 有效）</td></tr>
+        <tr><td>2</td><td>触发源：0 = 探针 1 数字输入，1 = 编码器零脉冲</td><td>探针 1 负沿已锁存（60BB 有效）</td></tr>
+        <tr><td>3</td><td>触发源扩展（与 bit2 组成 2 位，10 = 由 60D0 选择），以驱动器手册为准</td><td>保留</td></tr>
+        <tr><td>4</td><td>探针 1 正沿锁存使能</td><td>保留</td></tr>
+        <tr><td>5</td><td>探针 1 负沿锁存使能</td><td>保留</td></tr>
+        <tr><td>6–7</td><td>保留 / 厂商定义</td><td>厂商定义（有的驱动器用作连续模式的翻转位）</td></tr>
+        <tr><td>8–13</td><td>探针 2，含义同 bit0–5</td><td>bit8–10 探针 2，含义同 bit0–2；其余保留</td></tr>
+        <tr><td>14–15</td><td>保留</td><td>厂商定义</td></tr>
+      </table>
+    </div>
+    <p>锁存值：60BA 探针 1 正沿位置、60BB 探针 1 负沿位置、60BC 探针 2 正沿位置、60BD 探针 2 负沿位置，单位都是用户位置单位。</p>
+  </section>
+
+  <section class="lesson-block lesson-duo" id="duo">
+    <h2>主从对照</h2>
+    <div class="duo">
+      <div class="duo-col duo-master">
+        <h3>主站做什么</h3>
+        <ul>
+          <li>PREOP 用 SDO 写因子组 608F、6091、6092（及 6096、6097、607E），再写限制 607D、607F、6072、60E0/60E1 和窗口 6065–6068。</li>
+          <li>回零：写 6060 = 6 并等 6061 = 6；写 6098、6099、609A、607C；在运行使能下让 6040 bit4 从 0 变 1；监视 6041 bit12、bit13，必要时用 bit8 Halt 中止。</li>
+          <li>回零完成后 6064 会突变为 607C：切回 CSP 前先把 607A 对齐新的 6064。</li>
+          <li>探针：写 60B8，每周期读 60B9，看到对应位为 1 再取 60BA/60BB。</li>
+        </ul>
+      </div>
+      <div class="duo-col duo-slave">
+        <h3>从站做什么</h3>
+        <ul>
+          <li>用因子组把用户单位换算成编码器增量，所有位置、速度、加速度对象都按用户单位解释。</li>
+          <li>位置指令先过 607D，速度过 607F/6080，转矩过 6072/60E0/60E1；被夹住时置 6041 bit11。</li>
+          <li>按 6098 执行回零程序：读 60FD 的限位、原点位和编码器零脉冲，完成后把零点处的 6064 设为 607C 并置 bit12。</li>
+          <li>探针输入出现所选边沿时由硬件锁存位置到 60BA–60BD，并置 60B9 对应位。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-verify" id="verify">
+    <h2>在真机上看</h2>
+    <p>先把参数读出来核对（主站程序不运行时用 SDO）：</p>
+    <pre><code>ethercat upload -p0 0x608F 1 --type uint32   # 编码器增量
+ethercat upload -p0 0x608F 2 --type uint32   # 电机转数
+ethercat upload -p0 0x6091 1 --type uint32   # 齿轮比：电机转
+ethercat upload -p0 0x6091 2 --type uint32   # 齿轮比：轴转
+ethercat upload -p0 0x6092 1 --type uint32   # 进给常数
+ethercat upload -p0 0x607D 1 --type int32    # 软件限位最小
+ethercat upload -p0 0x607D 2 --type int32    # 软件限位最大
+ethercat upload -p0 0x607F 0 --type uint32   # 最大轮廓速度
+ethercat upload -p0 0x6072 0 --type uint16   # 最大转矩 ‰
+ethercat upload -p0 0x60E0 0 --type uint16   # 正转矩限制 ‰
+ethercat upload -p0 0x60E1 0 --type uint16   # 负转矩限制 ‰
+ethercat upload -p0 0x6098 0 --type int8     # 回零方法
+ethercat upload -p0 0x607C 0 --type int32    # 原点偏移
+ethercat upload -p0 0x60B8 0 --type uint16   # 探针功能字</code></pre>
+    <p>如果驱动器允许用 SDO 写 6040（是否允许、要求哪个 ESM 状态因厂商而异；主站程序在跑时 PDO 会覆盖 SDO），可以手动回零一次。确认轴附近安全、限位开关接好再做：</p>
+    <pre><code>ethercat download -p0 0x6060 0 6 --type int8        # 回零模式
+ethercat upload   -p0 0x6061 0 --type int8          # 应读回 6
+ethercat download -p0 0x6040 0 0x0006 --type uint16
+ethercat download -p0 0x6040 0 0x0007 --type uint16
+ethercat download -p0 0x6040 0 0x000F --type uint16 # 运行使能
+ethercat download -p0 0x6040 0 0x001F --type uint16 # bit4 上升沿，开始回零
+ethercat upload   -p0 0x6041 0 --type uint16        # 看 bit12 / bit13 / bit10
+ethercat upload   -p0 0x6064 0 --type int32         # 完成后应等于 607C</code></pre>
+    <div class="table-wrap">
+      <table class="expect">
+        <tr><th>读数</th><th>期望值（示例，因厂商而异）</th><th>说明</th></tr>
+        <tr><td>608F:01 / :02</td><td>1048576 / 1</td><td>取决于编码器位数</td></tr>
+        <tr><td>6091 / 6092</td><td>10:1 / 360000:1</td><td>本课算例；出厂默认常为 1:1，需要按机械填写</td></tr>
+        <tr><td>607D:01 / :02</td><td>−80000 / 80000</td><td>两者都为 0 时是否表示关闭软件限位，因厂商而异</td></tr>
+        <tr><td>6072、60E0、60E1</td><td>如 3000（300 %）</td><td>额定转矩的 ‰；默认值因厂商而异</td></tr>
+        <tr><td>6098</td><td>17 或 35</td><td>支持哪些方法查驱动器手册；不支持的值写入时常返回 SDO abort</td></tr>
+        <tr><td>60B8</td><td>0x0000</td><td>未使能；写 0x0011 后才锁存</td></tr>
+        <tr><td>6041（回零完成）</td><td><code>0x1637</code></td><td>bit12 = 1、bit13 = 0、bit10 = 1；bit13 = 1 表示回零出错</td></tr>
+        <tr><td>6064（回零完成）</td><td>等于 607C</td><td>停在零点时；607C 的符号约定以驱动器手册为准</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="lesson-block lesson-quiz" id="quiz">
+    <h2>自测</h2>
+    <div class="quiz"></div>
+    <script type="application/json" id="quiz-data">
+[
+  {"q": "20 位编码器（608F:01 = 1048576、:02 = 1），6091 = 10:1，6092 = 360000:1，用户单位 0.001°。1 个用户单位约等于多少编码器增量？", "options": ["2.91", "29.13", "291.3", "0.034"], "answer": 1, "explain": "增量 = 1 × 1048576 × 10 ÷ 360000 ≈ 29.13。输出轴一圈 = 电机 10 圈 = 10 485 760 增量 = 360 000 个用户单位。"},
+  {"q": "为什么软件限位 607D 要设在硬限位开关之内？", "options": ["硬限位开关只在回零时有效", "让驱动器在正常指令下提前停住，并留出减速距离；硬限位是最后一道防线，碰到通常要停车报错", "607D 的单位比硬限位更精确", "标准规定 607D 必须小于 60FD"], "answer": 1, "explain": "软件限位裁剪指令、不必停机；硬限位触发多半导致停车或报故障，并且轴要有足够距离减速，否则会冲到机械挡块。"},
+  {"q": "回零模式下，哪一组 6041 位表示回零成功完成？", "options": ["bit10 = 1 即可", "bit12 = 1 且 bit13 = 0（通常 bit10 也为 1）", "bit11 = 1", "60FD bit2 = 1"], "answer": 1, "explain": "HM 模式下 bit12 Homing attained、bit13 Homing error；bit12 = 1、bit13 = 0 才是成功。单看 bit10 分不清完成和被中断。"},
+  {"q": "60B8 = <code>0x0011</code>，探针 1 输入出现正沿后，锁存位置在哪个对象？", "options": ["60BA", "60BB", "60BC", "6064"], "answer": 0, "explain": "<code>0x0011</code> = bit0 使能探针 1 + bit4 正沿锁存。探针 1 正沿 → 60BA，负沿 → 60BB；探针 2 用 60BC/60BD。"}
+]
+    </script>
+  </section>
+
+  <section class="lesson-block lesson-next" id="next">
+    <h2>误区与关联</h2>
+    <ul class="pitfalls">
+      <li><strong>误区：</strong>改了 607D 就能防撞。<br><strong>实际上：</strong>速度过快时减速距离不够仍会冲过去；而且位置限幅只对位置类模式生效，转矩模式只能靠 60E0/60E1 和硬限位。</li>
+      <li><strong>误区：</strong>绝对编码器不用回零。<br><strong>实际上：</strong>绝对编码器知道自己在哪，但不知道机械零点在哪，仍需一次设零（写 607C 或用方法 35/37），之后断电才不丢。</li>
+      <li><strong>误区：</strong>60B8 写 1 就能用探针。<br><strong>实际上：</strong>0x0001 只使能、没有选任何边沿；还要置 bit4/bit5 选边沿、确认触发源，主站要读 60B9 判断已锁存再取 60BA。</li>
+    </ul>
+    <p>关联：模式切换与 6061 见 u5-l2；Halt 与停车方式见 u5-l3；限幅所在的三环见 u6-l3。回零完成后 6064 突变为 607C，切回 CSP 前没把 607A 对齐，就是 <a href="u7-l2.html#case-7">u7-l2 案例 7「使能瞬间电机猛冲」</a>。</p>
+    <div data-auto-next></div>
+  </section>
+
+  <nav class="pager" id="pager"></nav>
+</main>
+</div>
+
+<script>
+(function () {
+  // ---------- 主动画：一根轴的边界 ----------
+  // 画面刻度 4 px = 1°：x = 480 + 4 × 角度；用户单位 0.001°
+  function sw(f, b10, b11, b12, b13) {
+    f.text('u54-sw', '6041  bit10 = ' + b10 + ' · bit11 = ' + b11 + ' · bit12 = ' + b12 + ' · bit13 = ' + b13);
+  }
+  function di(f, s) { f.text('u54-di', '60FD  ' + s); }
+  function master(f, a, b) { f.text('u54-m1', a).text('u54-m2', b); }
+  function carTo(f, x) { f.move('u54-car', x - 480, 0); }
+
+  Academy.stepper(document.querySelector('#anim'), [
+    { title: '初始：刻度只是编码器增量', text: '一根轴：两端机械挡块和限位开关，中间原点开关，上方一个探针输入；驱动器里位置、速度、转矩三层限幅串在三个环入口。刻度还是编码器增量，用户单位未定义。', apply: function () {} },
+    { title: '因子组：换成用户单位', text: '主站用 SDO 写 608F、6091、6092：20 位编码器、10:1 减速、用户单位 0.001°，1 个用户单位 ≈ 29.13 增量；此后 607A、6064、607D 都按用户单位。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, 'SDO：608F 6091 6092', '用户单位 = 0.001°');
+      f.text('u54-tk0', '−90 000').text('u54-tk1', '−45 000').text('u54-tk3', '+45 000').text('u54-tk4', '+90 000')
+       .text('u54-unit', '刻度：用户单位 0.001°（按回零后的坐标画）').text('u54-pos', '6064 = 0');
+    } },
+    { title: '软件限位 607D', text: '写 607D = ±80 000（±80°）：允许区间画在轴上；目标 +95 000 超出区间，被裁剪到 +80 000 或被拒绝，按 605D 还是报警因厂商而异。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, 'SDO：607D = ±80 000', '607A = +95 000（超界）');
+      f.show(['u54-swl', 'u54-tgt']).cls('u54-c-pos', 'u54-on', true).text('u54-cp-v', '±80 000');
+    } },
+    { title: '速度上限 607F', text: 'PP 下 6081 请求 180°/s，607F = 90°/s 把速度指令限幅，轴以上限速度走到裁剪后的 +80°。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, 'SDO：607F = 90 000', '6081 = 180 000 → 限到 90 000');
+      f.cls('u54-c-vel', 'u54-on', true).text('u54-cv-v', '90 000 /s').hide('u54-tgt').text('u54-pos', '6064 = +80 000');
+      carTo(f, 800);
+    } },
+    { title: '转矩限制 60E0 / 60E1', text: '写 60E0/60E1 = 300‰：负载增大时电流环输出被夹在 ±30 % 额定转矩，轴减速甚至停住，6041 bit11 Internal limit active = 1。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, 'SDO：60E0/60E1 = 300', '额定转矩的 30 %');
+      f.cls('u54-c-trq', 'u54-on', true).text('u54-ct-v', '±300 ‰').show('u54-load').cls('u54-sw', 't-power', true);
+      sw(f, 0, 1, 0, 0);
+    } },
+    { title: '冲到硬限位开关', text: '若软件限位没生效（未回零、没设或冲得太快），轴会碰到正限位：60FD bit1 = 1，驱动器按厂商策略停车，多数报限位故障。所以软件限位要设在硬限位之内并留出减速距离。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, '（主站未干预）', '驱动器按厂商策略停车');
+      f.hide('u54-load').cls('u54-sw', 't-power', false).cls('u54-lsp', 'u54-act', true).text('u54-pos', '6064 ≈ +97 500');
+      sw(f, 0, 0, 0, 0); di(f, 'bit0 = 0 · bit1 = 1 · bit2 = 0');
+      carTo(f, 870);
+    } },
+    { title: '回零准备', text: '切到回零模式：6060 = 6、6061 回显 6；6098 = 17（负限位开关、不用零脉冲），6099:01/:02 两档速度，609A 加速度，607C = −95 000。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, '6060 = 6 · 6098 = 17', '6099 · 609A · 607C = −95 000');
+      f.text('u54-mode', '6061 = 6（HM）');
+    } },
+    { title: '6040 bit4 上升沿：开始搜索', text: '6040 从 0x000F 变 0x001F，bit4 的上升沿启动回零：轴以 6099:01 向负方向找负限位开关，途经原点开关也不理会（方法 17 不看它）。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, '6040 bit4 0→1', '0x000F → 0x001F');
+      f.cls('u54-lsp', 'u54-act', false).show(['u54-hp1', 'u54-hp1-t']).flow('u54-hp1').text('u54-pos', '6064 = −70 000（搜索中）');
+      di(f, 'bit0 = 0 · bit1 = 0 · bit2 = 0');
+      carTo(f, 200);
+    } },
+    { title: '碰到负限位，释放沿即零点', text: '碰到负限位（60FD bit0 = 1）后以 6099:02 反向，开关释放沿就是零点；6041 bit12 = 1 Homing attained，6064 被设为 607C = −95 000。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, '监视 6041 bit12 / bit13', 'bit12 = 1、bit13 = 0：成功');
+      f.flow('u54-hp1', false).show(['u54-hp2', 'u54-hp2-t', 'u54-home']).text('u54-pos', '6064 = 607C = −95 000');
+      sw(f, 1, 0, 1, 0); di(f, 'bit0：0 → 1 → 0（释放沿）');
+      carTo(f, 100);
+    } },
+    { title: '换方法 35：当前位置即原点', text: '方法 35（新版标准为 37）不运动，把当前位置直接定为原点（6064 := 607C）；增量编码器临时调试用，绝对编码器常用它做一次性设零。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, '6098 = 35 · bit4 ↑', '不运动，直接设零');
+      f.hide(['u54-hp1', 'u54-hp1-t', 'u54-hp2', 'u54-hp2-t']).cls('u54-car', 'u54-sel', true).text('u54-home-t', '方法 35：此处即原点');
+      di(f, 'bit0 = 0 · bit1 = 0 · bit2 = 0');
+    } },
+    { title: '探针锁存', text: '60B8 = 0x0011（使能探针 1、单次、数字输入、正沿）：切回位置模式后轴经过探针输入，正沿那一刻 60BA 锁存 +40 000，60B9 bit1 = 1。', apply: function (svg) {
+      var f = Academy.fx(svg);
+      master(f, 'SDO/PDO：60B8 = 0x0011', '读 60B9 bit1 → 取 60BA');
+      f.cls('u54-car', 'u54-sel', false).show('u54-latch').text('u54-pos', '6064 = +55 000');
+      carTo(f, 700);
+    } },
+    { title: '收束：三组对象的类型与单位', text: '因子组决定用户单位；限制对象分位置、速度、转矩三层外加窗口；回零与探针对象的位置量都用用户位置单位。', apply: function (svg) {
+      Academy.fx(svg).show('u54-sum');
+    } }
+  ]);
+
+  // ---------- 回零方法选择器（就地演示，不用步进器） ----------
+  // 几何：负限位边沿 x = 180，正限位边沿 x = 880，原点开关边沿 x = 600（正侧有效），零脉冲 x = 160 + 60k，起点 x = 440
+  var HM = {
+    1:  { segs: [[440, 170], [170, 220]], home: 220, desc: '方法 1：以找开关速度向负方向走到负限位变有效，反向慢速离开，开关释放后遇到的第一个零脉冲为零点。' },
+    2:  { segs: [[440, 890], [890, 820]], home: 820, desc: '方法 2：方法 1 的镜像。向正方向找正限位，反向离开后第一个零脉冲为零点。' },
+    17: { segs: [[440, 170], [170, 180]], home: 180, desc: '方法 17：向负方向找负限位，反向离开，开关释放沿就是零点，不看零脉冲。主动画演示的就是它。' },
+    18: { segs: [[440, 890], [890, 880]], home: 880, desc: '方法 18：方法 17 的镜像，零点在正限位开关的释放沿。' },
+    19: { segs: [[440, 615], [615, 600]], home: 600, desc: '方法 19：原点开关在正侧有效。从无效侧出发，正向找到开关变有效，再负向慢速离开，开关变无效的那一点为零点。' },
+    20: { segs: [[440, 600]], home: 600, desc: '方法 20：原点开关在正侧有效。从无效侧出发一路正向，开关变有效的那一点为零点（从有效侧出发时先负向离开再回来）。' },
+    33: { segs: [[440, 400]], home: 400, desc: '方法 33：不看任何开关，向负方向遇到的第一个零脉冲为零点；方法 34 为正方向。' },
+    35: { segs: [], home: 440, desc: '方法 35（新版标准为 37）：不运动，当前位置即为零点，6064 直接置为 607C。' }
+  };
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  var sel = document.getElementById('u54-hm-sel');
+  var grp = document.getElementById('u54-hm-path');
+  var desc = document.getElementById('u54-hm-desc');
+  function drawHoming() {
+    var m = HM[sel.value];
+    if (!m) return;
+    while (grp.firstChild) grp.removeChild(grp.firstChild);
+    var lastY = 196;
+    m.segs.forEach(function (s, i) {
+      var y = 196 + i * 28, a = s[0], b = s[1];
+      if (i > 0) grp.appendChild(el('path', { class: 'u54-hmcon', d: 'M' + a + ' ' + (y - 28) + ' V' + y }));
+      grp.appendChild(el('path', { class: 'u54-hmseg', d: 'M' + a + ' ' + y + ' H' + b }));
+      var lab = i === 0 ? '6099:01 找开关' : '6099:02 找零点';
+      if (sel.value === '33') lab = '6099:02 找零脉冲';
+      var hi = Math.max(a, b), lo = Math.min(a, b);
+      if (hi > 800) grp.appendChild(el('text', { class: 't-small t-end t-muted', x: lo - 10, y: y + 4 }, lab));
+      else grp.appendChild(el('text', { class: 't-small t-muted', x: hi + 10, y: y + 4 }, lab));
+      lastY = y;
+    });
+    if (!m.segs.length) {
+      grp.appendChild(el('circle', { class: 'fill-none stroke-drive sw-3', cx: m.home, cy: 196, r: 8 }));
+      grp.appendChild(el('text', { class: 't-small t-muted', x: m.home + 16, y: 200 }, '原地不动：当前位置即零点'));
+    }
+    grp.appendChild(el('line', { class: 'stroke-bus sw-3', x1: m.home, y1: 40, x2: m.home, y2: lastY + 14 }));
+    grp.appendChild(el('text', m.home > 760 ? { class: 't-small t-bus t-bold t-end', x: m.home - 6, y: 30 } : { class: 't-small t-bus t-bold', x: m.home + 6, y: 30 }, '零点 → 6064 = 607C'));
+    desc.textContent = m.desc;
+  }
+  sel.addEventListener('change', drawHoming);
+  drawHoming();
+
+  Academy.init('u5-l4');
+})();
+</script>
+</body>
+</html>

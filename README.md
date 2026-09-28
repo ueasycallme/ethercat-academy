@@ -1,6 +1,6 @@
 # EtherCAT 学院
 
-用可步进的图示，从零学会 EtherCAT 机器人关节控制的主站侧与从站侧全链路：帧与拓扑、ESC、ESM 与 CoE、分布式时钟、CiA402、IgH 主站与从站固件、故障诊断。8 个单元、23 课，约 30 小时。
+用可步进的图示，从零学会 EtherCAT 机器人关节控制的主站侧与从站侧全链路：帧与拓扑、ESC、ESM 与 CoE、分布式时钟、CiA402、IgH 主站与从站固件、故障诊断。8 个单元、24 课，约 30 小时。
 
 每课固定七段：定位、主动画、机制拆解、主从对照、在真机上看、自测（4 题）、误区与关联。纯静态站点，无构建步骤，无框架，无外部脚本（仅加载 Google Fonts 样式表）。
 
@@ -21,9 +21,10 @@ python3 -m http.server 8765 --bind 127.0.0.1
 | 路径 | 说明 |
 | --- | --- |
 | `index.html` | 首页：可点击的系统总图、单元课表、完成进度 |
-| `u0-l1.html` … `u7-l2.html` | 23 课课页，每课一个文件（U3、U7 从 l0 起） |
+| `u0-l1.html` … `u7-l2.html` | 24 课课页，每课一个文件（U3、U7 从 l0 起） |
 | `glossary.html` | 术语表（缩写、对象号、寄存器） |
 | `changelog.html` | 更新记录页，由 `_build_changelog.py` 从 `CHANGELOG.md` 生成，不要手改 |
+| `challenges.html`、`capstone.html`、`review.html` | 单元诊断挑战、结业任务、跨课复习 |
 | `404.html` | 找不到页面时由 Cloudflare 返回 |
 | `assets/site.css` | 设计令牌、外壳、七区块样式、SVG 工具类、响应式规则（契约文件） |
 | `assets/site.js` | 全局 `Academy`：外壳、步进器、测验、进度、总图、`fx` 助手（契约文件） |
@@ -31,6 +32,7 @@ python3 -m http.server 8765 --bind 127.0.0.1
 | `_template.html` | 课页模板，新课从它复制 |
 | `_check.py` | 静态检查：七区块、`Academy.init`、4 题测验、步进器步数、无外部脚本 |
 | `_build_changelog.py` | 从 `CHANGELOG.md` 生成 `changelog.html`（不上线） |
+| `_build_quizbank.py` | 从各课 quiz-data 汇总生成 `assets/quizbank.js`（复习页题库，脚本不上线） |
 | `DESIGN.md` | 软件设计文档：教学法、课程矩阵、接口契约、响应式规范、每课规格 |
 | `REVIEW.md` | 验收记录 |
 | `_AGENT_BRIEF.md`、`_reports.md` | 课页编写简报与各课"待抽查条目"汇总 |
@@ -63,6 +65,7 @@ python3 -m http.server 8765 --bind 127.0.0.1
 # 1. 改 CHANGELOG.md：在最上面加 "## [x.y.z] - YYYY-MM-DD"，按 ### 新增 / ### 变更 / ### 修正 分组写条目；
 #    条目里写 [uX-lY] 会渲染成课页链接。同时把 assets/curriculum.js 的 version 改成 x.y.z
 python3 _build_changelog.py      # 2. 从 CHANGELOG.md 重新生成 changelog.html（更新记录页）
+python3 _build_quizbank.py       #    改过任何课的自测题时，重新生成复习题库 assets/quizbank.js
 python3 _check.py                # 3. 静态检查：课页、术语表、更新记录页与 CHANGELOG.md 是否同步、版本号是否一致
 git add -A && git commit -m "Release vx.y.z: …"
 git tag -a vx.y.z -m "…"

@@ -609,3 +609,36 @@ g.is-hot-fault > :is(rect, circle, ellipse, path, polygon, polyline, line) { str
 .cap-count { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); margin: -.2em 0 .4em; }
 .capstone-task.is-done { border-color: var(--drive); box-shadow: inset 4px 0 0 var(--drive), var(--shadow); }
 .capstone-task.is-done .cap-count { color: var(--drive); font-weight: 700; }
+
+/* ---------- v1.5.0：复习 ---------- */
+.review-last { margin: .2em 0 .6em; font-size: .92rem; color: var(--muted); }
+.heat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 8px; }
+.heat-tile { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 0 .5em; align-items: baseline;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 10px; background: var(--panel2); min-width: 0; }
+.heat-unit { font-family: var(--font-mono); font-weight: 700; color: var(--bus); }
+.heat-title { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.heat-pct { font-family: var(--font-mono); font-weight: 700; font-size: 1.05rem; }
+.heat-n { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); justify-self: end; }
+.heat-good { background: var(--drive-soft); border-color: var(--drive); } .heat-good .heat-pct { color: var(--drive); }
+.heat-mid { background: var(--power-soft); border-color: var(--power); } .heat-mid .heat-pct { color: var(--power); }
+.heat-bad { background: var(--fault-soft); border-color: var(--fault); } .heat-bad .heat-pct { color: var(--fault); }
+.heat-none .heat-pct { color: var(--muted); font-weight: 400; font-size: .85rem; }
+.weak-list { padding-left: 1.3em; margin: .3em 0; }
+.weak-list li { margin: .3em 0; }
+.weak-pct { font-family: var(--font-mono); font-size: .85rem; color: var(--fault); margin-left: .4em; }
+.review-intro { color: var(--muted); font-size: .92rem; }
+.review-meta { font-size: .85rem; color: var(--muted); margin: .2em 0 .4em; }
+.review-meta .lid { font-family: var(--font-mono); margin-right: 4px; }
+.review-q::before { content: none !important; }
+.review-next { margin-top: 10px; }
+
+/* ---------- v1.5.0：单元挑战默认锁定、按掌握解锁 ---------- */
+.ch-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px auto 8px; }
+.ch-open-count { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); }
+.btn .btn-count { font-weight: 400; font-size: .8rem; color: var(--muted); }
+section.is-locked > :not(h2):not(.ch-lockbar) { display: none !important; }
+section.is-locked { padding-bottom: 12px; }
+section.is-locked > h2 { color: var(--muted); }
+.ch-lockbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted); }
+.ch-new { display: inline-block; font-size: .78rem; font-weight: 700; color: var(--drive); border: 1px solid var(--drive); background: var(--drive-soft); border-radius: 999px; padding: 0 .6em; }
+li[data-ch-unit][hidden], .unit-foot[hidden] { display: none; }

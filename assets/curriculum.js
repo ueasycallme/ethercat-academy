@@ -4,9 +4,9 @@
  */
 window.ACADEMY_CURRICULUM = {
   title: 'EtherCAT 学院',
-  version: '1.4.0',
+  version: '1.5.0',
   // 非课页（Academy.init 支持的页面 id 与标题）
-  pages: { challenges: '单元诊断挑战', capstone: '结业任务' },
+  pages: { challenges: '单元诊断挑战', capstone: '结业任务', review: '复习' },
   // 速通路径：先把一台驱动器跑起来，其余课在需要时回来补
   fastPath: ['u0-l1', 'u3-l1', 'u3-l3', 'u5-l1', 'u5-l2', 'u6-l1', 'u7-l1', 'u7-l2'],
   layers: ['planner', 'rt-loop', 'cia402-m', 'master-stack', 'nic', 'cable',
@@ -57,7 +57,9 @@ window.ACADEMY_CURRICULUM = {
       { id: 'u5-l2', title: '运行模式：PP/PV/TQ/HM/CSP/CSV/CST', hours: 1.5,
         highlight: ['cia402-m', 'cia402-s', 'motor-ctrl'], prereq: ['u5-l1'] },
       { id: 'u5-l3', title: '故障、急停与抱闸', hours: 1.5,
-        highlight: ['cia402-s', 'motor-ctrl', 'power-stage', 'motor'], prereq: ['u5-l1'] }
+        highlight: ['cia402-s', 'motor-ctrl', 'power-stage', 'motor'], prereq: ['u5-l1'] },
+      { id: 'u5-l4', title: '限制、回零与探针：让轴在真实机械上安全可用', hours: 1.5,
+        highlight: ['cia402-s', 'motor-ctrl', 'motor'], prereq: ['u5-l2', 'u5-l3'] }
     ]},
     { id: 'u6', no: 'U6', title: '软件实现', challenge: true, lessons: [
       { id: 'u6-l1', title: '主站程序：IgH 架构与周期任务', hours: 2,

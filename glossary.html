@@ -234,6 +234,36 @@
 <tr data-cat="概念"><td><code>帧账本</code></td><td>Frame Ledger</td><td>按阶段统计主站发出的帧与数据报数量，解释扫描与配置为何耗时。</td><td><a href="u7-l0.html">u7-l0</a></td></tr>
 <tr data-cat="概念"><td><code>发送周期</code></td><td>Send Interval</td><td>IgH 空闲时每个发送周期推进一次各从站状态机；默认 1 s/HZ，可用 ecrt_master_set_send_interval 修改。</td><td><a href="u7-l0.html">u7-l0</a></td></tr>
 <tr data-cat="寄存器"><td><code>0x0220</code></td><td>AL Event Request</td><td>AL 事件请求：ESC 通知从站 MCU 的事件位，SM n 的事件位为 bit 8+n（以 ET1100 手册为准）；MCU 读后清除。</td><td><a href="u2-l2.html">u2-l2</a></td></tr>
+<tr data-cat="概念"><td><code>因子组</code></td><td>Factor Group</td><td>608F、6091、6092、6096、6097 一组对象，把用户单位换算成编码器增量。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="概念"><td><code>软件限位</code></td><td>Software Position Limit</td><td>驱动器在位置环入口裁剪目标位置的允许区间（607D），应设在硬限位开关之内。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="概念"><td><code>回零</code></td><td>Homing</td><td>增量编码器上电后按 6098 选定的方法找到机械零点，6060 = 6 时执行。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="概念"><td><code>探针</code></td><td>Touch Probe</td><td>外部信号或零脉冲的边沿到来时锁存当时的位置，由 60B8 配置、60B9 报告状态。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x607D</code></td><td>Software Position Limit</td><td>软件位置限位：:01 最小、:02 最大，用户位置单位。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x607B</code></td><td>Position Range Limit</td><td>位置范围限制：位置数值的回绕范围（如旋转轴取模）。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x607F</code></td><td>Max Profile Velocity</td><td>最大轮廓速度：规划与指令速度的上限。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6080</code></td><td>Max Motor Speed</td><td>电机最大转速。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6072</code></td><td>Max Torque</td><td>最大转矩，以额定转矩的千分比计。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6073</code></td><td>Max Current</td><td>最大电流，以额定电流的千分比计。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60E0</code></td><td>Positive Torque Limit Value</td><td>正方向转矩限制，以额定转矩的千分比计。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60E1</code></td><td>Negative Torque Limit Value</td><td>负方向转矩限制，以额定转矩的千分比计。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6067</code></td><td>Position Window</td><td>位置到达窗口：实际位置落在目标 ± 窗口内视为到位。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6068</code></td><td>Position Window Time</td><td>位置窗口时间：在窗口内保持多久才置"到位"（ms）。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x606D</code></td><td>Velocity Window</td><td>速度窗口：实际速度落在目标 ± 窗口内视为到速。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x606E</code></td><td>Velocity Window Time</td><td>速度窗口时间（ms）。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x608F</code></td><td>Position Encoder Resolution</td><td>位置编码器分辨率：:01 编码器增量、:02 电机转数。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6096</code></td><td>Velocity Factor</td><td>速度因子：速度用户单位的换算系数。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6097</code></td><td>Acceleration Factor</td><td>加速度因子：加速度用户单位的换算系数。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x607E</code></td><td>Polarity</td><td>极性：bit7 位置取反、bit6 速度取反。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6098</code></td><td>Homing Method</td><td>回零方法号，如 17 负限位开关、35 当前位置为原点。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x6099</code></td><td>Homing Speeds</td><td>回零速度：:01 找开关速度、:02 找零点速度。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x609A</code></td><td>Homing Acceleration</td><td>回零加速度。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x607C</code></td><td>Home Offset</td><td>原点偏移：回零完成后 6064 取这个值。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60B8</code></td><td>Touch Probe Function</td><td>探针功能字：bit0 使能探针 1、bit1 单次/连续、bit2 触发源、bit4/bit5 正/负沿；bit8–13 探针 2。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60B9</code></td><td>Touch Probe Status</td><td>探针状态字：bit0 已使能、bit1 正沿已锁存、bit2 负沿已锁存；bit8–10 探针 2。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60BA</code></td><td>Touch Probe 1 Positive Edge</td><td>探针 1 正沿锁存的位置。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60BB</code></td><td>Touch Probe 1 Negative Edge</td><td>探针 1 负沿锁存的位置。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60BC</code></td><td>Touch Probe 2 Positive Edge</td><td>探针 2 正沿锁存的位置。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
+<tr data-cat="对象"><td><code>0x60BD</code></td><td>Touch Probe 2 Negative Edge</td><td>探针 2 负沿锁存的位置。</td><td><a href="u5-l4.html">u5-l4</a></td></tr>
       </table>
     </div>
     <p class="gl-empty" id="gl-empty" hidden>没有匹配的条目。</p>
