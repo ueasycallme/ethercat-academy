@@ -16,10 +16,11 @@
 <script src="assets/curriculum.js"></script>
 <script src="assets/site.js"></script>
 <style>
-.lesson #u22-ch-stage > svg { min-width: 820px; }
+.lesson #u22-ch-stage > svg { min-width: 800px; }
+.lesson #u22-ch-stage .u22-busy { fill: var(--panel); stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 3; }
+.lesson #u22-ch-stage rect.u22-chg { stroke-width: 3; }
 .lesson #u22-ch-stage .u22-new { fill: var(--bus); font-weight: 700; }
 .lesson #u22-ch-stage .u22-bad { fill: var(--fault); font-weight: 700; }
-.lesson #u22-bar-f2 { margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -231,13 +232,13 @@
     </div>
 
     <h3 id="sm-two-cycles">一帧过四个通道，连续两个周期</h3>
-    <p>前面把邮箱和三缓冲分开讲了，这里把它们放进同一台从站、连续两帧：帧 1 在 0 ms，帧 2 在 1 ms，每一步只发生一个事件，右侧面板同步显示四个 SM 状态字节和 0x0220 AL 事件请求。先走完"帧 1"，再走"帧 2"：帧 2 从帧 1 的末状态接着演。</p>
-    <p class="note">寄存器位以 ET1100 数据手册为准；时间数值为典型值。面板里蓝色粗体是本步刚变化（或刚被读）的格子，"—"表示保留或本节不演示。</p>
+    <p>前面把邮箱和三缓冲分开讲了，这里把它们放进同一台从站、连续两帧：帧 1 在 0 ms，帧 2 在 1 ms，每一步只发生一个事件，右侧面板同步显示四个 SM 状态字节和 0x0220 AL 事件请求。共 19 个画面，前 10 个是帧 1，后 9 个是帧 2，点条上的段标签可直接跳到帧 2。</p>
+    <p class="note">寄存器位以 ET1100 数据手册为准；时间数值为典型值。图分四块：时间标尺、网线、ESC 芯片（处理单元 / DPRAM / 寄存器）、从站 MCU，发光描边的框就是本步动作所在的域，说明标题里的 [ ] 也写明了。面板里蓝色粗体是本步刚变化（或刚被读）的格子，"—"表示保留或本节不演示；DPRAM 块的底色只表示状态：灰 = 空闲，粗字 = 最新，虚线框 = 正被访问，紫 = 邮箱满。</p>
     <div class="anim-stage" id="u22-ch-stage">
-      <svg viewBox="0 0 960 560" role="img" aria-label="一帧过四个通道：上方 0 到 2 ms 时间标尺，中间帧从 Port 0 经 ESC 处理点到 Port 1，下方 DPRAM 中 SM0、SM1 各一块、SM2、SM3 各三块，底部从站 MCU，右侧 SM 状态字节与 AL 事件请求寄存器面板">
-        <!-- 时间标尺 -->
-        <text class="t-small t-muted" x="20" y="18">时间标尺 0–2 ms（不按比例；数值为典型值）</text>
-        <text class="t-small t-muted t-end" x="940" y="18">一帧 100 B ≈ 8 µs（100 Mbit/s 每字节 80 ns）</text>
+      <svg viewBox="0 0 960 626" role="img" aria-label="一帧过四个通道，按域分区：最上一行是 0 到 2 ms 时间标尺；中间左右两侧是网线域，帧从 Port 0 进、Port 1 出；ESC 芯片框内分处理单元、DPRAM（SM0、SM1 各一块，SM2、SM3 各三块）和寄存器（SM 状态字节与 0x0220 AL 事件请求）；底部经 PDI 连到从站 MCU">
+        <!-- 时间标尺（单独一行，不属于任何域） -->
+        <text class="t-small t-bold" x="20" y="16">时间（不按比例；数值为典型值）</text>
+        <text class="t-small t-muted t-end" x="940" y="16">一帧 100 B ≈ 8 µs（100 Mbit/s 每字节 80 ns）</text>
         <line class="wire" x1="60" y1="50" x2="900" y2="50"/>
         <line class="stroke-muted sw-2" x1="60" y1="44" x2="60" y2="56"/>
         <line class="stroke-muted sw-2" x1="480" y1="44" x2="480" y2="56"/>
@@ -262,159 +263,172 @@
         </g>
         <g id="u22-c-ptr">
           <line class="stroke-ink sw-2" x1="60" y1="42" x2="60" y2="100"/>
-          <polygon class="fill-ink" points="60,98 53,110 67,110"/>
+          <polygon class="fill-ink" points="60,98 53,108 67,108"/>
         </g>
 
-        <!-- 帧路径：Port 0 → ESC 处理点 → Port 1 -->
-        <line class="wire-bus" x1="90" y1="147" x2="600" y2="147"/>
-        <line class="wire-bus" x1="670" y1="147" x2="940" y2="147"/>
-        <rect class="box" x="20" y="122" width="70" height="50" rx="6"/>
-        <text class="t-small t-mid" x="55" y="143">Port 0</text>
-        <text class="t-small t-mid t-muted" x="55" y="162">← 主站</text>
-        <rect class="box" x="600" y="122" width="70" height="50" rx="6"/>
-        <text class="t-small t-mid" x="635" y="143">Port 1</text>
-        <text class="t-small t-mid t-muted" x="635" y="162">下一台 →</text>
-        <line class="stroke-ink sw-2 dashed" x1="350" y1="116" x2="350" y2="196"/>
-        <text class="t-small t-bold" x="356" y="126">ESC 处理点</text>
+        <!-- 域：网线（左进右出，同一个域） -->
+        <path id="u22-dom-wire" class="box-bus" d="M10 136 H110 V214 H10 Z M850 136 H950 V214 H850 Z"/>
+        <text class="t-small t-bold" x="18" y="152">网线 · 主站方向</text>
+        <text class="t-small" x="18" y="208">Port 0 进线</text>
+        <text class="t-small t-bold" x="858" y="152">网线 · 下一台</text>
+        <text class="t-small" x="858" y="208">Port 1 出线</text>
+
+        <!-- 域：ESC 芯片 -->
+        <rect id="u22-dom-esc" class="box-muted" x="120" y="112" width="720" height="404" rx="10"/>
+        <text class="t-small t-bold" x="132" y="129">ESC 芯片</text>
+
+        <!-- ESC · 处理单元 -->
+        <rect id="u22-dom-pu" class="box" x="132" y="136" width="696" height="78" rx="6"/>
+        <text class="t-small t-bold" x="142" y="152">处理单元</text>
+        <text class="t-small t-muted" x="560" y="157">当前数据报</text>
+        <text id="u22-c-dg" class="t-small t-mono" x="632" y="157">—</text>
+        <text class="t-small t-muted" x="560" y="174">WKC</text>
+        <text id="u22-c-wkc" class="t-small t-mono" x="632" y="174">—</text>
+        <text id="u22-c-stale" class="t-small t-fault is-hidden" x="560" y="206">WKC 完整 ≠ 数据新鲜</text>
+
+        <!-- ESC · DPRAM -->
+        <rect id="u22-dom-dpram" class="box is-hot" x="132" y="224" width="404" height="284" rx="6"/>
+        <text class="t-small t-bold" x="142" y="241">DPRAM（SM 起始地址为示例）</text>
+
+        <text class="t-small t-bold" x="142" y="266">SM0 · 写邮箱</text>
+        <text class="t-small t-muted t-mono" x="142" y="283">0x1000·FPWR</text>
+        <rect id="u22-c-m0" class="box-muted" x="236" y="250" width="194" height="42" rx="4"/>
+        <text id="u22-c-m0-t" class="t-small t-mid" x="333" y="276">空</text>
+        <text id="u22-c-rej" class="t-small t-fault is-hidden" x="438" y="276">✗ 满，拒写</text>
+
+        <text class="t-small t-bold" x="142" y="316">SM1 · 读邮箱</text>
+        <text class="t-small t-muted t-mono" x="142" y="333">0x1080·FPRD</text>
+        <rect id="u22-c-m1" class="box-muted" x="236" y="300" width="194" height="42" rx="4"/>
+        <text id="u22-c-m1-t" class="t-small t-mid" x="333" y="326">空</text>
+        <text id="u22-c-poll" class="t-small t-mail is-hidden" x="438" y="326">b3=0 不取</text>
+
+        <text class="t-small t-mail t-end" x="532" y="348">经 FMMU</text>
+        <text class="t-small t-bold" x="142" y="374">SM2 · 输出</text>
+        <text class="t-small t-muted t-mono" x="142" y="391">0x1100·LRW</text>
+        <rect id="u22-c-s2-0" class="box" x="236" y="354" width="94" height="54" rx="4"/>
+        <rect id="u22-c-s2-1" class="box-muted" x="336" y="354" width="94" height="54" rx="4"/>
+        <rect id="u22-c-s2-2" class="box-muted" x="436" y="354" width="94" height="54" rx="4"/>
+        <text class="t-small t-mid t-muted" x="283" y="372">缓冲 1</text>
+        <text class="t-small t-mid t-muted" x="383" y="372">缓冲 2</text>
+        <text class="t-small t-mid t-muted" x="483" y="372">缓冲 3</text>
+        <text id="u22-c-s2-0-t" class="t-small t-mid t-bold" x="283" y="396">最新 Rx4</text>
+        <text id="u22-c-s2-1-t" class="t-small t-mid" x="383" y="396">空闲</text>
+        <text id="u22-c-s2-2-t" class="t-small t-mid" x="483" y="396">空闲</text>
+
+        <text class="t-small t-bold" x="142" y="440">SM3 · 输入</text>
+        <text class="t-small t-muted t-mono" x="142" y="457">0x1180·LRW</text>
+        <rect id="u22-c-s3-0" class="box" x="236" y="420" width="94" height="54" rx="4"/>
+        <rect id="u22-c-s3-1" class="box-muted" x="336" y="420" width="94" height="54" rx="4"/>
+        <rect id="u22-c-s3-2" class="box-muted" x="436" y="420" width="94" height="54" rx="4"/>
+        <text class="t-small t-mid t-muted" x="283" y="438">缓冲 1</text>
+        <text class="t-small t-mid t-muted" x="383" y="438">缓冲 2</text>
+        <text class="t-small t-mid t-muted" x="483" y="438">缓冲 3</text>
+        <text id="u22-c-s3-0-t" class="t-small t-mid t-bold" x="283" y="462">最新 Tx4</text>
+        <text id="u22-c-s3-1-t" class="t-small t-mid" x="383" y="462">空闲</text>
+        <text id="u22-c-s3-2-t" class="t-small t-mid" x="483" y="462">空闲</text>
+        <text class="t-small t-muted" x="142" y="498">虚线框 = 正被访问（字上写明主站还是 PDI）</text>
+
+        <!-- ESC · 寄存器 -->
+        <rect id="u22-dom-regs" class="box" x="546" y="224" width="282" height="284" rx="6"/>
+        <text class="t-small t-bold" x="556" y="241">ESC 寄存器 0x0800 区 · 0x0220</text>
+        <text class="t-small t-muted" x="556" y="262">状态字节</text>
+        <text class="t-small t-mid t-mono t-muted" x="690" y="262">b3</text>
+        <text class="t-small t-mid t-mono t-muted" x="736" y="262">b5:4</text>
+        <text class="t-small t-mid t-mono t-muted" x="778" y="262">b6</text>
+        <text class="t-small t-mid t-mono t-muted" x="812" y="262">b7</text>
+        <line class="stroke-line sw-1" x1="552" y1="268" x2="822" y2="268"/>
+        <text class="t-small t-mono" x="556" y="286">0x0805 SM0</text>
+        <text id="u22-r0-b3" class="t-small t-mid t-mono" x="690" y="286">0</text>
+        <text id="u22-r0-b54" class="t-small t-mid t-mono" x="736" y="286">—</text>
+        <text id="u22-r0-b6" class="t-small t-mid t-mono" x="778" y="286">—</text>
+        <text id="u22-r0-b7" class="t-small t-mid t-mono" x="812" y="286">—</text>
+        <text class="t-small t-mono" x="556" y="308">0x080D SM1</text>
+        <text id="u22-r1-b3" class="t-small t-mid t-mono" x="690" y="308">0</text>
+        <text id="u22-r1-b54" class="t-small t-mid t-mono" x="736" y="308">—</text>
+        <text id="u22-r1-b6" class="t-small t-mid t-mono" x="778" y="308">—</text>
+        <text id="u22-r1-b7" class="t-small t-mid t-mono" x="812" y="308">—</text>
+        <text class="t-small t-mono" x="556" y="330">0x0815 SM2</text>
+        <text id="u22-r2-b3" class="t-small t-mid t-mono" x="690" y="330">—</text>
+        <text id="u22-r2-b54" class="t-small t-mid t-mono" x="736" y="330">00</text>
+        <text id="u22-r2-b6" class="t-small t-mid t-mono" x="778" y="330">0</text>
+        <text id="u22-r2-b7" class="t-small t-mid t-mono" x="812" y="330">0</text>
+        <text class="t-small t-mono" x="556" y="352">0x081D SM3</text>
+        <text id="u22-r3-b3" class="t-small t-mid t-mono" x="690" y="352">—</text>
+        <text id="u22-r3-b54" class="t-small t-mid t-mono" x="736" y="352">00</text>
+        <text id="u22-r3-b6" class="t-small t-mid t-mono" x="778" y="352">0</text>
+        <text id="u22-r3-b7" class="t-small t-mid t-mono" x="812" y="352">0</text>
+        <text class="t-small t-muted" x="556" y="374">b3 邮箱满（缓冲模式保留）</text>
+        <text class="t-small t-muted" x="556" y="390">b5:4 最后写入：00/01/10 = 缓冲 1/2/3</text>
+        <text class="t-small t-muted" x="556" y="406">b6 读缓冲占用 · b7 写缓冲占用</text>
+        <line class="stroke-line sw-1" x1="552" y1="414" x2="822" y2="414"/>
+        <text class="t-small t-bold" x="556" y="432">0x0220 AL 事件请求（SM n = bit 8+n）</text>
+        <text class="t-small t-mid t-muted" x="584" y="452">b8 SM0</text>
+        <text class="t-small t-mid t-muted" x="648" y="452">b9 SM1</text>
+        <text class="t-small t-mid t-muted" x="716" y="452">b10 SM2</text>
+        <text class="t-small t-mid t-muted" x="788" y="452">b11 SM3</text>
+        <text id="u22-ev0" class="t-small t-mid t-mono" x="584" y="472">0</text>
+        <text id="u22-ev1" class="t-small t-mid t-mono" x="648" y="472">0</text>
+        <text id="u22-ev2" class="t-small t-mid t-mono" x="716" y="472">0</text>
+        <text id="u22-ev3" class="t-small t-mid t-mono" x="788" y="472">0</text>
+
+        <!-- FMMU：处理单元 → SM2 / SM3（走 DPRAM 与寄存器之间的缝） -->
+        <g id="u22-c-fmmu" class="is-hidden">
+          <path class="stroke-mail sw-2 dashed fill-none" d="M330 214 V219 H541 V447 M541 381 H532 M541 447 H532"/>
+        </g>
+
+        <!-- 帧路径：贯穿网线域与处理单元 -->
+        <line class="wire-bus" x1="10" y1="184" x2="950" y2="184"/>
+        <line class="stroke-ink sw-2 dashed" x1="330" y1="158" x2="330" y2="214"/>
+        <text class="t-small t-bold" x="336" y="166">处理点</text>
         <g id="u22-c-f1" class="is-hidden">
-          <rect class="fill-bus" x="40" y="132" width="58" height="30" rx="3"/>
-          <rect class="fill-bus" x="100" y="132" width="58" height="30" rx="3"/>
-          <rect class="fill-bus" x="160" y="132" width="58" height="30" rx="3"/>
-          <rect class="fill-bus" x="220" y="132" width="58" height="30" rx="3"/>
-          <text class="t-small t-mid t-mono t-onfill" x="69" y="152">FPRD</text>
-          <text class="t-small t-mid t-mono t-onfill" x="129" y="152">FPWR</text>
-          <text class="t-small t-mid t-mono t-onfill" x="189" y="152">FPWR</text>
-          <text class="t-small t-mid t-mono t-onfill" x="249" y="152">LRW</text>
+          <rect class="fill-bus" x="49" y="172" width="50" height="24" rx="3"/>
+          <rect class="fill-bus" x="101" y="172" width="50" height="24" rx="3"/>
+          <rect class="fill-bus" x="153" y="172" width="50" height="24" rx="3"/>
+          <rect class="fill-bus" x="205" y="172" width="50" height="24" rx="3"/>
+          <text class="t-small t-mid t-mono t-onfill" x="74" y="189">FPRD</text>
+          <text class="t-small t-mid t-mono t-onfill" x="126" y="189">FPWR</text>
+          <text class="t-small t-mid t-mono t-onfill" x="178" y="189">FPWR</text>
+          <text class="t-small t-mid t-mono t-onfill" x="230" y="189">LRW</text>
         </g>
         <g id="u22-c-f2" class="is-hidden">
-          <rect class="fill-bus" x="40" y="132" width="58" height="30" rx="3"/>
-          <rect class="fill-bus" x="100" y="132" width="58" height="30" rx="3"/>
-          <rect class="fill-bus" x="160" y="132" width="58" height="30" rx="3"/>
-          <rect class="fill-bus" x="220" y="132" width="58" height="30" rx="3"/>
-          <text class="t-small t-mid t-mono t-onfill" x="69" y="152">FPRD</text>
-          <text class="t-small t-mid t-mono t-onfill" x="129" y="152">FPRD</text>
-          <text class="t-small t-mid t-mono t-onfill" x="189" y="152">FPWR</text>
-          <text class="t-small t-mid t-mono t-onfill" x="249" y="152">LRW</text>
-        </g>
-        <text id="u22-c-stale" class="t-small t-fault is-hidden" x="360" y="185">WKC = 3 只说明读写发生了，不说明数据新鲜</text>
-
-        <!-- DPRAM -->
-        <rect class="box" x="20" y="204" width="580" height="262" rx="8"/>
-        <text class="t-small t-bold" x="32" y="224">ESC DPRAM（物理地址为示例）</text>
-        <g id="u22-c-fmmu" class="is-hidden">
-          <path class="stroke-mail sw-2 dashed fill-none" d="M350 196 V200 H566 V432 M566 368 H536 M566 432 H536"/>
-          <text class="t-small t-mail t-end" x="560" y="330">经 FMMU</text>
+          <rect class="fill-bus" x="49" y="172" width="50" height="24" rx="3"/>
+          <rect class="fill-bus" x="101" y="172" width="50" height="24" rx="3"/>
+          <rect class="fill-bus" x="153" y="172" width="50" height="24" rx="3"/>
+          <rect class="fill-bus" x="205" y="172" width="50" height="24" rx="3"/>
+          <text class="t-small t-mid t-mono t-onfill" x="74" y="189">FPRD</text>
+          <text class="t-small t-mid t-mono t-onfill" x="126" y="189">FPRD</text>
+          <text class="t-small t-mid t-mono t-onfill" x="178" y="189">FPWR</text>
+          <text class="t-small t-mid t-mono t-onfill" x="230" y="189">LRW</text>
         </g>
 
-        <text class="t-small t-bold" x="32" y="252">SM0 · 写邮箱</text>
-        <text class="t-small t-muted" x="32" y="270">FPWR 直达 0x1000</text>
-        <rect id="u22-c-m0" class="box-muted" x="180" y="236" width="120" height="42" rx="4"/>
-        <text id="u22-c-m0-t" class="t-small t-mid" x="240" y="262">空</text>
-        <text id="u22-c-rej" class="t-small t-fault is-hidden" x="312" y="262">✗ 已满，拒绝写入，WKC 不加</text>
+        <!-- PDI：ESC 与 MCU 之间 -->
+        <line class="wire sw-3" x1="330" y1="516" x2="330" y2="546"/>
+        <text class="t-small t-bold" x="338" y="536">PDI</text>
 
-        <text class="t-small t-bold" x="32" y="306">SM1 · 读邮箱</text>
-        <text class="t-small t-muted" x="32" y="324">FPRD 直达 0x1080</text>
-        <rect id="u22-c-m1" class="box-muted" x="180" y="290" width="120" height="42" rx="4"/>
-        <text id="u22-c-m1-t" class="t-small t-mid" x="240" y="316">空</text>
-        <text id="u22-c-poll" class="t-small t-mail is-hidden" x="312" y="316">0x080D b3 = 0 → 本周期不取</text>
+        <!-- 域：从站 MCU -->
+        <rect id="u22-dom-mcu" class="box-drive" x="120" y="546" width="720" height="70" rx="8"/>
+        <text class="t-small t-bold" x="132" y="566">从站 MCU</text>
+        <text id="u22-c-mcu-t" class="t-small" x="132" y="596">等待中断</text>
 
-        <text class="t-small t-bold" x="32" y="362">SM2 · 输出</text>
-        <text class="t-small t-muted" x="32" y="380">LRW · 0x1100</text>
-        <rect id="u22-c-s2-0" class="box" x="180" y="342" width="112" height="52" rx="4"/>
-        <rect id="u22-c-s2-1" class="box-muted" x="300" y="342" width="112" height="52" rx="4"/>
-        <rect id="u22-c-s2-2" class="box-muted" x="420" y="342" width="112" height="52" rx="4"/>
-        <text class="t-small t-mid t-muted" x="236" y="360">缓冲 1</text>
-        <text class="t-small t-mid t-muted" x="356" y="360">缓冲 2</text>
-        <text class="t-small t-mid t-muted" x="476" y="360">缓冲 3</text>
-        <text id="u22-c-s2-0-t" class="t-small t-mid t-bold" x="236" y="382">最新 Rx4</text>
-        <text id="u22-c-s2-1-t" class="t-small t-mid" x="356" y="382">空闲</text>
-        <text id="u22-c-s2-2-t" class="t-small t-mid" x="476" y="382">空闲</text>
-
-        <text class="t-small t-bold" x="32" y="426">SM3 · 输入</text>
-        <text class="t-small t-muted" x="32" y="444">LRW · 0x1180</text>
-        <rect id="u22-c-s3-0" class="box" x="180" y="406" width="112" height="52" rx="4"/>
-        <rect id="u22-c-s3-1" class="box-muted" x="300" y="406" width="112" height="52" rx="4"/>
-        <rect id="u22-c-s3-2" class="box-muted" x="420" y="406" width="112" height="52" rx="4"/>
-        <text class="t-small t-mid t-muted" x="236" y="424">缓冲 1</text>
-        <text class="t-small t-mid t-muted" x="356" y="424">缓冲 2</text>
-        <text class="t-small t-mid t-muted" x="476" y="424">缓冲 3</text>
-        <text id="u22-c-s3-0-t" class="t-small t-mid t-bold" x="236" y="446">最新 Tx4</text>
-        <text id="u22-c-s3-1-t" class="t-small t-mid" x="356" y="446">空闲</text>
-        <text id="u22-c-s3-2-t" class="t-small t-mid" x="476" y="446">空闲</text>
-
-        <!-- 从站 MCU -->
-        <rect class="box-drive" x="20" y="474" width="580" height="70" rx="8"/>
-        <text class="t-small t-bold" x="32" y="496">从站 MCU（经 PDI 访问 DPRAM）</text>
-        <text id="u22-c-mcu-t" class="t-small" x="32" y="524">等待中断</text>
-
-        <!-- 寄存器面板 -->
-        <rect class="box" x="616" y="204" width="328" height="340" rx="8"/>
-        <text class="t-small t-bold" x="628" y="224">寄存器面板（位以 ET1100 手册为准）</text>
-        <text class="t-small t-muted" x="628" y="248">状态字节</text>
-        <text class="t-small t-mid t-mono t-muted" x="780" y="248">b3</text>
-        <text class="t-small t-mid t-mono t-muted" x="830" y="248">b5:4</text>
-        <text class="t-small t-mid t-mono t-muted" x="878" y="248">b6</text>
-        <text class="t-small t-mid t-mono t-muted" x="922" y="248">b7</text>
-        <line class="stroke-line sw-1" x1="624" y1="256" x2="936" y2="256"/>
-        <text class="t-small t-mono" x="628" y="274">0x0805 SM0</text>
-        <text id="u22-r0-b3" class="t-small t-mid t-mono" x="780" y="274">0</text>
-        <text id="u22-r0-b54" class="t-small t-mid t-mono" x="830" y="274">—</text>
-        <text id="u22-r0-b6" class="t-small t-mid t-mono" x="878" y="274">—</text>
-        <text id="u22-r0-b7" class="t-small t-mid t-mono" x="922" y="274">—</text>
-        <text class="t-small t-mono" x="628" y="300">0x080D SM1</text>
-        <text id="u22-r1-b3" class="t-small t-mid t-mono" x="780" y="300">0</text>
-        <text id="u22-r1-b54" class="t-small t-mid t-mono" x="830" y="300">—</text>
-        <text id="u22-r1-b6" class="t-small t-mid t-mono" x="878" y="300">—</text>
-        <text id="u22-r1-b7" class="t-small t-mid t-mono" x="922" y="300">—</text>
-        <text class="t-small t-mono" x="628" y="326">0x0815 SM2</text>
-        <text id="u22-r2-b3" class="t-small t-mid t-mono" x="780" y="326">—</text>
-        <text id="u22-r2-b54" class="t-small t-mid t-mono" x="830" y="326">00</text>
-        <text id="u22-r2-b6" class="t-small t-mid t-mono" x="878" y="326">0</text>
-        <text id="u22-r2-b7" class="t-small t-mid t-mono" x="922" y="326">0</text>
-        <text class="t-small t-mono" x="628" y="352">0x081D SM3</text>
-        <text id="u22-r3-b3" class="t-small t-mid t-mono" x="780" y="352">—</text>
-        <text id="u22-r3-b54" class="t-small t-mid t-mono" x="830" y="352">00</text>
-        <text id="u22-r3-b6" class="t-small t-mid t-mono" x="878" y="352">0</text>
-        <text id="u22-r3-b7" class="t-small t-mid t-mono" x="922" y="352">0</text>
-        <text class="t-small t-muted" x="628" y="376">b3 邮箱满（缓冲模式保留）</text>
-        <text class="t-small t-muted" x="628" y="392">b5:4 最后写入：00/01/10 = 缓冲 1/2/3</text>
-        <text class="t-small t-muted" x="628" y="408">b6 读缓冲占用 · b7 写缓冲占用</text>
-        <line class="stroke-line sw-1" x1="624" y1="418" x2="936" y2="418"/>
-        <text class="t-small t-bold" x="628" y="436">0x0220 AL 事件请求（SM n = bit 8+n）</text>
-        <text class="t-small t-mid t-muted" x="664" y="456">b8 SM0</text>
-        <text class="t-small t-mid t-muted" x="736" y="456">b9 SM1</text>
-        <text class="t-small t-mid t-muted" x="810" y="456">b10 SM2</text>
-        <text class="t-small t-mid t-muted" x="886" y="456">b11 SM3</text>
-        <text id="u22-ev0" class="t-small t-mid t-mono" x="664" y="476">0</text>
-        <text id="u22-ev1" class="t-small t-mid t-mono" x="736" y="476">0</text>
-        <text id="u22-ev2" class="t-small t-mid t-mono" x="810" y="476">0</text>
-        <text id="u22-ev3" class="t-small t-mid t-mono" x="886" y="476">0</text>
-        <line class="stroke-line sw-1" x1="624" y1="488" x2="936" y2="488"/>
-        <text class="t-small t-muted" x="628" y="508">数据报</text>
-        <text id="u22-c-dg" class="t-small t-mono" x="676" y="508">—</text>
-        <text class="t-small t-muted" x="628" y="532">WKC</text>
-        <text id="u22-c-wkc" class="t-small t-mono" x="676" y="532">—</text>
-
-        <!-- 收束（帧 2 第 8 画面） -->
+        <!-- 收束（画面 18）：盖在处理单元上 -->
         <g id="u22-c-sum" class="is-hidden">
-          <rect class="box" x="16" y="106" width="928" height="94" rx="8"/>
-          <text class="t-small t-bold" x="30" y="126">收束：一帧里四个通道各走各的（详见下表）</text>
-          <text class="t-small t-mail" x="30" y="152">SM0 写邮箱 · FPWR 直达 · 满则拒写 · 事件 b8</text>
-          <text class="t-small t-mail" x="486" y="152">SM1 读邮箱 · 先读 0x080D · 空则不取 · 事件 b9</text>
-          <text class="t-small t-bus" x="30" y="180">SM2 输出 · LRW 经 FMMU · 写进空闲块 · 事件 b10</text>
-          <text class="t-small t-bus" x="486" y="180">SM3 输入 · LRW 经 FMMU · 读最新完整块 · 事件 b11</text>
+          <rect class="box" x="132" y="136" width="696" height="78" rx="6"/>
+          <text class="t-small t-bold" x="142" y="153">收束：一帧里四个通道各走各的（详见下表）</text>
+          <text class="t-small t-mail" x="142" y="178">SM0 写邮箱 · FPWR 直达 · 满则拒写 · 事件 b8</text>
+          <text class="t-small t-mail" x="486" y="178">SM1 读邮箱 · 先读 0x080D · 空则不取 · 事件 b9</text>
+          <text class="t-small t-bus" x="142" y="202">SM2 输出 · LRW 经 FMMU · 写进空闲块 · 事件 b10</text>
+          <text class="t-small t-bus" x="486" y="202">SM3 输入 · LRW 经 FMMU · 读最新完整块 · 事件 b11</text>
         </g>
       </svg>
     </div>
-    <div class="stepper" id="u22-bar-f1"></div>
-    <div class="stepper" id="u22-bar-f2"></div>
+    <div class="stepper" id="u22-bar"></div>
     <div class="table-wrap">
       <table>
         <tr><th>通道</th><th>模式</th><th>主站方向</th><th>访问路径</th><th>同步机制</th><th>0x0220 事件位</th><th>本节看到的边界</th></tr>
-        <tr><td>SM0</td><td>邮箱</td><td>写</td><td>FPWR，站地址 + 物理地址，不经 FMMU</td><td>满/空：满时拒写，WKC 不加</td><td>bit 8</td><td>帧 1 画面 6：写满被拒</td></tr>
-        <tr><td>SM1</td><td>邮箱</td><td>读</td><td>先 FPRD 0x080D 看 bit3，满了再 FPRD 整段</td><td>满/空：空时读被拒，WKC 不加</td><td>bit 9</td><td>帧 1 画面 7：空则本周期不取</td></tr>
-        <tr><td>SM2</td><td>缓冲</td><td>写</td><td>LRW，经 FMMU</td><td>三缓冲：总有空闲块可写，从不被拒</td><td>bit 10</td><td>帧 2 画面 2：MCU 忙也照写</td></tr>
-        <tr><td>SM3</td><td>缓冲</td><td>读</td><td>LRW，经 FMMU</td><td>三缓冲：读最近写完的整块</td><td>bit 11</td><td>帧 2 画面 3：读到旧 Tx5，WKC 照加</td></tr>
+        <tr><td>SM0</td><td>邮箱</td><td>写</td><td>FPWR，站地址 + 物理地址，不经 FMMU</td><td>满/空：满时拒写，WKC 不加</td><td>bit 8</td><td>画面 6：写满被拒</td></tr>
+        <tr><td>SM1</td><td>邮箱</td><td>读</td><td>先 FPRD 0x080D 看 bit3，满了再 FPRD 整段</td><td>满/空：空时读被拒，WKC 不加</td><td>bit 9</td><td>画面 7：空则本周期不取</td></tr>
+        <tr><td>SM2</td><td>缓冲</td><td>写</td><td>LRW，经 FMMU</td><td>三缓冲：总有空闲块可写，从不被拒</td><td>bit 10</td><td>画面 12：MCU 忙也照写</td></tr>
+        <tr><td>SM3</td><td>缓冲</td><td>读</td><td>LRW，经 FMMU</td><td>三缓冲：读最近写完的整块</td><td>bit 11</td><td>画面 13：读到旧 Tx5，WKC 照加</td></tr>
       </table>
     </div>
   </section>
@@ -521,65 +535,70 @@ ethercat reg_read -p0 0x0134 2     # 过期后看 AL 状态码</code></pre>
     { title: '从站退回 SAFEOP 并报 0x001B', text: '固件发现看门狗过期，把输出置安全值，AL 退到 SAFEOP 并置错误位，0x0134 写入 0x001B。',
       apply: function (svg) { F(svg).fault('u22-fw-al-r').text('u22-fw-al', '0x0130 = 0x0014 SAFEOP+E').text('u22-fw-code', '0x0134 = 0x001B'); } }
   ]);
-  // ---- 一帧过四个通道，连续两个周期：两个步进器共用一张 SVG ----
+  // ---- 一帧过四个通道，连续两个周期：19 个画面共用一张 SVG，按域分区 ----
   var stage = document.getElementById('u22-ch-stage');
-  // 清掉上一步的"本步变化"标记（只作用于本图）
+  // 清掉上一步的标记：本步变化的格子、块描边、域高亮（只作用于本图）
   function C(svg) {
-    svg.querySelectorAll('.u22-new, .u22-bad, .is-hot, .is-hot-fault').forEach(function (n) {
-      n.classList.remove('u22-new', 'u22-bad', 'is-hot', 'is-hot-fault');
+    svg.querySelectorAll('.u22-new, .u22-bad, .u22-chg, .is-hot, .is-hot-fault').forEach(function (n) {
+      n.classList.remove('u22-new', 'u22-bad', 'u22-chg', 'is-hot', 'is-hot-fault');
     });
   }
+  // 本步动作所在的域：wire / esc / pu / regs / dpram / mcu，每步恰好一个
+  function D(svg, dom) { F(svg).hot('u22-dom-' + dom); }
   // 更新一个格子并标成本步变化
   function V(svg, id, val, bad) { F(svg).text(id, val).cls(id, 'u22-new').cls(id, 'u22-bad', !!bad); }
-  // 更新一块缓冲/邮箱：底色表示状态，文字写内容
-  function B(svg, id, box, label) {
-    F(svg).attr(id, 'class', box).hot(id)
-      .attr(id + '-t', 'class', 't-small t-mid' + (box === 'box' ? ' t-bold' : ''))
+  // 更新一块缓冲/邮箱：底色只表示状态（与域色无关），文字写明内容和访问者
+  var ST = { idle: 'box-muted', latest: 'box', busy: 'u22-busy', full: 'box-mail', empty: 'box-muted' };
+  function B(svg, id, st, label) {
+    F(svg).attr(id, 'class', ST[st]).cls(id, 'u22-chg')
+      .attr(id + '-t', 'class', 't-small t-mid' + (st === 'latest' ? ' t-bold' : ''))
       .text(id + '-t', label).cls(id + '-t', 'u22-new');
   }
   var f1 = [
-    { title: '帧 1 · 初始状态', text: 'SM2 的最新数据是上一周期的 Rx4，SM3 的最新数据是 Tx4；两个邮箱都空，0x0220 的 SM 事件位全为 0。', apply: function () {} },
-    { title: '帧 1 · LRW 到达处理点', text: '帧 1 从 Port 0 进来，LRW 数据报头到达处理点；FMMU 把它的逻辑地址映射到 SM2（写）和 SM3（读）的物理区。',
-      apply: function (svg) { C(svg); F(svg).show(['u22-c-f1', 'u22-c-fmmu']).move('u22-c-f1', 100, 0); V(svg, 'u22-c-dg', 'LRW 逻辑 0x00000000'); V(svg, 'u22-c-wkc', '0'); } },
-    { title: '帧 1 · SM2 写进空闲块', text: 'ESC 把写访问重定向到一块空闲缓冲，Rx5 边经过边写进 DPRAM；写的过程中 0x0815 bit7 = 1（写缓冲被占用）。',
-      apply: function (svg) { C(svg); B(svg, 'u22-c-s2-1', 'box-bus', '主站写 Rx5'); V(svg, 'u22-r2-b7', '1'); } },
-    { title: '帧 1 · SM2 末字节：切换指针', text: '末字节写完只切换指针：Rx5 成为最新，没被读过的 Rx4 那块释放；0x0815 bit4–5 = 01，0x0220 的 SM2 位置 1；SM2 控制字节 bit6 = 1 时过程数据看门狗在此重装。',
-      apply: function (svg) { C(svg); B(svg, 'u22-c-s2-1', 'box', '最新 Rx5'); B(svg, 'u22-c-s2-0', 'box-muted', '空闲'); V(svg, 'u22-r2-b54', '01'); V(svg, 'u22-r2-b7', '0'); V(svg, 'u22-ev2', '1'); } },
-    { title: '帧 1 · SM3 读出，WKC 变 3', text: '读访问映射到 SM3 最新的那块，Tx4 在帧经过时插进帧；末字节读完后 0x0220 的 SM3 位置 1。这条 LRW 的 WKC 由 0 变 3（写 +2、读 +1）。',
-      apply: function (svg) { C(svg); B(svg, 'u22-c-s3-0', 'box-bus', '主站读 Tx4'); V(svg, 'u22-ev3', '1'); V(svg, 'u22-c-wkc', '3（写 +2，读 +1）'); } },
-    { title: '帧 1 · FPWR 写 SM0', text: '下一条数据报 FPWR 按站地址加物理地址 0x1000 直达 SM0，不经 FMMU；SM0 空，允许写入，末字节后 0x0805 bit3 = 1（满），SM0 事件位置 1，WKC = 1。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f1', 160, 0); V(svg, 'u22-c-dg', 'FPWR 0x1000（SM0）'); B(svg, 'u22-c-m0', 'box-mail', '满 · Req1'); V(svg, 'u22-r0-b3', '1'); V(svg, 'u22-ev0', '1'); V(svg, 'u22-c-wkc', '1'); } },
-    { title: '帧 1 · 边界：写满的 SM0 被拒', text: '演示用：同一帧里又有一条 FPWR 写 SM0。SM0 已满，ESC 拒绝写入，数据不进 DPRAM，WKC 保持 0，主站据此知道要重试。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f1', 220, 0).show('u22-c-rej').fault('u22-c-m0'); V(svg, 'u22-c-dg', 'FPWR 0x1000（再写一次）'); V(svg, 'u22-c-wkc', '0 · 被拒', true); } },
-    { title: '帧 1 · 先读 SM1 状态字节', text: '主站不直接读 SM1，而是 FPRD 0x080D 看 bit3：0 表示邮箱空，本周期不发取数据的读（IgH 的做法，见 u3-l2）；读寄存器本身成功，WKC = 1。直接读空邮箱也会被拒、WKC 不加，这里不再演示。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f1', 280, 0).show('u22-c-poll'); V(svg, 'u22-c-dg', 'FPRD 0x080D（SM1 状态）'); V(svg, 'u22-r1-b3', '0'); V(svg, 'u22-c-wkc', '1'); } },
-    { title: '帧 1 · 帧离开，MCU 进中断', text: '帧 1 从 Port 1 转发离开，在 ESC 里只停约 1 µs 量级（因芯片与 PHY 而异）。MCU 收到 AL 事件中断（DC 模式下由 SYNC0 触发），经 PDI 已读走 SM0 的 Req1、正在读 SM2 的 Rx5：0x0805 bit3 回 0，0x0815 bit6 = 1；按 ET1100 手册，读缓冲首字节时对应的 SM 事件位即清除。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f1', 660, 0).dim('u22-c-f1').hide(['u22-c-rej', 'u22-c-poll']); V(svg, 'u22-c-dg', '—（帧 1 已离开）'); V(svg, 'u22-c-wkc', '—'); V(svg, 'u22-c-mcu-t', '中断：已读走 Req1，正在读 Rx5'); B(svg, 'u22-c-m0', 'box-muted', '空'); V(svg, 'u22-r0-b3', '0'); B(svg, 'u22-c-s2-1', 'box-drive', 'PDI 占用 Rx5'); V(svg, 'u22-r2-b6', '1'); V(svg, 'u22-ev0', '0'); V(svg, 'u22-ev2', '0'); } },
-    { title: '帧 1 · MCU 计算并写回', text: 'MCU 算控制律（标尺上约几百 µs，典型值），把 Tx5 写进 SM3 的空闲块并成为最新，把应答 Rsp1 写进 SM1（0x080D bit3 = 1）；PDI 开始写 SM3 时 SM3 事件位清除。',
-      apply: function (svg) { C(svg); F(svg).show('u22-c-calc'); V(svg, 'u22-c-mcu-t', '计算完成：Tx5 → SM3，Rsp1 → SM1'); B(svg, 'u22-c-s2-1', 'box', '最新 Rx5（已读）'); V(svg, 'u22-r2-b6', '0'); B(svg, 'u22-c-s3-1', 'box', '最新 Tx5'); B(svg, 'u22-c-s3-0', 'box-muted', '空闲'); V(svg, 'u22-r3-b54', '01'); V(svg, 'u22-ev3', '0'); B(svg, 'u22-c-m1', 'box-mail', '满 · Rsp1'); V(svg, 'u22-r1-b3', '1'); } }
+    { title: '帧 1 · [ESC · DPRAM] 初始状态', text: 'SM2 的最新数据是上一周期的 Rx4，SM3 的最新数据是 Tx4；两个邮箱都空，0x0220 的 SM 事件位全为 0。', apply: function () {} },
+    { title: '帧 1 · [ESC · 处理单元] LRW 到达处理点', text: '帧 1 从网线经 Port 0 进来，LRW 数据报头到达处理点；FMMU 把它的逻辑地址映射到 SM2（写）和 SM3（读）的物理区。',
+      apply: function (svg) { C(svg); D(svg, 'pu'); F(svg).show(['u22-c-f1', 'u22-c-fmmu']).move('u22-c-f1', 100, 0); V(svg, 'u22-c-dg', 'LRW 逻辑 0x00000000'); V(svg, 'u22-c-wkc', '0'); } },
+    { title: '帧 1 · [ESC · DPRAM] SM2 写进空闲块', text: 'ESC 把写访问重定向到一块空闲缓冲，Rx5 边经过边写进 DPRAM；写的过程中 0x0815 bit7 = 1（写缓冲被占用）。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); B(svg, 'u22-c-s2-1', 'busy', '主站写 Rx5'); V(svg, 'u22-r2-b7', '1'); } },
+    { title: '帧 1 · [ESC · 寄存器] SM2 末字节：切换指针', text: '末字节写完只切换指针：Rx5 成为最新，没被读过的 Rx4 那块释放；0x0815 bit4–5 = 01，0x0220 的 SM2 位置 1；SM2 控制字节 bit6 = 1 时过程数据看门狗在此重装。',
+      apply: function (svg) { C(svg); D(svg, 'regs'); B(svg, 'u22-c-s2-1', 'latest', '最新 Rx5'); B(svg, 'u22-c-s2-0', 'idle', '空闲'); V(svg, 'u22-r2-b54', '01'); V(svg, 'u22-r2-b7', '0'); V(svg, 'u22-ev2', '1'); } },
+    { title: '帧 1 · [ESC · DPRAM] SM3 读出，WKC 变 3', text: '读访问映射到 SM3 最新的那块，Tx4 在帧经过时插进帧；末字节读完后 0x0220 的 SM3 位置 1。这条 LRW 的 WKC 由 0 变 3（写 +2、读 +1）。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); B(svg, 'u22-c-s3-0', 'busy', '主站读 Tx4'); V(svg, 'u22-ev3', '1'); V(svg, 'u22-c-wkc', '3（写 +2，读 +1）'); } },
+    { title: '帧 1 · [ESC · DPRAM] FPWR 写 SM0', text: '下一条数据报 FPWR 按站地址加物理地址 0x1000 直达 SM0，不经 FMMU；SM0 空，允许写入，末字节后 0x0805 bit3 = 1（满），SM0 事件位置 1，WKC = 1。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); F(svg).move('u22-c-f1', 152, 0); V(svg, 'u22-c-dg', 'FPWR 0x1000（SM0）'); B(svg, 'u22-c-m0', 'full', '满 · Req1'); V(svg, 'u22-r0-b3', '1'); V(svg, 'u22-ev0', '1'); V(svg, 'u22-c-wkc', '1'); } },
+    { title: '帧 1 · [ESC · 处理单元] 边界：写满的 SM0 被拒', text: '演示用：同一帧里又有一条 FPWR 写 SM0。SM0 已满，处理单元拒绝这次写入，数据不进 DPRAM，WKC 保持 0，主站据此知道要重试。',
+      apply: function (svg) { C(svg); D(svg, 'pu'); F(svg).move('u22-c-f1', 204, 0).show('u22-c-rej').fault('u22-c-m0'); V(svg, 'u22-c-dg', 'FPWR 0x1000（再写）'); V(svg, 'u22-c-wkc', '0 · 被拒', true); } },
+    { title: '帧 1 · [ESC · 寄存器] 先读 SM1 状态字节', text: '主站不直接读 SM1，而是 FPRD 0x080D 看 bit3：0 表示邮箱空，本周期不发取数据的读（IgH 的做法，见 u3-l2）；读寄存器本身成功，WKC = 1。直接读空邮箱也会被拒、WKC 不加，这里不再演示。',
+      apply: function (svg) { C(svg); D(svg, 'regs'); F(svg).move('u22-c-f1', 256, 0).show('u22-c-poll'); V(svg, 'u22-c-dg', 'FPRD 0x080D'); V(svg, 'u22-r1-b3', '0'); V(svg, 'u22-c-wkc', '1'); } },
+    { title: '帧 1 · [MCU] 帧已离开，MCU 进中断', text: '帧 1 此时已从 Port 1 转发到网线上（在 ESC 里只停约 1 µs 量级，因芯片与 PHY 而异）。MCU 收到 AL 事件中断（DC 模式下由 SYNC0 触发），经 PDI 已读走 SM0 的 Req1、正在读 SM2 的 Rx5：0x0805 bit3 回 0，0x0815 bit6 = 1；按 ET1100 手册，读缓冲首字节时对应的 SM 事件位即清除。',
+      apply: function (svg) { C(svg); D(svg, 'mcu'); F(svg).move('u22-c-f1', 803, 0).dim('u22-c-f1').hide(['u22-c-rej', 'u22-c-poll']); V(svg, 'u22-c-dg', '—（帧 1 已离开）'); V(svg, 'u22-c-wkc', '—'); V(svg, 'u22-c-mcu-t', '中断：已读走 Req1，正在读 Rx5'); B(svg, 'u22-c-m0', 'empty', '空'); V(svg, 'u22-r0-b3', '0'); B(svg, 'u22-c-s2-1', 'busy', 'PDI 读 Rx5'); V(svg, 'u22-r2-b6', '1'); V(svg, 'u22-ev0', '0'); V(svg, 'u22-ev2', '0'); } },
+    { title: '帧 1 · [MCU] 计算并写回', text: 'MCU 算控制律（标尺上约几百 µs，典型值），经 PDI 把 Tx5 写进 SM3 的空闲块并成为最新，把应答 Rsp1 写进 SM1（0x080D bit3 = 1）；PDI 开始写 SM3 时 SM3 事件位清除。',
+      apply: function (svg) { C(svg); D(svg, 'mcu'); F(svg).show('u22-c-calc'); V(svg, 'u22-c-mcu-t', '计算完成：Tx5 → SM3，Rsp1 → SM1'); B(svg, 'u22-c-s2-1', 'latest', '最新 Rx5·已读'); V(svg, 'u22-r2-b6', '0'); B(svg, 'u22-c-s3-1', 'latest', '最新 Tx5'); B(svg, 'u22-c-s3-0', 'idle', '空闲'); V(svg, 'u22-r3-b54', '01'); V(svg, 'u22-ev3', '0'); B(svg, 'u22-c-m1', 'full', '满 · Rsp1'); V(svg, 'u22-r1-b3', '1'); } }
   ];
   var f2 = [
-    { title: '帧 2 · 1 ms 后', text: '画面接着帧 1 的末状态，只是标尺指到 1 ms：下一帧即将到达。',
+    { title: '帧 2 · [时间] 1 ms 后', text: '只有标尺指到 1 ms，其余保持帧 1 的末状态（域高亮仍在 MCU）：下一帧即将从网线到达。',
       apply: function (svg) { F(svg).move('u22-c-ptr', 420, 0); } },
-    { title: '帧 2 · MCU 拖长，正写 Tx6', text: '这一周期 MCU 处理拖长：帧 2 到达时 MCU 还在往 SM3 写下一份 Tx6，0x081D bit7 = 1（PDI 写缓冲被占用）。',
-      apply: function (svg) { C(svg); F(svg).show('u22-c-late'); V(svg, 'u22-c-mcu-t', '仍在写 Tx6（未写完）'); B(svg, 'u22-c-s3-2', 'box-drive', 'PDI 写 Tx6'); V(svg, 'u22-r3-b7', '1'); } },
-    { title: '帧 2 · LRW 写 SM2：谁也不等谁', text: '帧 2 的 LRW 把 Rx6 写进 SM2 另一块空闲缓冲并成为最新（0x0815 bit4–5 = 10，SM2 事件位置 1）；MCU 那边完全不受影响，这就是三缓冲"谁也不等谁"。',
-      apply: function (svg) { C(svg); F(svg).hide('u22-c-f1').show('u22-c-f2').move('u22-c-f2', 100, 0); V(svg, 'u22-c-dg', 'LRW 逻辑 0x00000000'); V(svg, 'u22-c-wkc', '0'); B(svg, 'u22-c-s2-2', 'box', '最新 Rx6'); B(svg, 'u22-c-s2-1', 'box-muted', '空闲'); V(svg, 'u22-r2-b54', '10'); V(svg, 'u22-ev2', '1'); } },
-    { title: '帧 2 · LRW 读 SM3：读到旧的 Tx5', text: 'MCU 还没写完，SM3 最新的仍是 Tx5，主站读走的是上一份 Tx5，WKC 照样到 3。WKC 完整只说明读写发生了，不说明数据新鲜；SAFEOP 里"输入有效"也可能是旧值。',
-      apply: function (svg) { C(svg); F(svg).show('u22-c-stale'); B(svg, 'u22-c-s3-1', 'box-bus', '主站读 Tx5（旧）'); V(svg, 'u22-ev3', '1'); V(svg, 'u22-c-wkc', '3（数据是旧的）'); } },
-    { title: '帧 2 · MCU 写完 Tx6', text: 'MCU 写完 Tx6 末字节，指针切换，Tx6 成为最新（0x081D bit4–5 = 10，bit7 回 0），要等下一帧才会被读走。',
-      apply: function (svg) { C(svg); F(svg).hide('u22-c-stale'); V(svg, 'u22-c-mcu-t', 'Tx6 写完，等下一帧来读'); B(svg, 'u22-c-s3-2', 'box', '最新 Tx6'); B(svg, 'u22-c-s3-1', 'box-muted', '空闲'); V(svg, 'u22-r3-b54', '10'); V(svg, 'u22-r3-b7', '0'); } },
-    { title: '帧 2 · FPWR 写 SM0 = Req2', text: 'SM0 在帧 1 之后已被 MCU 读空，这次 FPWR 写入成功：0x0805 bit3 = 1，SM0 事件位置 1，WKC = 1。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f2', 160, 0); V(svg, 'u22-c-dg', 'FPWR 0x1000（SM0）'); B(svg, 'u22-c-m0', 'box-mail', '满 · Req2'); V(svg, 'u22-r0-b3', '1'); V(svg, 'u22-ev0', '1'); V(svg, 'u22-c-wkc', '1'); } },
-    { title: '帧 2 · 读到满位，再取应答', text: 'FPRD 0x080D 读到 bit3 = 1，主站再发 FPRD 读 SM1 整段：Rsp1 插进帧，末字节读完 SM1 置空，0x0220 的 SM1 位置 1，通知 MCU 可写下一条应答，WKC = 1。第一次邮箱事务到此完成（演示把两条读放进同一帧，IgH 实际分两个周期发）。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f2', 280, 0); V(svg, 'u22-c-dg', 'FPRD 0x080D → FPRD 0x1080'); V(svg, 'u22-r1-b3', '0'); B(svg, 'u22-c-m1', 'box-muted', '空（Rsp1 已取走）'); V(svg, 'u22-ev1', '1'); V(svg, 'u22-c-wkc', '1 / 1'); } },
-    { title: '帧 2 · 离开：邮箱往返跨两个周期', text: '帧 2 从 Port 1 离开。标尺上的括号就是这次邮箱往返：请求随帧 1 写入、MCU 处理、应答随帧 2 读回，最少跨两个周期；IgH 每周期只推进一步状态机，实际往往更多。',
-      apply: function (svg) { C(svg); F(svg).move('u22-c-f2', 660, 0).dim('u22-c-f2').show('u22-c-rt'); V(svg, 'u22-c-dg', '—（帧 2 已离开）'); V(svg, 'u22-c-wkc', '—'); } },
-    { title: '帧 2 · 收束：四个通道', text: '一帧里四个通道各走各的：SM0/SM1 邮箱经 FPWR/FPRD 直达、靠满空握手，SM2/SM3 经 FMMU、靠三缓冲；下表把模式、方向、路径和事件位并排列出。',
-      apply: function (svg) { C(svg); F(svg).show('u22-c-sum'); } }
+    { title: '帧 2 · [MCU] 处理拖长，正写 Tx6', text: '这一周期 MCU 处理拖长：帧 2 到达时 MCU 还在经 PDI 往 SM3 写下一份 Tx6，0x081D bit7 = 1（写缓冲被占用）。',
+      apply: function (svg) { C(svg); D(svg, 'mcu'); F(svg).show('u22-c-late'); V(svg, 'u22-c-mcu-t', '仍在写 Tx6（未写完）'); B(svg, 'u22-c-s3-2', 'busy', 'PDI 写 Tx6'); V(svg, 'u22-r3-b7', '1'); } },
+    { title: '帧 2 · [ESC · DPRAM] LRW 写 SM2：谁也不等谁', text: '帧 2 的 LRW 把 Rx6 写进 SM2 另一块空闲缓冲并成为最新（0x0815 bit4–5 = 10，SM2 事件位置 1）；MCU 那边完全不受影响，这就是三缓冲"谁也不等谁"。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); F(svg).hide('u22-c-f1').show('u22-c-f2').move('u22-c-f2', 100, 0); V(svg, 'u22-c-dg', 'LRW 逻辑 0x00000000'); V(svg, 'u22-c-wkc', '0'); B(svg, 'u22-c-s2-2', 'latest', '最新 Rx6'); B(svg, 'u22-c-s2-1', 'idle', '空闲'); V(svg, 'u22-r2-b54', '10'); V(svg, 'u22-ev2', '1'); } },
+    { title: '帧 2 · [ESC · DPRAM] LRW 读 SM3：读到旧的 Tx5', text: 'MCU 还没写完，SM3 最新的仍是 Tx5，主站读走的是上一份 Tx5，WKC 照样到 3。WKC 完整只说明读写发生了，不说明数据新鲜；SAFEOP 里"输入有效"也可能是旧值。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); F(svg).show('u22-c-stale'); B(svg, 'u22-c-s3-1', 'busy', '读走旧 Tx5'); V(svg, 'u22-ev3', '1'); V(svg, 'u22-c-wkc', '3（数据是旧的）'); } },
+    { title: '帧 2 · [MCU] 写完 Tx6', text: 'MCU 写完 Tx6 末字节，指针切换，Tx6 成为最新（0x081D bit4–5 = 10，bit7 回 0），要等下一帧才会被读走。',
+      apply: function (svg) { C(svg); D(svg, 'mcu'); F(svg).hide('u22-c-stale'); V(svg, 'u22-c-mcu-t', 'Tx6 写完，等下一帧来读'); B(svg, 'u22-c-s3-2', 'latest', '最新 Tx6'); B(svg, 'u22-c-s3-1', 'idle', '空闲'); V(svg, 'u22-r3-b54', '10'); V(svg, 'u22-r3-b7', '0'); } },
+    { title: '帧 2 · [ESC · DPRAM] FPWR 写 SM0 = Req2', text: 'SM0 在帧 1 之后已被 MCU 读空，这次 FPWR 写入成功：0x0805 bit3 = 1，SM0 事件位置 1，WKC = 1。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); F(svg).move('u22-c-f2', 152, 0); V(svg, 'u22-c-dg', 'FPWR 0x1000（SM0）'); B(svg, 'u22-c-m0', 'full', '满 · Req2'); V(svg, 'u22-r0-b3', '1'); V(svg, 'u22-ev0', '1'); V(svg, 'u22-c-wkc', '1'); } },
+    { title: '帧 2 · [ESC · DPRAM] 读到满位，再取应答', text: 'FPRD 0x080D 读到 bit3 = 1，主站再发 FPRD 读 SM1 整段：Rsp1 从 DPRAM 插进帧，末字节读完 SM1 置空，0x0220 的 SM1 位置 1，通知 MCU 可写下一条应答，WKC = 1。第一次邮箱事务到此完成（演示把两条读放进同一帧，IgH 实际分两个周期发）。',
+      apply: function (svg) { C(svg); D(svg, 'dpram'); F(svg).move('u22-c-f2', 256, 0); V(svg, 'u22-c-dg', 'FPRD 0x080D → 0x1080'); V(svg, 'u22-r1-b3', '0'); B(svg, 'u22-c-m1', 'empty', '空（Rsp1 已取走）'); V(svg, 'u22-ev1', '1'); V(svg, 'u22-c-wkc', '1 / 1'); } },
+    { title: '帧 2 · [网线] 离开：邮箱往返跨两个周期', text: '帧 2 经 Port 1 回到网线上。标尺上的括号就是这次邮箱往返：请求随帧 1 写入、MCU 处理、应答随帧 2 读回，最少跨两个周期；IgH 每周期只推进一步状态机，实际往往更多。',
+      apply: function (svg) { C(svg); D(svg, 'wire'); F(svg).move('u22-c-f2', 803, 0).dim('u22-c-f2').show('u22-c-rt'); V(svg, 'u22-c-dg', '—（帧 2 已离开）'); V(svg, 'u22-c-wkc', '—'); } },
+    { title: '帧 2 · [ESC 芯片] 收束：四个通道', text: '一帧里四个通道各走各的：SM0/SM1 邮箱经 FPWR/FPRD 直达、靠满空握手，SM2/SM3 经 FMMU、靠三缓冲；下表把模式、方向、路径和事件位并排列出。',
+      apply: function (svg) { C(svg); D(svg, 'esc'); F(svg).show('u22-c-sum'); } }
   ];
-  Academy.stepper(document.getElementById('u22-bar-f1'), f1, { stage: stage, bar: document.getElementById('u22-bar-f1') });
-  Academy.stepper(document.getElementById('u22-bar-f2'), f2, { stage: stage, bar: document.getElementById('u22-bar-f2'), prelude: f1 });
+  // 帧 1 画面 0–9 + 帧 2 画面 10–18：apply 逐步累加，画面 10 = 帧 1 末态 + 标尺指向 1 ms
+  var steps = f1.concat(f2);
+  Academy.stepper(document.getElementById('u22-bar'), steps, { stage: stage, bar: document.getElementById('u22-bar'),
+    segments: [{ label: '帧 1', from: 0, to: 9 }, { label: '帧 2', from: 10, to: 18 }] });
   Academy.init('u2-l2');
 })();
 </script>

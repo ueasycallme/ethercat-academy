@@ -361,7 +361,9 @@
    *   opts.prelude 数组：复位后、第 0 步之前先依次 apply 的步骤（可直接传上一段的 steps），
    *                用来让"第二段的初始画面 = 第一段的末状态"。
    *   共用 stage 时，后创建的步进器不在加载时重画图，只显示自己的第 0 步说明，直到被操作。
-   *   键盘 ← → 只作用于焦点所在的步进器（点控件或点它驱动的图都会把焦点给它）。 */
+   *   键盘 ← → 只作用于焦点所在的步进器（点控件或点它驱动的图都会把焦点给它）。
+   *   opts.segments = [{label: '帧 1', from: 0, to: 9}, {label: '帧 2', from: 10, to: 18}]：点条按段分组，
+   *                每段前有可点的段标签（跳到该段 from），当前所在段高亮；步号仍显示全局"步骤 n / 总数"。 */
   function stepper(el, steps, opts) {
     opts = opts || {};
     if (!el) { console.error('Academy.stepper: el 为空'); return null; }
@@ -391,11 +393,35 @@
       '<button type="button" class="step-btn" data-act="play">自动播放</button>' +
       '<span class="step-hint">键盘 ← →</span></div>';
     var dots = bar.querySelector('.step-dots');
-    steps.forEach(function (s, i) {
+    // opts.segments：把点条按段分组，每段前一个可点的段标签（跳到该段第一个画面），段间一条细分隔；步号仍按全局计
+    var segs = Array.isArray(opts.segments) ? opts.segments.filter(function (g) {
+      var ok = g && typeof g.from === 'number' && typeof g.to === 'number' && g.from >= 0 && g.to < steps.length && g.from <= g.to;
+      if (!ok) console.error('Academy.stepper: segments 项无效', g);
+      return ok;
+    }) : [];
+    function makeDot(i) {
+      var s = steps[i];
       var d = h('button', { type: 'button', class: 'step-dot', title: s.title || ('步骤 ' + i), 'aria-label': '跳到步骤 ' + i }, String(i));
       d.addEventListener('click', function () { pause(); go(i); });
-      dots.appendChild(d);
-    });
+      return d;
+    }
+    if (segs.length) {
+      dots.classList.add('has-segments');
+      var covered = {};
+      segs.forEach(function (g) {
+        var grp = h('div', { class: 'step-seg', role: 'group', 'aria-label': g.label || '' });
+        var lab = h('button', { type: 'button', class: 'step-seg-label', title: '跳到' + (g.label || '') + '第一个画面（步骤 ' + g.from + '）' }, esc(g.label || ('步骤 ' + g.from)));
+        lab.addEventListener('click', function () { pause(); go(g.from); });
+        grp.appendChild(lab);
+        for (var i = g.from; i <= g.to; i++) { grp.appendChild(makeDot(i)); covered[i] = true; }
+        dots.appendChild(grp);
+      });
+      // 没被任何段覆盖的画面也要有点，放在最后，保证每个画面都能点到
+      steps.forEach(function (s, i) { if (!covered[i]) dots.appendChild(makeDot(i)); });
+    } else {
+      steps.forEach(function (s, i) { dots.appendChild(makeDot(i)); });
+    }
+    var dotEls = function () { return bar.querySelectorAll('.step-dot'); };
     var cur = 0, timer = null;
 
     function applyOne(st, svg, label) {
@@ -421,10 +447,14 @@
       bar.querySelector('.step-no').textContent = '步骤 ' + i + ' / ' + (steps.length - 1);
       bar.querySelector('.step-title').textContent = steps[i].title || '';
       bar.querySelector('.step-text').textContent = steps[i].text || '';
-      bar.querySelectorAll('.step-dot').forEach(function (d, k) {
+      dotEls().forEach(function (d) {
+        var k = +d.textContent;
         d.classList.toggle('is-current', k === i);
         d.classList.toggle('is-past', k < i);
         if (k === i) d.setAttribute('aria-current', 'step'); else d.removeAttribute('aria-current');
+      });
+      bar.querySelectorAll('.step-seg').forEach(function (g, n) {
+        g.classList.toggle('is-current', i >= segs[n].from && i <= segs[n].to);
       });
       bar.querySelector('[data-act="prev"]').disabled = i === 0;
       bar.querySelector('[data-act="next"]').disabled = i === steps.length - 1;

@@ -375,6 +375,18 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 .step-dot.is-past { background: var(--bus-soft); border-color: var(--bus); color: var(--bus); }
 .step-dot.is-current { background: var(--bus); border-color: var(--bus); color: #fff; }
 .step-hint { font-size: .8rem; color: var(--muted); }
+/* 分段点条：每段一个段标签 + 该段的点，段间细分隔 */
+.step-dots.has-segments { gap: 6px 0; }
+.step-seg { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 0 10px; }
+.step-seg:first-child { padding-left: 0; }
+.step-seg + .step-seg { border-left: 1px solid var(--line); }
+.step-seg-label {
+  border: 1px solid var(--line); background: var(--panel2); color: var(--muted); border-radius: 999px;
+  padding: 0 .6em; height: 26px; font-size: .78rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.step-seg-label:hover { border-color: var(--bus); color: var(--bus); }
+.step-seg.is-current .step-seg-label { background: var(--bus-soft); border-color: var(--bus); color: var(--bus); }
+@media (max-width: 520px) { .step-seg { padding: 0 6px; } }
 /* 共用一张图的另一个步进器：说明变淡，提示图上当前显示的不是它 */
 .stepper.is-idle .step-caption { opacity: .55; }
 

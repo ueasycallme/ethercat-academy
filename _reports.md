@@ -239,3 +239,10 @@ curriculum 登记 u3-l0 并改两课课名、调整 u3-l1/u3-l2 前置；site.js
 ## F — u6-l2 PDI_Isr 行链 u2-l2#sm-two-cycles。_check OK。
 
 ## v1.3.0 推送前修正（amend）：site.css 表格单元格内行内 code 不拆行（.table-wrap td/th > code nowrap，1440 下全站表格无拆行）；B：u2-l2 寄存器面板 SM0/SM1 的 b6、b7 显示"—"，节内说明改为"—表示保留或本节不演示"。设计方接受 B 两条异议；B 三条契约建议记为以后待办；u2-l2 机制拆解 5 个 h3 开例外。
+
+---
+# v1.3.1（2026-09-28）
+## 契约层：Academy.stepper 新增 opts.segments（点条按段分组、段标签可点跳到段首、当前段高亮，步号仍全局）；即 B 先前建议的 opts.label。一页多步进器与 stage/prelude 接口保留。
+## B — u2-l2 四通道动画：f1+f2 合成 19 画面单步进器（#u22-bar 紧贴图下，segments 帧 1 0–9 / 帧 2 10–18，删第二条控件条与 prelude），收束表用全局画面号 6/7/12/13；分区框：网线（u22-dom-wire，box-bus）、ESC 芯片（u22-dom-esc，内分处理单元 pu / DPRAM / 寄存器 regs，寄存器标题"ESC 寄存器 0x0800 区 · 0x0220"）、从站 MCU（u22-dom-mcu，box-drive），PDI 连线；时间标尺单独一行；每步标题"帧 n · [域] …"并恰好一个域框 hot；DPRAM 块底色只表示状态，"本步变化"改用加粗描边 u22-chg。viewBox 960×626，min-width 800（1440 无横向滚动，390 在 stage 内滚动）。
+偏差：画面 10 的域高亮沿用画面 9 的 MCU（保证画面 10 与 9 只差时间指针，文字已注明）；画面 8 按主要动作标 [MCU]，画面 16 标 [ESC · DPRAM]。无新增待抽查条目。
+## 核对：u7-l0 五泳道（电源/主站程序/总线 ESM/驱动器/电机）域已清晰，未改；u3-l0 主站/从站两框，从站内 ESC 与对象字典（固件 RAM）靠标签区分、未加 MCU 框，判断为清晰，未改（可选：加一个"从站 MCU 固件"细框包住对象字典）。
